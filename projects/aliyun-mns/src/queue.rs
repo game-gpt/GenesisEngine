@@ -1,6 +1,6 @@
 //! 消息操作 API，包括消息的发送、接收、删除、修改可见性等操作
 //! <https://help.aliyun.com/document_detail/140735.html>
-use crate::client::Client;
+use crate::client::AlibabaMNS;
 use crate::error::Error::{
     DeserializeErrorResponseFailed, DeserializeResponseFailed, SerializeMessageFailed,
 };
@@ -16,7 +16,7 @@ use std::fmt::Display;
 pub struct Queue {
     /// 队列名称
     pub name: String,
-    client: Client,
+    client: AlibabaMNS,
 }
 
 /// <https://help.aliyun.com/document_detail/35134.html#section-exm-22o-0hw>
@@ -165,7 +165,7 @@ pub trait QueueOperation {
 }
 
 impl Queue {
-    pub fn new(name: &str, c: &Client) -> Self {
+    pub fn new(name: &str, c: &AlibabaMNS) -> Self {
         Self {
             name: name.to_string(),
             client: c.clone(),

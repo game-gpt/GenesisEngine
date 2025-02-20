@@ -1,6 +1,8 @@
 use crate::{AlibabaSDK, Result};
+#[cfg(feature = "aliyun-dns")]
 use aliyun_dns::AlibabaDNS;
-use aliyun_error::party_3rd::reqwest::Client;
+#[cfg(feature = "aliyun-mns")]
+use aliyun_mns::AlibabaMNS;
 #[cfg(feature = "aliyun-oss")]
 use aliyun_oss::oss::AlibabaOSS;
 #[cfg(feature = "aliyun-sms")]
@@ -27,8 +29,16 @@ impl AlibabaSDK {
     /// 创建 DNS 实例
     #[cfg(feature = "aliyun-dns")]
     pub fn dns(&self) -> AlibabaDNS {
-        let client = Client::new();
         AlibabaDNS { access_key: self.access_key.clone(), access_secret: self.access_secret.clone() }
+    }
+    /// 创建 DNS 实例
+    #[cfg(feature = "aliyun-dns")]
+    pub fn mns(&self, endpoint: &str) -> AlibabaMNS {
+        AlibabaMNS {
+            endpoint: endpoint.to_string(),
+            access_key: self.access_key.to_string(),
+            sec: self.access_secret.to_string(),
+        }
     }
     /// 创建 SMTP 实例
     #[cfg(feature = "aliyun-smtp")]

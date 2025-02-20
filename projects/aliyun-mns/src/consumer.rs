@@ -3,10 +3,11 @@
 //!
 //! # Example
 //! ```rust
-//! use mns::Client;
-//! use mns::Queue;
-//! use mns::queue::MessageSendRequest;
-//! use mns::consumer::{Consumer, DeliveryResult, ConsumeOptions};
+//! use aliyun_mns::{
+//!     Client, Queue,
+//!     consumer::{ConsumeOptions, Consumer, DeliveryResult},
+//!     queue::MessageSendRequest,
+//! };
 //! #[tokio::main]
 //! async fn main() {
 //!     let client = Client::new("https://xxx.mns.cn-hangzhou.aliyuncs.com", "your id", "your key");
@@ -22,15 +23,15 @@
 //! }
 //! ```
 pub use crate::options::ConsumeOptions;
-use crate::queue::QueueOperation;
-use crate::Queue;
+use crate::{queue::QueueOperation, Queue};
 use anyhow::Result;
-use std::future::Future;
-use std::pin::Pin;
-use std::sync::{Arc, Mutex};
+use std::{
+    future::Future,
+    pin::Pin,
+    sync::{Arc, Mutex},
+};
 #[cfg(feature = "tokio")]
 use tokio::sync::{Mutex, Semaphore};
-use tracing::warn;
 
 pub type DeliveryResult = Result<Option<Delivery>>;
 
@@ -47,18 +48,11 @@ pub struct Delivery {
 impl Delivery {
     pub async fn ack(&self) -> Result<()> {
         // delete
-        Ok(self
-            .queue
-            .delete_message(self.receipt_handle.as_str())
-            .await?)
+        Ok(self.queue.delete_message(self.receipt_handle.as_str()).await?)
     }
     pub async fn reject(&self) -> Result<()> {
         // change visibility
-        Ok(self
-            .queue
-            .change_message_visibility(self.receipt_handle.as_str(), 1)
-            .await
-            .map(|_| ())?)
+        Ok(self.queue.change_message_visibility(self.receipt_handle.as_str(), 1).await.map(|_| ())?)
     }
 }
 
@@ -67,22 +61,16 @@ impl Drop for Delivery {
 }
 
 pub trait ConsumerDelegate: Send + Sync {
-    fn on_new_delivery(&self, delivery: DeliveryResult)
-        -> Pin<Box<dyn Future<Output = ()> + Send>>;
+    fn on_new_delivery(&self, delivery: DeliveryResult) -> Pin<Box<dyn Future<Output = ()> + Send>>;
     fn drop_prefetched_messages(&self) -> Pin<Box<dyn Future<Output = ()> + Send>> {
         Box::pin(async move {})
     }
 }
 
-impl<
-        F: Future<Output = ()> + Send + 'static,
-        DeliveryHandler: Fn(DeliveryResult) -> F + Send + Sync + 'static,
-    > ConsumerDelegate for DeliveryHandler
+impl<F: Future<Output = ()> + Send + 'static, DeliveryHandler: Fn(DeliveryResult) -> F + Send + Sync + 'static> ConsumerDelegate
+    for DeliveryHandler
 {
-    fn on_new_delivery(
-        &self,
-        delivery: DeliveryResult,
-    ) -> Pin<Box<dyn Future<Output = ()> + Send>> {
+    fn on_new_delivery(&self, delivery: DeliveryResult) -> Pin<Box<dyn Future<Output = ()> + Send>> {
         Box::pin(self(delivery))
     }
 }
@@ -100,11 +88,7 @@ pub struct Consumer {
 
 impl Consumer {
     pub fn new(queue: Queue, options: ConsumeOptions) -> Consumer {
-        Consumer {
-            queue,
-            options,
-            inner: Arc::new(Mutex::new(ConsumerInner { delegate: None })),
-        }
+        Consumer { queue, options, inner: Arc::new(Mutex::new(ConsumerInner { delegate: None })) }
     }
 
     #[cfg(feature = "tokio")]

@@ -1,14 +1,14 @@
 mod common;
 use crate::common::get_conf;
-use mns::queue::{MessageSendRequest, Queue, QueueOperation};
-use mns::Client;
-use mns::QueueManager;
+use aliyun_mns::queue::{MessageSendRequest, Queue, QueueOperation};
+use aliyun_mns::{AlibabaMNS};
+use aliyun_mns::QueueManager;
 
 #[tokio::test]
 async fn test_send_msg() {
     let conf = dbg!(get_conf());
 
-    let c = Client::new(conf.endpoint.as_str(), conf.id.as_str(), conf.sec.as_str());
+    let c = AlibabaMNS::new(conf.endpoint.as_str(), conf.id.as_str(), conf.sec.as_str());
     let qm = QueueManager::new(&c);
     let q = Queue::new(conf.queue.as_str(), &c);
 

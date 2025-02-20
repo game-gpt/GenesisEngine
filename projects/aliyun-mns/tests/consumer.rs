@@ -1,15 +1,15 @@
 mod common;
 use crate::common::get_conf;
-use mns::consumer::{Consumer, DeliveryResult};
-use mns::options::ConsumeOptions;
-use mns::queue::{MessageSendRequest, QueueOperation};
-use mns::{Client, Queue};
+use aliyun_mns::consumer::{Consumer, DeliveryResult};
+use aliyun_mns::options::ConsumeOptions;
+use aliyun_mns::queue::{MessageSendRequest, QueueOperation};
+use aliyun_mns::{AlibabaMNS, Queue};
 
 #[tokio::test]
 async fn test_consumer() {
     let conf = dbg!(get_conf());
 
-    let c = Client::new(conf.endpoint.as_str(), conf.id.as_str(), conf.sec.as_str());
+    let c = AlibabaMNS::new(conf.endpoint.as_str(), conf.id.as_str(), conf.sec.as_str());
     let q = Queue::new(conf.queue.as_str(), &c);
     for i in 0..4 {
         q.send_message(&MessageSendRequest {

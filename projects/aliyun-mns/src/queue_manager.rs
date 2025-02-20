@@ -1,7 +1,7 @@
 //! 队列管理实例
 //! https://help.aliyun.com/document_detail/140734.html
 
-use crate::client::Client;
+use crate::client::AlibabaMNS;
 use crate::error::Error::{DeserializeErrorResponseFailed, DeserializeResponseFailed};
 use crate::error::Result;
 use crate::queue::ErrorResponse;
@@ -81,11 +81,11 @@ impl Serialize for CreateQueueRequest {
 /// https://help.aliyun.com/document_detail/140734.html
 #[derive(Debug, Clone)]
 pub struct QueueManager {
-    client: Client,
+    client: AlibabaMNS,
 }
 
 impl QueueManager {
-    pub fn new(c: &Client) -> Self {
+    pub fn new(c: &AlibabaMNS) -> Self {
         Self { client: c.clone() }
     }
 

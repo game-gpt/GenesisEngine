@@ -2,26 +2,20 @@ use anyhow::Result;
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use hmac::{Hmac, Mac};
 use md5::{Digest, Md5};
-use reqwest::{Method, StatusCode};
+use reqwest::{Client, Method, StatusCode};
 use sha1::Sha1;
 use std::str::FromStr;
 
 #[derive(Debug, Clone)]
-pub struct Client {
-    endpoint: String,
-    id: String,
-    sec: String,
-    client: reqwest::Client,
+pub struct AlibabaMNS {
+    pub endpoint: String,
+    pub access_key: String,
+    pub sec: String,
 }
 
-impl Client {
+impl AlibabaMNS {
     pub fn new(endpoint: &str, id: &str, sec: &str) -> Self {
-        Self {
-            endpoint: endpoint.to_string(),
-            id: id.to_string(),
-            sec: sec.to_string(),
-            client: reqwest::Client::new(),
-        }
+        Self { endpoint: endpoint.to_string(), access_key: id.to_string(), sec: sec.to_string() }
     }
     pub async fn request(
         &self,
@@ -41,28 +35,16 @@ impl Client {
             STANDARD.encode(m)
         };
 
-        let s = req_sign(
-            &self.sec,
-            method.to_string(),
-            m.to_string(),
-            date.clone(),
-            resource.to_string(),
-        )?;
+        let s = req_sign(&self.sec, method.to_string(), m.to_string(), date.clone(), resource.to_string())?;
 
-        let res = self
-            .client
-            .request(
-                Method::from_str(method)?,
-                format!("{}{}", self.endpoint, resource).as_str(),
-            )
+        let res = Client::new()
+            .request(Method::from_str(method)?, format!("{}{}", self.endpoint, resource).as_str())
             .header("Date", date)
-            .header("Authorization", format!("MNS {}:{}", self.id, s))
+            .header("Authorization", format!("MNS {}:{}", self.access_key, s))
             .header("Content-Type", content_type)
             .header("Content-Md5", m)
             .header("x-mns-version", "2015-06-06")
-            .timeout(std::time::Duration::from_secs(
-                timeout_sec.unwrap_or(5) as u64
-            ))
+            .timeout(std::time::Duration::from_secs(timeout_sec.unwrap_or(5) as u64))
             .body(body.to_string())
             .send()
             .await?;
@@ -71,16 +53,8 @@ impl Client {
     }
 }
 
-fn req_sign(
-    sk: &str,
-    method: String,
-    lower_md5_base64: String,
-    date: String,
-    resource: String,
-) -> Result<String> {
-    let s = format!(
-        "{method}\n{lower_md5_base64}\napplication/xml\n{date}\nx-mns-version:2015-06-06\n{resource}"
-    );
+fn req_sign(sk: &str, method: String, lower_md5_base64: String, date: String, resource: String) -> Result<String> {
+    let s = format!("{method}\n{lower_md5_base64}\napplication/xml\n{date}\nx-mns-version:2015-06-06\n{resource}");
     sign(sk, s.as_str())
 }
 
@@ -105,9 +79,10 @@ fn gmt_now() -> Result<String> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::error::Error;
-    use crate::error::Error::MNSSignatureDoesNotMatch;
-    use crate::queue::ErrorResponse;
+    use crate::{
+        error::{Error, Error::MNSSignatureDoesNotMatch},
+        queue::ErrorResponse,
+    };
 
     #[test]
     fn test_sign() {
@@ -145,11 +120,7 @@ Thu, 02 Feb 2023 02:09:48 GMT
 
     #[tokio::test]
     async fn test_sign_req() {
-        let c = Client::new(
-            &std::env::var("MNS_ENDPOINT").unwrap(),
-            &std::env::var("MNS_ID").unwrap(),
-            "wrong signature",
-        );
+        let c = Alibabaaliyun_mns::new(&std::env::var("MNS_ENDPOINT").unwrap(), &std::env::var("MNS_ID").unwrap(), "wrong signature");
         let (status_code, r) = c.request(
             &format!("/queues/{}/messages", std::env::var("MNS_QUEUE").unwrap()),
             "POST",
@@ -185,10 +156,7 @@ Thu, 02 Feb 2023 02:09:48 GMT
         let r = hasher.finalize();
         let mut buf = [0u8; 32];
         let m = dbg!(base16ct::lower::encode_str(r.as_slice(), &mut buf).unwrap());
-        assert_eq!(
-            "ZDQxZDhjZDk4ZjAwYjIwNGU5ODAwOTk4ZWNmODQyN2U=",
-            dbg!(STANDARD.encode(m))
-        );
+        assert_eq!("ZDQxZDhjZDk4ZjAwYjIwNGU5ODAwOTk4ZWNmODQyN2U=", dbg!(STANDARD.encode(m)));
     }
 
     #[test]
