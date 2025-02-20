@@ -3,7 +3,6 @@
 
 use reqwest::Method;
 use crate::client::AlibabaMNS;
-use crate::error::Error::{DeserializeErrorResponseFailed, DeserializeResponseFailed};
 use crate::queue::ErrorResponse;
 use serde::ser::SerializeStruct;
 use serde::{Deserialize, Serialize};
@@ -97,7 +96,7 @@ impl QueueManager {
     //         .await?;
     //     if status_code.is_success() {
     //         let res: QueueListResponse =
-    //             serde_xml_rs::from_reader(v.as_slice()).map_err(DeserializeResponseFailed)?;
+    //             serde_xml_rs::from_reader(v.as_slice())?;
     //         Ok(res.queues)
     //     } else {
     //         let res: ErrorResponse =
@@ -159,7 +158,7 @@ impl QueueManager {
 
         if status_code.is_success() {
             let res: QueueAttribute =
-                serde_xml_rs::from_reader(v.as_slice()).map_err(DeserializeResponseFailed)?;
+                serde_xml_rs::from_reader(v.as_slice())?;
             Ok(res)
         } else {
             let res: ErrorResponse =

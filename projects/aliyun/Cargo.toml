@@ -36,10 +36,10 @@ version = "0.0.0"
 path = "../aliyun-smtp"
 optional = true
 
-[dependencies.aliyun-mns]
-version = "0.0.0"
-path = "../aliyun-mns"
-optional = true
+#[dependencies.aliyun-mns]
+#version = "0.0.0"
+#path = "../aliyun-mns"
+#optional = true
 
 [features]
 default = []

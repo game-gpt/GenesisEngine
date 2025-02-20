@@ -9,10 +9,6 @@ use thiserror::Error;
 pub enum Error {
     #[error("sign message failed")]
     SignMessageFailed,
-    #[error("serialize message failed: {0}")]
-    SerializeMessageFailed(serde_xml_rs::Error),
-    #[error("create new request failed: {0}")]
-    GeneralAuthHeaderFailed(#[from] anyhow::Error),
     #[error("create new request failed")]
     CreateNewRequestFailed,
     #[error("send request failed")]
@@ -21,8 +17,6 @@ pub enum Error {
     ReadResponseBodyFailed,
     #[error("deserialized error response failed: {0}")]
     DeserializeErrorResponseFailed(serde_xml_rs::Error),
-    #[error("deserialized response failed: {0}")]
-    DeserializeResponseFailed(serde_xml_rs::Error),
     #[error("decode body failed")]
     DecodeBodyFailed,
     #[error("get body decode element error")]

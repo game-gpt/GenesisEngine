@@ -6,6 +6,8 @@ mod for_reqwest;
 mod for_lettre;
 #[cfg(feature = "hmac")]
 mod for_hmac;
+#[cfg(feature = "serde-xml-rs")]
+mod for_serde_xml;
 
 impl From<AliErrorKind> for AliError {
     fn from(error: AliErrorKind) -> Self {

@@ -2,13 +2,11 @@
 //! <https://help.aliyun.com/document_detail/140735.html>
 use crate::{
     client::AlibabaMNS,
-    error::Error::{DeserializeErrorResponseFailed, DeserializeResponseFailed, SerializeMessageFailed},
 };
-use async_trait::async_trait;
+use aliyun_error::{AliError, Result};
 use reqwest::Method;
 use serde::{ser::SerializeStruct, Deserialize, Serialize};
 use std::fmt::Display;
-use aliyun_error::Result;
 /// 消息操作 API
 /// <https://help.aliyun.com/document_detail/140735.html>
 #[derive(Debug, Clone)]
@@ -129,6 +127,12 @@ pub struct ErrorResponse {
     pub message: String,
 }
 
+impl From<ErrorResponse> for AliError {
+    fn from(value: ErrorResponse) -> Self {
+        AliError::custom_error(value.to_string())
+    }
+}
+
 impl Display for ErrorResponse {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -139,7 +143,7 @@ impl Display for ErrorResponse {
     }
 }
 
-#[async_trait]
+
 pub trait QueueOperation {
     async fn send_message(&self, m: &MessageSendRequest) -> Result<MessageSendResponse>;
     async fn receive_message(&self, wait_seconds: Option<i32>) -> Result<MessageReceiveResponse>;
@@ -166,7 +170,7 @@ impl Queue {
     }
 }
 
-#[async_trait]
+
 impl QueueOperation for Queue {
     /// 调用SendMessage接口发送消息到指定的队列
     /// <https://help.aliyun.com/document_detail/35134.html>
@@ -201,7 +205,7 @@ impl QueueOperation for Queue {
         let (status_code, v) =
             self.client.request(&resource, Method::GET, "application/xml", "", wait_seconds.map(|t| t + 1)).await?;
         if status_code.is_success() {
-            let res: MessageReceiveResponse = serde_xml_rs::from_reader(v.as_slice()).map_err(DeserializeResponseFailed)?;
+            let res: MessageReceiveResponse = serde_xml_rs::from_reader(v.as_slice())?;
             Ok(res)
         }
         else {
@@ -253,7 +257,7 @@ impl QueueOperation for Queue {
             .await?;
         if status_code.is_success() {
             let res: MessageVisibilityChangeResponse =
-                serde_xml_rs::from_reader(v.as_slice()).map_err(DeserializeResponseFailed)?;
+                serde_xml_rs::from_reader(v.as_slice())?;
             Ok(res)
         }
         else {
@@ -269,7 +273,7 @@ impl QueueOperation for Queue {
             .request(&format!("/queues/{}/messages?peekonly=true", self.name), Method::GET, "application/xml", "", Some(5))
             .await?;
         if status_code.is_success() {
-            let res: MessageReceiveResponse = serde_xml_rs::from_reader(v.as_slice()).map_err(DeserializeResponseFailed)?;
+            let res: MessageReceiveResponse = serde_xml_rs::from_reader(v.as_slice())?;
             Ok(res)
         }
         else {
@@ -288,12 +292,12 @@ impl QueueOperation for Queue {
                 &format!("/queues/{}/messages", self.name),
                 Method::POST,
                 "application/xml",
-                &serde_xml_rs::to_string(&ms).map_err(SerializeMessageFailed)?,
+                &serde_xml_rs::to_string(&ms)?,
                 Some(5),
             )
             .await?;
         if status_code.is_success() {
-            let res: MessageBatchSendResponse = serde_xml_rs::from_reader(v.as_slice()).map_err(DeserializeResponseFailed)?;
+            let res: MessageBatchSendResponse = serde_xml_rs::from_reader(v.as_slice())?;
             Ok(res.messages)
         }
         else {
@@ -318,7 +322,7 @@ impl QueueOperation for Queue {
             self.client.request(&resource, Method::GET, "application/xml", "", wait_seconds.map(|t| t as i32 + 1)).await?;
         if status_code.is_success() {
             let res: MessageBatchReceiveResponse =
-                serde_xml_rs::from_reader(v.as_slice()).map_err(DeserializeResponseFailed)?;
+                serde_xml_rs::from_reader(v.as_slice())?;
             Ok(res.messages)
         }
         else {

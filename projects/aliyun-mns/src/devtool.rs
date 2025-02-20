@@ -1,5 +1,7 @@
+use crate::AlibabaMNS;
+
 /// 本地开发测试使用
-use crate::Client;
+
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -16,13 +18,13 @@ pub fn get_conf() -> Config {
         queue: std::env::var("MNS_QUEUE").unwrap(),
     }
 }
-pub fn get_client() -> Client {
+pub fn get_client() -> AlibabaMNS {
     let conf = get_conf();
-    Client::new(&conf.endpoint, &conf.id, &conf.sec)
+    AlibabaMNS::new(&conf.endpoint, &conf.id, &conf.sec)
 }
-pub fn get_client_with_wrong_key() -> Client {
+pub fn get_client_with_wrong_key() -> AlibabaMNS {
     let conf = get_conf();
-    Client::new(&conf.endpoint, &conf.id, "wrong_key")
+    AlibabaMNS::new(&conf.endpoint, &conf.id, "wrong_key")
 }
 pub fn get_queue_name() -> String {
     let conf = get_conf();

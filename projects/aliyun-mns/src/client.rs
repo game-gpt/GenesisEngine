@@ -1,11 +1,10 @@
+use aliyun_error::AliError;
 use base64::{engine::general_purpose::STANDARD, Engine as _};
-use hmac::{Hmac, Mac};
+use hmac::{digest::InvalidLength, Hmac, Mac};
 use md5::{Digest, Md5};
 use reqwest::{Client, Method, StatusCode};
 use sha1::Sha1;
 use std::str::FromStr;
-use hmac::digest::InvalidLength;
-use aliyun_error::AliError;
 
 #[derive(Debug, Clone)]
 pub struct AlibabaMNS {
@@ -54,7 +53,13 @@ impl AlibabaMNS {
     }
 }
 
-fn req_sign(sk: &str, method: String, lower_md5_base64: String, date: String, resource: String) -> Result<String, InvalidLength> {
+fn req_sign(
+    sk: &str,
+    method: String,
+    lower_md5_base64: String,
+    date: String,
+    resource: String,
+) -> Result<String, InvalidLength> {
     let s = format!("{method}\n{lower_md5_base64}\napplication/xml\n{date}\nx-mns-version:2015-06-06\n{resource}");
     sign(sk, s.as_str())
 }
@@ -69,7 +74,8 @@ fn sign<S: Into<String>>(key: S, body: &str) -> Result<String, InvalidLength> {
 
 fn gmt_now() -> Result<String, InvalidLength> {
     Ok(time::OffsetDateTime::now_utc()
-        .format(&time::format_description::well_known::Rfc2822)?
+        .format(&time::format_description::well_known::Rfc2822)
+        .unwrap()
         .split("+0")
         .next()
         .unwrap()
@@ -121,10 +127,14 @@ Thu, 02 Feb 2023 02:09:48 GMT
 
     #[tokio::test]
     async fn test_sign_req() {
-        let c = Alibabaaliyun_mns::new(&std::env::var("MNS_ENDPOINT").unwrap(), &std::env::var("MNS_ID").unwrap(), "wrong signature");
+        let c = AlibabaMNS::new(
+            &std::env::var("MNS_ENDPOINT").unwrap(),
+            &std::env::var("MNS_ID").unwrap(),
+            "wrong signature",
+        );
         let (status_code, r) = c.request(
             &format!("/queues/{}/messages", std::env::var("MNS_QUEUE").unwrap()),
-            "POST",
+            Method::POST,
             "application/xml",
             "<Message><MessageBody>hello &lt;&#34;aliyun-mns-go-sdk&#34;&gt;</MessageBody><DelaySeconds>0</DelaySeconds><Priority>8</Priority></Message>",
             Some(5),

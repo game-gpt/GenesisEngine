@@ -32,7 +32,7 @@ impl AlibabaSDK {
         AlibabaDNS { access_key: self.access_key.clone(), access_secret: self.access_secret.clone() }
     }
     /// 创建 DNS 实例
-    #[cfg(feature = "aliyun-dns")]
+    #[cfg(feature = "aliyun-mns")]
     pub fn mns(&self, endpoint: &str) -> AlibabaMNS {
         AlibabaMNS {
             endpoint: endpoint.to_string(),
