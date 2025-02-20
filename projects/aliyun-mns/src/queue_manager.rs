@@ -1,12 +1,13 @@
 //! 队列管理实例
 //! https://help.aliyun.com/document_detail/140734.html
 
+use reqwest::Method;
 use crate::client::AlibabaMNS;
 use crate::error::Error::{DeserializeErrorResponseFailed, DeserializeResponseFailed};
-use crate::error::Result;
 use crate::queue::ErrorResponse;
 use serde::ser::SerializeStruct;
 use serde::{Deserialize, Serialize};
+use aliyun_error::AliError;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename = "Queue")]
@@ -100,17 +101,17 @@ impl QueueManager {
     //         Ok(res.queues)
     //     } else {
     //         let res: ErrorResponse =
-    //             serde_xml_rs::from_reader(v.as_slice()).map_err(DeserializeErrorResponseFailed)?;
+    //             serde_xml_rs::from_reader(v.as_slice())?;
     //         Err(res.into())
     //     }
     // }
     //
-    pub async fn create_queue(&self, q: &CreateQueueRequest) -> Result<()> {
+    pub async fn create_queue(&self, q: &CreateQueueRequest) -> Result<(), AliError> {
         let (status_code, v) = self
             .client
             .request(
                 &format!("/queues/{}", q.queue_name),
-                "PUT",
+                Method::PUT,
                 "application/xml",
                 &serde_xml_rs::to_string(q).unwrap(),
                 Some(5),
@@ -120,16 +121,16 @@ impl QueueManager {
             Ok(())
         } else {
             let res: ErrorResponse =
-                serde_xml_rs::from_reader(v.as_slice()).map_err(DeserializeErrorResponseFailed)?;
+                serde_xml_rs::from_reader(v.as_slice())?;
             Err(res.into())
         }
     }
-    pub async fn delete_queue(&self, name: &str) -> Result<()> {
+    pub async fn delete_queue(&self, name: &str) -> Result<(), AliError> {
         let (status_code, v) = self
             .client
             .request(
                 &format!("/queues/{name}"),
-                "DELETE",
+                Method::DELETE,
                 "application/xml",
                 "",
                 Some(5),
@@ -139,17 +140,17 @@ impl QueueManager {
             Ok(())
         } else {
             let res: ErrorResponse =
-                serde_xml_rs::from_reader(v.as_slice()).map_err(DeserializeErrorResponseFailed)?;
+                serde_xml_rs::from_reader(v.as_slice())?;
             Err(res.into())
         }
     }
 
-    pub async fn get_queue_attributes(&self, queue: &str) -> Result<QueueAttribute> {
+    pub async fn get_queue_attributes(&self, queue: &str) -> Result<QueueAttribute, AliError> {
         let (status_code, v) = self
             .client
             .request(
                 &format!("/queues/{queue}"),
-                "GET",
+                Method::GET,
                 "application/xml",
                 "",
                 Some(5),
@@ -162,7 +163,7 @@ impl QueueManager {
             Ok(res)
         } else {
             let res: ErrorResponse =
-                serde_xml_rs::from_reader(v.as_slice()).map_err(DeserializeErrorResponseFailed)?;
+                serde_xml_rs::from_reader(v.as_slice())?;
             Err(res.into())
         }
     }

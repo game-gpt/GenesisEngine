@@ -1,10 +1,11 @@
-use anyhow::Result;
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use hmac::{Hmac, Mac};
 use md5::{Digest, Md5};
 use reqwest::{Client, Method, StatusCode};
 use sha1::Sha1;
 use std::str::FromStr;
+use hmac::digest::InvalidLength;
+use aliyun_error::AliError;
 
 #[derive(Debug, Clone)]
 pub struct AlibabaMNS {
@@ -20,11 +21,11 @@ impl AlibabaMNS {
     pub async fn request(
         &self,
         resource: &str,
-        method: &str,
+        method: Method,
         content_type: &str,
         body: &str,
         timeout_sec: Option<i32>,
-    ) -> Result<(StatusCode, Vec<u8>)> {
+    ) -> Result<(StatusCode, Vec<u8>), AliError> {
         let date = gmt_now()?;
         let m = {
             let mut hasher = Md5::new();
@@ -38,7 +39,7 @@ impl AlibabaMNS {
         let s = req_sign(&self.sec, method.to_string(), m.to_string(), date.clone(), resource.to_string())?;
 
         let res = Client::new()
-            .request(Method::from_str(method)?, format!("{}{}", self.endpoint, resource).as_str())
+            .request(method, format!("{}{}", self.endpoint, resource).as_str())
             .header("Date", date)
             .header("Authorization", format!("MNS {}:{}", self.access_key, s))
             .header("Content-Type", content_type)
@@ -53,12 +54,12 @@ impl AlibabaMNS {
     }
 }
 
-fn req_sign(sk: &str, method: String, lower_md5_base64: String, date: String, resource: String) -> Result<String> {
+fn req_sign(sk: &str, method: String, lower_md5_base64: String, date: String, resource: String) -> Result<String, InvalidLength> {
     let s = format!("{method}\n{lower_md5_base64}\napplication/xml\n{date}\nx-mns-version:2015-06-06\n{resource}");
     sign(sk, s.as_str())
 }
 
-fn sign<S: Into<String>>(key: S, body: &str) -> Result<String> {
+fn sign<S: Into<String>>(key: S, body: &str) -> Result<String, InvalidLength> {
     let mut mac = Hmac::<Sha1>::new_from_slice(key.into().as_bytes())?;
     mac.update(body.as_bytes());
     let result = mac.finalize();
@@ -66,7 +67,7 @@ fn sign<S: Into<String>>(key: S, body: &str) -> Result<String> {
     Ok(s)
 }
 
-fn gmt_now() -> Result<String> {
+fn gmt_now() -> Result<String, InvalidLength> {
     Ok(time::OffsetDateTime::now_utc()
         .format(&time::format_description::well_known::Rfc2822)?
         .split("+0")

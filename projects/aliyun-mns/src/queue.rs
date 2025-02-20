@@ -1,15 +1,14 @@
 //! 消息操作 API，包括消息的发送、接收、删除、修改可见性等操作
 //! <https://help.aliyun.com/document_detail/140735.html>
-use crate::client::AlibabaMNS;
-use crate::error::Error::{
-    DeserializeErrorResponseFailed, DeserializeResponseFailed, SerializeMessageFailed,
+use crate::{
+    client::AlibabaMNS,
+    error::Error::{DeserializeErrorResponseFailed, DeserializeResponseFailed, SerializeMessageFailed},
 };
-use crate::error::Result;
 use async_trait::async_trait;
-use serde::ser::SerializeStruct;
-use serde::{Deserialize, Serialize};
+use reqwest::Method;
+use serde::{ser::SerializeStruct, Deserialize, Serialize};
 use std::fmt::Display;
-
+use aliyun_error::Result;
 /// 消息操作 API
 /// <https://help.aliyun.com/document_detail/140735.html>
 #[derive(Debug, Clone)]
@@ -152,10 +151,7 @@ pub trait QueueOperation {
     ) -> Result<MessageVisibilityChangeResponse>;
     async fn peek_message(&self) -> Result<MessageReceiveResponse>;
 
-    async fn batch_send_messages(
-        &self,
-        ms: &Vec<MessageSendRequest>,
-    ) -> Result<Vec<MessageSendResponse>>;
+    async fn batch_send_messages(&self, ms: &Vec<MessageSendRequest>) -> Result<Vec<MessageSendResponse>>;
 
     async fn batch_receive_message(
         &self,
@@ -166,10 +162,7 @@ pub trait QueueOperation {
 
 impl Queue {
     pub fn new(name: &str, c: &AlibabaMNS) -> Self {
-        Self {
-            name: name.to_string(),
-            client: c.clone(),
-        }
+        Self { name: name.to_string(), client: c.clone() }
     }
 }
 
@@ -182,19 +175,18 @@ impl QueueOperation for Queue {
             .client
             .request(
                 &format!("/queues/{}/messages", self.name),
-                "POST",
+                Method::POST,
                 "application/xml",
                 &serde_xml_rs::to_string(m).unwrap(),
                 Some(5),
             )
             .await?;
         if status_code.is_success() {
-            let res: MessageSendResponse =
-                serde_xml_rs::from_reader(v.as_slice()).map_err(DeserializeResponseFailed)?;
+            let res: MessageSendResponse = serde_xml_rs::from_reader(v.as_slice())?;
             Ok(res)
-        } else {
-            let res: ErrorResponse =
-                serde_xml_rs::from_reader(v.as_slice()).map_err(DeserializeErrorResponseFailed)?;
+        }
+        else {
+            let res: ErrorResponse = serde_xml_rs::from_reader(v.as_slice())?;
             Err(res.into())
         }
     }
@@ -206,23 +198,14 @@ impl QueueOperation for Queue {
             || format!("/queues/{}/messages", self.name),
             |w| format!("/queues/{}/messages?waitseconds={}", self.name, w),
         );
-        let (status_code, v) = self
-            .client
-            .request(
-                &resource,
-                "GET",
-                "application/xml",
-                "",
-                wait_seconds.map(|t| t + 1),
-            )
-            .await?;
+        let (status_code, v) =
+            self.client.request(&resource, Method::GET, "application/xml", "", wait_seconds.map(|t| t + 1)).await?;
         if status_code.is_success() {
-            let res: MessageReceiveResponse =
-                serde_xml_rs::from_reader(v.as_slice()).map_err(DeserializeResponseFailed)?;
+            let res: MessageReceiveResponse = serde_xml_rs::from_reader(v.as_slice()).map_err(DeserializeResponseFailed)?;
             Ok(res)
-        } else {
-            let res: ErrorResponse =
-                serde_xml_rs::from_reader(v.as_slice()).map_err(DeserializeErrorResponseFailed)?;
+        }
+        else {
+            let res: ErrorResponse = serde_xml_rs::from_reader(v.as_slice())?;
             Err(res.into())
         }
     }
@@ -233,11 +216,8 @@ impl QueueOperation for Queue {
         let (status_code, v) = self
             .client
             .request(
-                &format!(
-                    "/queues/{}/messages?ReceiptHandle={}",
-                    self.name, receipt_handle
-                ),
-                "DELETE",
+                &format!("/queues/{}/messages?ReceiptHandle={}", self.name, receipt_handle),
+                Method::DELETE,
                 "application/xml",
                 "",
                 Some(5),
@@ -245,9 +225,9 @@ impl QueueOperation for Queue {
             .await?;
         if status_code.is_success() {
             Ok(())
-        } else {
-            let res: ErrorResponse =
-                serde_xml_rs::from_reader(v.as_slice()).map_err(DeserializeErrorResponseFailed)?;
+        }
+        else {
+            let res: ErrorResponse = serde_xml_rs::from_reader(v.as_slice())?;
             Err(res.into())
         }
     }
@@ -265,7 +245,7 @@ impl QueueOperation for Queue {
                     "/queues/{}/messages?ReceiptHandle={}&VisibilityTimeout={}",
                     self.name, receipt_handle, visibility_timeout
                 ),
-                "PUT",
+                Method::GET,
                 "application/xml",
                 "",
                 Some(5),
@@ -275,9 +255,9 @@ impl QueueOperation for Queue {
             let res: MessageVisibilityChangeResponse =
                 serde_xml_rs::from_reader(v.as_slice()).map_err(DeserializeResponseFailed)?;
             Ok(res)
-        } else {
-            let res: ErrorResponse =
-                serde_xml_rs::from_reader(v.as_slice()).map_err(DeserializeErrorResponseFailed)?;
+        }
+        else {
+            let res: ErrorResponse = serde_xml_rs::from_reader(v.as_slice())?;
             Err(res.into())
         }
     }
@@ -286,21 +266,14 @@ impl QueueOperation for Queue {
     async fn peek_message(&self) -> Result<MessageReceiveResponse> {
         let (status_code, v) = self
             .client
-            .request(
-                &format!("/queues/{}/messages?peekonly=true", self.name),
-                "GET",
-                "application/xml",
-                "",
-                Some(5),
-            )
+            .request(&format!("/queues/{}/messages?peekonly=true", self.name), Method::GET, "application/xml", "", Some(5))
             .await?;
         if status_code.is_success() {
-            let res: MessageReceiveResponse =
-                serde_xml_rs::from_reader(v.as_slice()).map_err(DeserializeResponseFailed)?;
+            let res: MessageReceiveResponse = serde_xml_rs::from_reader(v.as_slice()).map_err(DeserializeResponseFailed)?;
             Ok(res)
-        } else {
-            let res: ErrorResponse =
-                serde_xml_rs::from_reader(v.as_slice()).map_err(DeserializeErrorResponseFailed)?;
+        }
+        else {
+            let res: ErrorResponse = serde_xml_rs::from_reader(v.as_slice())?;
             Err(res.into())
         }
     }
@@ -308,27 +281,23 @@ impl QueueOperation for Queue {
     /// 暂时不要使用
     /// 消息批量发送的时候，部分消息失败的异常没有处理
     /// TODO
-    async fn batch_send_messages(
-        &self,
-        ms: &Vec<MessageSendRequest>,
-    ) -> Result<Vec<MessageSendResponse>> {
+    async fn batch_send_messages(&self, ms: &Vec<MessageSendRequest>) -> Result<Vec<MessageSendResponse>> {
         let (status_code, v) = self
             .client
             .request(
                 &format!("/queues/{}/messages", self.name),
-                "POST",
+                Method::POST,
                 "application/xml",
                 &serde_xml_rs::to_string(&ms).map_err(SerializeMessageFailed)?,
                 Some(5),
             )
             .await?;
         if status_code.is_success() {
-            let res: MessageBatchSendResponse =
-                serde_xml_rs::from_reader(v.as_slice()).map_err(DeserializeResponseFailed)?;
+            let res: MessageBatchSendResponse = serde_xml_rs::from_reader(v.as_slice()).map_err(DeserializeResponseFailed)?;
             Ok(res.messages)
-        } else {
-            let res: ErrorResponse =
-                serde_xml_rs::from_reader(v.as_slice()).map_err(DeserializeErrorResponseFailed)?;
+        }
+        else {
+            let res: ErrorResponse = serde_xml_rs::from_reader(v.as_slice())?;
             Err(res.into())
         }
     }
@@ -342,36 +311,18 @@ impl QueueOperation for Queue {
         wait_seconds: Option<u32>,
     ) -> Result<Vec<MessageReceiveResponse>> {
         let resource = wait_seconds.map_or_else(
-            || {
-                format!(
-                    "/queues/{}/messages?numOfMessages={}",
-                    self.name, num_of_messages
-                )
-            },
-            |w| {
-                format!(
-                    "/queues/{}/messages?numOfMessages={}&waitseconds={}",
-                    self.name, num_of_messages, w
-                )
-            },
+            || format!("/queues/{}/messages?numOfMessages={}", self.name, num_of_messages),
+            |w| format!("/queues/{}/messages?numOfMessages={}&waitseconds={}", self.name, num_of_messages, w),
         );
-        let (status_code, v) = self
-            .client
-            .request(
-                &resource,
-                "GET",
-                "application/xml",
-                "",
-                wait_seconds.map(|t| t as i32 + 1),
-            )
-            .await?;
+        let (status_code, v) =
+            self.client.request(&resource, Method::GET, "application/xml", "", wait_seconds.map(|t| t as i32 + 1)).await?;
         if status_code.is_success() {
             let res: MessageBatchReceiveResponse =
                 serde_xml_rs::from_reader(v.as_slice()).map_err(DeserializeResponseFailed)?;
             Ok(res.messages)
-        } else {
-            let res: ErrorResponse =
-                serde_xml_rs::from_reader(v.as_slice()).map_err(DeserializeErrorResponseFailed)?;
+        }
+        else {
+            let res: ErrorResponse = serde_xml_rs::from_reader(v.as_slice())?;
             Err(res.into())
         }
     }
@@ -387,21 +338,13 @@ mod test {
     fn test_serde() {
         let src = r#"<?xml version="1.0" encoding="UTF-8"?><Message><MessageBody>aa</MessageBody><DelaySeconds>1</DelaySeconds><Priority>9</Priority></Message>"#;
 
-        let m = MessageSendRequest {
-            message_body: "aa".to_string(),
-            delay_seconds: Some(1),
-            priority: Some(9),
-        };
+        let m = MessageSendRequest { message_body: "aa".to_string(), delay_seconds: Some(1), priority: Some(9) };
         let reserialized_item = to_string(&m).unwrap();
         assert_eq!(src, reserialized_item);
 
         let src = r#"<?xml version="1.0" encoding="UTF-8"?><Message><MessageBody>aa</MessageBody></Message>"#;
 
-        let m = MessageSendRequest {
-            message_body: "aa".to_string(),
-            delay_seconds: None,
-            priority: None,
-        };
+        let m = MessageSendRequest { message_body: "aa".to_string(), delay_seconds: None, priority: None };
         assert_eq!(src, to_string(&m).unwrap());
 
         let src = r#"<?xml version="1.0" encoding="UTF-8"?><Message><MessageBody></MessageBody></Message>"#;

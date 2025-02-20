@@ -30,7 +30,7 @@ tracing = "0.1.37"
 
 [dependencies.aliyun-error]
 workspace = true
-features = ["reqwest"]
+features = ["reqwest", "hmac", "serde-xml-rs"]
 
 [dev-dependencies]
 tokio = { version = "1.43.0", features = ["full"] }

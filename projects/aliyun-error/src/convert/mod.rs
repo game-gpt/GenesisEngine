@@ -4,6 +4,8 @@ use super::*;
 mod for_reqwest;
 #[cfg(feature = "lettre")]
 mod for_lettre;
+#[cfg(feature = "hmac")]
+mod for_hmac;
 
 impl From<AliErrorKind> for AliError {
     fn from(error: AliErrorKind) -> Self {

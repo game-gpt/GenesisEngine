@@ -24,7 +24,6 @@
 //! ```
 pub use crate::options::ConsumeOptions;
 use crate::{queue::QueueOperation, Queue};
-use anyhow::Result;
 use std::{
     future::Future,
     pin::Pin,
@@ -32,8 +31,9 @@ use std::{
 };
 #[cfg(feature = "tokio")]
 use tokio::sync::{Mutex, Semaphore};
+use aliyun_error::AliError;
 
-pub type DeliveryResult = Result<Option<Delivery>>;
+pub type DeliveryResult = Result<Option<Delivery>, AliError>;
 
 #[derive(Debug, Clone)]
 pub struct Delivery {
@@ -46,11 +46,11 @@ pub struct Delivery {
 }
 
 impl Delivery {
-    pub async fn ack(&self) -> Result<()> {
+    pub async fn ack(&self) -> Result<(), AliError> {
         // delete
         Ok(self.queue.delete_message(self.receipt_handle.as_str()).await?)
     }
-    pub async fn reject(&self) -> Result<()> {
+    pub async fn reject(&self) -> Result<(), AliError> {
         // change visibility
         Ok(self.queue.change_message_visibility(self.receipt_handle.as_str(), 1).await.map(|_| ())?)
     }

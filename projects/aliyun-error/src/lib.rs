@@ -14,6 +14,9 @@ pub mod party_3rd {
     pub use lettre;
     #[cfg(feature = "reqwest")]
     pub use reqwest;
+
+    #[cfg(feature = "hmac")]
+    pub use hmac;
 }
 
 /// The result type of this crate.
