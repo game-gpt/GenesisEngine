@@ -4,7 +4,6 @@ use aliyun_error::party_3rd::lettre::{
     SmtpTransport,
     Transport,
 };
-use poem::{error::GetDataError, FromRequest, Request, RequestBody};
 
 mod aliyun;
 

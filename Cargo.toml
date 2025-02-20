@@ -5,6 +5,7 @@ default-members = [
     "projects/aliyun",
     "projects/aliyun-oss",
     "projects/aliyun-sms",
+    "projects/aliyun-mns",
     "projects/aliyun-dns",
     "projects/aliyun-smtp",
     "projects/dash-scope",
@@ -20,7 +21,7 @@ path = "projects/aliyun-error"
 [workspace.dependencies.reqwest]
 version = "0.12.12"
 default-features = false
-features = ["rustls-tls", "socks"]
+features = ["rustls-tls", "socks", "json"]
 
 [profile.release]
 lto = true

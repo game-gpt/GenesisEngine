@@ -1,0 +1,40 @@
+[package]
+name = "aliyun-mns"
+version = "0.0.0"
+authors = ["Aster <192607617@qq.com>"]
+description = "阿里云 OSS"
+categories = ["rust-patterns"]
+homepage = "https://github.com/oovm/aliyun-sdk/tree/dev"
+repository = "https://github.com/oovm/aliyun-sdk/tree/dev/projects/aliyun-error"
+documentation = "https://docs.rs/aliyun-error"
+readme = "readme.md"
+license = "MPL-2.0"
+edition = "2021"
+exclude = ["package.json", "tests/**"]
+
+
+[dependencies]
+reqwest = { workspace = true, features = ["json"] }
+anyhow = "1.0.68"
+async-trait = "0.1.68"
+base16ct = "0.2.0"
+base64 = "0.21.0"
+hmac = "0.12.1"
+md-5 = "0.10.5"
+serde = { version = "1.0.152", features = ["derive"] }
+serde-xml-rs = "0.6.0"
+sha1 = "0.10.5"
+thiserror = "1.0.38"
+time = { version = "0.3.17", features = ["serde-human-readable", "macros"] }
+tracing = "0.1.37"
+
+[dependencies.aliyun-error]
+workspace = true
+features = ["reqwest"]
+
+[dev-dependencies]
+tracing-subscriber = "0.3.16"
+
+[features]
+default = []
+

@@ -41,12 +41,3 @@ impl EmailSender for AlibabaSMTP {
         self.sender.clone()
     }
 }
-
-impl<'a> FromRequest<'a> for &'a AlibabaSMTP {
-    async fn from_request(input: &'a Request, _: &mut RequestBody) -> poem::Result<Self> {
-        match input.extensions().get::<AlibabaSMTP>() {
-            Some(s) => Ok(s),
-            None => Err(poem::Error::from(GetDataError("`Route` 未配置 `.data(AliyunMailer)`"))),
-        }
-    }
-}
