@@ -10,13 +10,14 @@ mod display;
 
 /// 常用第三方库
 pub mod party_3rd {
+    #[cfg(feature = "chrono")]
+    pub use chrono;
+    #[cfg(feature = "hmac")]
+    pub use hmac::{Hmac, Mac};
     #[cfg(feature = "lettre")]
     pub use lettre;
     #[cfg(feature = "reqwest")]
     pub use reqwest;
-
-    #[cfg(feature = "hmac")]
-    pub use hmac;
 }
 
 /// The result type of this crate.

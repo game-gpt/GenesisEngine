@@ -16,6 +16,7 @@ exclude = ["package.json", "tests/**"]
 reqwest = { workspace = true, optional = true }
 hmac = { version = "0.12.1", optional = true }
 serde-xml-rs = { version = "0.6.0", optional = true }
+chrono = { version = "0.4.39", optional = true }
 
 [dependencies.lettre]
 version = "0.11.13"

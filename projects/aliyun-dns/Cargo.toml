@@ -17,11 +17,15 @@ reqwest = { workspace = true, features = ["json"] }
 serde = { version = "1.0.218", features = ["derive"] }
 serde_json = "1.0.139"
 anyhow = "1.0.96"
-url = "2.3.1"
+url = "2.5.4"
 base64 = "0.22.1"
 rand = "0.9.0"
 chrono = "0.4.39"
-hmac = "0.12.1"
 sha1 = "0.10.6"
+
+
+[dependencies.aliyun-error]
+workspace = true
+features = ["hmac"]
 
 [features]

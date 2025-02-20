@@ -1,6 +1,6 @@
 use aliyun_error::AliError;
 use base64::{engine::general_purpose::STANDARD, Engine as _};
-use hmac::{digest::InvalidLength, Hmac, Mac};
+use aliyun_error::party_3rd::{ Hmac, Mac};
 use md5::{Digest, Md5};
 use reqwest::{Client, Method, StatusCode};
 use sha1::Sha1;
@@ -59,12 +59,12 @@ fn req_sign(
     lower_md5_base64: String,
     date: String,
     resource: String,
-) -> Result<String, InvalidLength> {
+) -> Result<String, AliError> {
     let s = format!("{method}\n{lower_md5_base64}\napplication/xml\n{date}\nx-mns-version:2015-06-06\n{resource}");
     sign(sk, s.as_str())
 }
 
-fn sign<S: Into<String>>(key: S, body: &str) -> Result<String, InvalidLength> {
+fn sign<S: Into<String>>(key: S, body: &str) -> Result<String, AliError> {
     let mut mac = Hmac::<Sha1>::new_from_slice(key.into().as_bytes())?;
     mac.update(body.as_bytes());
     let result = mac.finalize();
@@ -72,7 +72,7 @@ fn sign<S: Into<String>>(key: S, body: &str) -> Result<String, InvalidLength> {
     Ok(s)
 }
 
-fn gmt_now() -> Result<String, InvalidLength> {
+fn gmt_now() -> Result<String, AliError> {
     Ok(time::OffsetDateTime::now_utc()
         .format(&time::format_description::well_known::Rfc2822)
         .unwrap()

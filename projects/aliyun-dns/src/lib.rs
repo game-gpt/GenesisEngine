@@ -4,7 +4,7 @@
 use anyhow::{Context, Result};
 use base64::Engine;
 use chrono::Utc;
-use hmac::{Hmac, Mac};
+use aliyun_error::party_3rd::{Hmac, Mac};
 use reqwest::{Client, Response};
 use serde::Deserialize;
 use sha1::Sha1;
