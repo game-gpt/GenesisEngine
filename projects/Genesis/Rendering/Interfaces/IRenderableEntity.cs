@@ -1,4 +1,5 @@
 using Genesis.Core.ValueObjects;
+using Genesis.Rendering.ValueObjects;
 
 namespace Genesis.Rendering.Interfaces;
 

@@ -1,4 +1,5 @@
 using Genesis.Core.ValueObjects;
+using Genesis.World.Enums;
 
 namespace Genesis.World.Interfaces;
 

@@ -1,6 +1,7 @@
 using Genesis.Core.Enums;
 using Genesis.Core.ValueObjects;
 using Genesis.Spacetime.Interfaces;
+using Genesis.Attention.ValueObjects;
 
 namespace Genesis.Attention.Interfaces;
 

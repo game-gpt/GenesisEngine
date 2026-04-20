@@ -15,7 +15,9 @@ target/
 Cargo.lock
 
 # C# 
+artifacts/
 bin/
+obj/
 
 # Node
 node_modules/
