@@ -1,0 +1,41 @@
+scene GameMain {
+    let player: Entity;
+    let world_seed: u64;
+
+    on_load() {
+        world_seed = 42;
+        player = create_entity();
+        player.add(PlayerTag { player_id: 0 });
+        player.add(TilePosition { x: 4200, y: 400 });
+        player.add(Velocity { vx: 0.0, vy: 0.0 });
+        player.add(Health { current: 100, max: 100 });
+        player.add(Inventory { slots: 40, selected_slot: 0 });
+
+        generate_world(world_seed);
+    }
+
+    on_update(delta: f32) {
+        handle_input(delta);
+        update_camera();
+    }
+
+    micro generate_world(seed: u64) {
+        let biome_count = 8;
+        let chunk_size = 200;
+        loop i in range(0, biome_count) {
+            let region = create_entity();
+            region.add(BiomeTag { biome_id: i, corruption_level: 0.0, hallow_level: 0.0 });
+            region.add(TilePosition { x: i * chunk_size, y: 0 });
+        }
+    }
+
+    micro handle_input(delta: f32) {
+        let pos = player.get<TilePosition>();
+        let vel = player.get<Velocity>();
+        vel.vx = 0.0;
+    }
+
+    micro update_camera() {
+        let pos = player.get<TilePosition>();
+    }
+}

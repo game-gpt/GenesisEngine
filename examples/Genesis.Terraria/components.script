@@ -1,0 +1,52 @@
+component TilePosition {
+    x: i32;
+    y: i32;
+}
+
+component TileType {
+    tile_id: i32;
+    variant: i32;
+    is_solid: bool;
+}
+
+component Health {
+    current: i32 = 100;
+    max: i32 = 100;
+}
+
+component Inventory {
+    slots: i32 = 40;
+    selected_slot: i32 = 0;
+}
+
+component BiomeTag {
+    biome_id: i32;
+    corruption_level: f32 = 0.0;
+    hallow_level: f32 = 0.0;
+}
+
+component PlayerTag {
+    player_id: i32;
+}
+
+component NpcTag {
+    npc_type: i32;
+    happiness: f32 = 0.5;
+    home_x: i32;
+    home_y: i32;
+}
+
+component Velocity {
+    vx: f32;
+    vy: f32;
+}
+
+component Damage {
+    value: i32;
+    source: i32;
+}
+
+component EnemyTag {
+    enemy_type: i32;
+    ai_state: i32;
+}

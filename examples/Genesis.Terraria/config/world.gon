@@ -1,0 +1,64 @@
+WorldConfig {
+    world_size: {
+        width: 8400,
+        height: 2400
+    },
+    seed: 42,
+    biomes: [
+        BiomeEntry {
+            id: 0,
+            name: "Forest",
+            spread_rate: 0.01
+        },
+        BiomeEntry {
+            id: 1,
+            name: "Desert",
+            spread_rate: 0.005
+        },
+        BiomeEntry {
+            id: 2,
+            name: "Corruption",
+            spread_rate: 0.03
+        },
+        BiomeEntry {
+            id: 3,
+            name: "Crimson",
+            spread_rate: 0.03
+        },
+        BiomeEntry {
+            id: 4,
+            name: "Hallow",
+            spread_rate: 0.02
+        },
+        BiomeEntry {
+            id: 5,
+            name: "Jungle",
+            spread_rate: 0.008
+        },
+        BiomeEntry {
+            id: 6,
+            name: "Tundra",
+            spread_rate: 0.003
+        },
+        BiomeEntry {
+            id: 7,
+            name: "Ocean",
+            spread_rate: 0.001
+        }
+    ],
+    generation: {
+        macro_noise_octaves: 6,
+        macro_noise_persistence: 0.5,
+        macro_noise_lacunarity: 2.0,
+        cave_density: 0.4,
+        ore_density: 0.05,
+        structure_density: 0.02
+    },
+    spacetime: {
+        tree_type: "quadtree",
+        l0_range: 1,
+        l1_range: 3,
+        l2_collapse_threshold: 0.8,
+        l1_merge_threshold: 0.1
+    }
+}

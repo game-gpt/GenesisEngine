@@ -1,0 +1,61 @@
+system TileUpdateSystem {
+    query_dirty = Query.all(TilePosition, TileType);
+
+    on_update(delta: f32) {
+        <% foreach (var (pos, tile) in query_dirty) { %>
+            if tile.is_solid {
+                apply_gravity(pos, tile, delta);
+            }
+        <% } %>
+    }
+}
+
+system BiomeSpreadSystem {
+    query_biome = Query.all(BiomeTag, TilePosition);
+
+    on_update(delta: f32) {
+        <% foreach (var (biome, pos) in query_biome) { %>
+            if biome.corruption_level > 0.5 {
+                spread_corruption(pos, biome, delta);
+            }
+            if biome.hallow_level > 0.5 {
+                spread_hallow(pos, biome, delta);
+            }
+        <% } %>
+    }
+}
+
+system PlayerMovementSystem {
+    query_players = Query.all(PlayerTag, TilePosition, Velocity);
+
+    on_update(delta: f32) {
+        <% foreach (var (_, pos, vel) in query_players) { %>
+            pos.x += vel.vx * delta;
+            pos.y += vel.vy * delta;
+            vel.vy += 9.8 * delta;
+        <% } %>
+    }
+}
+
+system NpcTownSystem {
+    query_npcs = Query.all(NpcTag, TilePosition);
+
+    on_update(delta: f32) {
+        <% foreach (var (npc, pos) in query_npcs) { %>
+            update_happiness(npc, delta);
+            if npc.happiness < 0.2 {
+                consider_leave(npc, pos);
+            }
+        <% } %>
+    }
+}
+
+system DamageSystem {
+    query_damage = Query.all(Health, Damage);
+
+    on_update(delta: f32) {
+        <% foreach (var (health, damage) in query_damage) { %>
+            health.current -= damage.value;
+        <% } %>
+    }
+}
