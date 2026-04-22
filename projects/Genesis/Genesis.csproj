@@ -5,6 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>Genesis</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <PackageId>GenesisEngine</PackageId>
     <Version>0.1.0</Version>
     <Authors>Genesis Engine Team</Authors>
@@ -23,7 +24,7 @@
     <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.ECS\Gnosis.ECS.csproj" />
     <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Core\Gnosis.Core.csproj" />
     <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Graphic\Gnosis.Graphic.csproj" />
-    <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Input\Gnosis.Input.csproj" />
+    <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Database\Gnosis.Database.csproj" />
   </ItemGroup>
 
   <ItemGroup>

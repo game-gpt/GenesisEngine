@@ -1,5 +1,7 @@
 # Terraria 风格 2D 沙盒适配
 
+> **⚠️ 语言规则**：本文档描述的是 Layer 3 游戏内容，所有代码示例必须使用 GGScript/GGShader，**禁止使用 C#**。游戏内容位于 `examples/Genesis.Terraria/`。
+
 ## 核心挑战
 
 | 挑战项 | 描述 |
@@ -52,13 +54,9 @@ L2 层存储：
 
 ### 返回时处理
 
-```csharp
-void OnPlayerReturn(Town town) {
-    // 应用累积的时间效果
-    ApplyTimeEffects(town, deltaTime);
-    // 可能的结果：新 NPC 入住/离开
-    // 商店库存更新
-    // 对话状态刷新
+```ggscript
+micro on_player_return(town: Entity) {
+    apply_time_effects(town, delta_time);
 }
 ```
 

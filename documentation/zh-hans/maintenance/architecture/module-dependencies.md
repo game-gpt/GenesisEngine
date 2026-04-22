@@ -4,6 +4,25 @@
 
 ---
 
+## ⚠️ 语言分层与模块边界
+
+Genesis 遵循 Gnosis 三层蛋糕模型，**模块边界与语言选择严格绑定**：
+
+| 层级 | 语言 | 本仓库中的位置 | 说明 |
+|:---|:---|:---|:---|
+| **Layer 2** | C# | `projects/Genesis/` | 引擎核心模块，下文所有模块均属于此层 |
+| **Layer 3** | GGScript / GGShader / GGObject | `examples/` | 游戏示例，**不属于引擎模块** |
+
+**关键规则**：
+
+1. **游戏内容（Terraria、Minecraft 等）不是引擎模块**，不应出现在 `projects/Genesis/` 下。
+2. **游戏内容必须 100% 使用 GGScript/GGShader**，禁止在 `examples/` 中写 C# 代码。
+3. **引擎模块仅提供基础设施**，不包含任何具体游戏逻辑。
+
+**当前已知违规**：`projects/Genesis/Terraria/` 目录包含 C# 游戏代码，这是致命架构错误，必须立即修正。详见 [编码规范 - 语言分层原则](../coding-standards.md#语言分层原则最高优先级)。
+
+---
+
 ## 模块层级
 
 Genesis 引擎采用分层架构，模块依赖遵循自下而上的原则。

@@ -9,6 +9,17 @@
 - **操作系统**：Windows 10/11、macOS 12+ 或主流 Linux 发行版
 - **内存**：建议 16GB 以上（用于大型世界开发测试）
 
+## ⚠️ 语言分层规则（必读）
+
+Genesis 遵循 Gnosis 三层蛋糕模型，**语言选择由层级决定，不可逾越**：
+
+| 层级 | 语言 | 适用范围 |
+|:---|:---|:---|
+| **Layer 2**（引擎） | C# | 引擎核心、编辑器、资产管线、构建工具 |
+| **Layer 3**（游戏） | **GGScript / GGShader / GGWidget / GGObject** | 游戏逻辑、Mod、DLC、插件 |
+
+**核心规则**：游戏内容（`examples/` 目录下的项目）必须 100% 使用 GGScript/GGShader，**一行 C# 都不允许**。详见 [编码规范 - 语言分层原则](../maintenance/coding-standards.md#语言分层原则最高优先级)。
+
 ## 项目结构
 
 ```

@@ -1,21 +1,38 @@
 using Genesis.Terraria.Components;
 using Genesis.Terraria.ECS;
+using Genesis.Terraria.Platform;
 using Gnosis.ECS;
 
 namespace Genesis.Terraria.Systems;
 
 public sealed class PlayerMovementSystem : ISystem
 {
+    #region 私有字段
+
     private readonly EcsWorld _world;
+    private readonly Win32Window _window;
     private EntityId? _playerEntity;
     private EntityId? _tileMapEntity;
 
+    #endregion
+
+    #region 公开属性
+
     public SystemPhase Phase => SystemPhase.Update;
 
-    public PlayerMovementSystem(EcsWorld world)
+    #endregion
+
+    #region 构造函数
+
+    public PlayerMovementSystem(EcsWorld world, Win32Window window)
     {
         _world = world;
+        _window = window;
     }
+
+    #endregion
+
+    #region ISystem 实现
 
     public void Initialize()
     {
@@ -39,72 +56,67 @@ public sealed class PlayerMovementSystem : ISystem
             return;
         }
 
-        if (!Console.KeyAvailable)
-        {
-            return;
-        }
-
-        var key = Console.ReadKey(true);
-
         ref var pos = ref _world.GetComponentRef<TilePosition>(_playerEntity.Value);
         ref var vel = ref _world.GetComponentRef<Velocity>(_playerEntity.Value);
         ref var tileMap = ref _world.GetComponentRef<TileMapData>(_tileMapEntity.Value);
 
         var moveSpeed = 1;
 
-        switch (key.Key)
+        if (_window.IsKeyDown(Win32Window.VirtualKey.A) ||
+            _window.IsKeyDown(Win32Window.VirtualKey.Left))
         {
-            case ConsoleKey.A:
-            case ConsoleKey.LeftArrow:
-                TryMove(ref pos, -moveSpeed, 0, in tileMap);
-                break;
-
-            case ConsoleKey.D:
-            case ConsoleKey.RightArrow:
-                TryMove(ref pos, moveSpeed, 0, in tileMap);
-                break;
-
-            case ConsoleKey.W:
-            case ConsoleKey.UpArrow:
-            case ConsoleKey.Spacebar:
-                TryJump(ref pos, ref vel, in tileMap);
-                break;
-
-            case ConsoleKey.S:
-            case ConsoleKey.DownArrow:
-                MineTile(ref pos, ref tileMap, 0, 1);
-                break;
-
-            case ConsoleKey.J:
-                MineTile(ref pos, ref tileMap, -1, 0);
-                break;
-
-            case ConsoleKey.K:
-                MineTile(ref pos, ref tileMap, 1, 0);
-                break;
-
-            case ConsoleKey.I:
-                MineTile(ref pos, ref tileMap, 0, -1);
-                break;
-
-            case ConsoleKey.E:
-                AttackNearby(ref pos);
-                break;
-
-            case ConsoleKey.D1:
-            case ConsoleKey.D2:
-            case ConsoleKey.D3:
-            case ConsoleKey.D4:
-            case ConsoleKey.D5:
-            case ConsoleKey.D6:
-            case ConsoleKey.D7:
-            case ConsoleKey.D8:
-            case ConsoleKey.D9:
-            case ConsoleKey.D0:
-                SelectInventorySlot(key.Key);
-                break;
+            TryMove(ref pos, -moveSpeed, 0, in tileMap);
         }
+
+        if (_window.IsKeyDown(Win32Window.VirtualKey.D) ||
+            _window.IsKeyDown(Win32Window.VirtualKey.Right))
+        {
+            TryMove(ref pos, moveSpeed, 0, in tileMap);
+        }
+
+        if (_window.IsKeyJustPressed(Win32Window.VirtualKey.W) ||
+            _window.IsKeyJustPressed(Win32Window.VirtualKey.Up) ||
+            _window.IsKeyJustPressed(Win32Window.VirtualKey.Space))
+        {
+            TryJump(ref pos, ref vel, in tileMap);
+        }
+
+        if (_window.IsKeyJustPressed(Win32Window.VirtualKey.S) ||
+            _window.IsKeyJustPressed(Win32Window.VirtualKey.Down))
+        {
+            MineTile(ref pos, ref tileMap, 0, 1);
+        }
+
+        if (_window.IsKeyJustPressed(Win32Window.VirtualKey.J))
+        {
+            MineTile(ref pos, ref tileMap, -1, 0);
+        }
+
+        if (_window.IsKeyJustPressed(Win32Window.VirtualKey.K))
+        {
+            MineTile(ref pos, ref tileMap, 1, 0);
+        }
+
+        if (_window.IsKeyJustPressed(Win32Window.VirtualKey.I))
+        {
+            MineTile(ref pos, ref tileMap, 0, -1);
+        }
+
+        if (_window.IsKeyJustPressed(Win32Window.VirtualKey.E))
+        {
+            AttackNearby(ref pos);
+        }
+
+        HandleInventorySlotSelection();
     }
+
+    public void Shutdown()
+    {
+    }
+
+    #endregion
+
+    #region 移动
 
     private static void TryMove(ref TilePosition pos, int dx, int dy, in TileMapData tileMap)
     {
@@ -142,6 +154,10 @@ public sealed class PlayerMovementSystem : ISystem
         }
     }
 
+    #endregion
+
+    #region 挖掘
+
     private void MineTile(ref TilePosition pos, ref TileMapData tileMap, int dx, int dy)
     {
         var targetX = pos.X + dx;
@@ -155,12 +171,7 @@ public sealed class PlayerMovementSystem : ISystem
 
         tileMap.SetTile(targetX, targetY, TileId.Air);
 
-        if (!_playerEntity.HasValue)
-        {
-            return;
-        }
-
-        if (!_world.HasComponent<Inventory>(_playerEntity.Value))
+        if (!_playerEntity.HasValue || !_world.HasComponent<Inventory>(_playerEntity.Value))
         {
             return;
         }
@@ -191,40 +202,9 @@ public sealed class PlayerMovementSystem : ISystem
         }
     }
 
-    private void SelectInventorySlot(ConsoleKey key)
-    {
-        if (!_playerEntity.HasValue)
-        {
-            return;
-        }
+    #endregion
 
-        if (!_world.HasComponent<Inventory>(_playerEntity.Value))
-        {
-            return;
-        }
-
-        ref var inventory = ref _world.GetComponentRef<Inventory>(_playerEntity.Value);
-
-        var slot = key switch
-        {
-            ConsoleKey.D1 => 0,
-            ConsoleKey.D2 => 1,
-            ConsoleKey.D3 => 2,
-            ConsoleKey.D4 => 3,
-            ConsoleKey.D5 => 4,
-            ConsoleKey.D6 => 5,
-            ConsoleKey.D7 => 6,
-            ConsoleKey.D8 => 7,
-            ConsoleKey.D9 => 8,
-            ConsoleKey.D0 => 9,
-            _ => -1
-        };
-
-        if (slot >= 0 && slot < inventory.Slots)
-        {
-            inventory.SelectedSlot = slot;
-        }
-    }
+    #region 战斗
 
     private void AttackNearby(ref TilePosition playerPos)
     {
@@ -250,7 +230,37 @@ public sealed class PlayerMovementSystem : ISystem
         }
     }
 
-    public void Shutdown()
+    #endregion
+
+    #region 物品栏
+
+    private void HandleInventorySlotSelection()
     {
+        if (!_playerEntity.HasValue || !_world.HasComponent<Inventory>(_playerEntity.Value))
+        {
+            return;
+        }
+
+        ref var inventory = ref _world.GetComponentRef<Inventory>(_playerEntity.Value);
+
+        var slot = -1;
+
+        if (_window.IsKeyJustPressed(Win32Window.VirtualKey.D1)) slot = 0;
+        else if (_window.IsKeyJustPressed(Win32Window.VirtualKey.D2)) slot = 1;
+        else if (_window.IsKeyJustPressed(Win32Window.VirtualKey.D3)) slot = 2;
+        else if (_window.IsKeyJustPressed(Win32Window.VirtualKey.D4)) slot = 3;
+        else if (_window.IsKeyJustPressed(Win32Window.VirtualKey.D5)) slot = 4;
+        else if (_window.IsKeyJustPressed(Win32Window.VirtualKey.D6)) slot = 5;
+        else if (_window.IsKeyJustPressed(Win32Window.VirtualKey.D7)) slot = 6;
+        else if (_window.IsKeyJustPressed(Win32Window.VirtualKey.D8)) slot = 7;
+        else if (_window.IsKeyJustPressed(Win32Window.VirtualKey.D9)) slot = 8;
+        else if (_window.IsKeyJustPressed(Win32Window.VirtualKey.D0)) slot = 9;
+
+        if (slot >= 0 && slot < inventory.Slots)
+        {
+            inventory.SelectedSlot = slot;
+        }
     }
+
+    #endregion
 }

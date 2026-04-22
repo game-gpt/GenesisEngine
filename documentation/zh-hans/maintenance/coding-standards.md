@@ -1,6 +1,43 @@
 # 编码规范
 
-本文档定义 Genesis 引擎项目的 C# 编码规范。
+本文档定义 Genesis 引擎项目的编码规范。
+
+---
+
+## ⚠️ 语言分层原则（最高优先级）
+
+> **违反此原则是致命架构错误，必须立即修正。**
+
+Genesis 基于 Gnosis 元引擎构建，遵循严格的三层蛋糕模型。语言选择由层级决定，**不可逾越**：
+
+| 层级 | 名称 | 编写语言 | 职责 |
+|:---|:---|:---|:---|
+| **Layer 1** | Gnosis 元引擎层 | C#（零外部依赖） | 25 个包构成的基础设施 |
+| **Layer 2** | Genesis 游戏引擎层 | C#（调用 Gnosis 包） | 编辑器、资产管线、构建工具、启动器 |
+| **Layer 3** | 游戏内容层 | **gg 语言族（GGScript / GGShader / GGWidget / GGNeural / GGObject）** | 游戏本体、Mod、DLC、插件、编辑器 Widget |
+
+### 核心规则
+
+1. **Layer 3 禁止使用 C#**：游戏内容（Terraria、Minecraft 等示例项目）必须 100% 使用 GGScript/GGShader 编写，**一行 C# 都不允许**。
+2. **C# 仅限 Layer 1 和 Layer 2**：引擎基础设施、编辑器、构建管线等使用 C#，游戏开发者不需要也不应该直接使用 C#。
+3. **游戏开发者接口通过 GGScript 原生函数绑定提供**：Genesis 不应直接暴露 C# API 给游戏开发者。
+
+### 致命错误示例
+
+- ❌ 在 `projects/Genesis/Terraria/` 中写 C# 游戏逻辑 → **游戏逻辑属于 Layer 3，必须用 GGScript 写在 `examples/Genesis.Terraria/` 中**
+- ❌ 在 `examples/Genesis.Terraria/` 中写 C# 代码 → **Layer 3 一行 C# 都不允许**
+- ❌ 在游戏适配文档中使用 C# 代码示例 → **Layer 3 内容必须用 GGScript 示例**
+
+### 正确的项目路径
+
+| 内容 | 正确路径 | 语言 |
+|:---|:---|:---|
+| Genesis 引擎核心 | `projects/Genesis/Core/` | C# |
+| Genesis 引擎宿主 | `projects/GenesisEngine/` | C# |
+| Terraria 游戏示例 | `examples/Genesis.Terraria/` | GGScript / GGShader / GGObject |
+| Minecraft 游戏示例 | `examples/Genesis.Minecraft/` | GGScript / GGShader / GGObject |
+
+详见 [Gnosis 项目介绍 - 引擎元语言与游戏对象语言](../../../../Gnosis.cs/documentation/zh-hans/overview/introduction.md#关键概念引擎元语言与游戏对象语言)。
 
 ---
 

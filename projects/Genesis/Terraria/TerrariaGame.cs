@@ -1,33 +1,54 @@
-using Genesis.Terraria.Components;
 using Genesis.Terraria.ECS;
+using Genesis.Terraria.Platform;
+using Genesis.Terraria.Rendering;
 using Genesis.Terraria.Systems;
+using Gnosis.ECS;
 
 namespace Genesis.Terraria;
 
 public sealed class TerrariaGame : IDisposable
 {
+    #region 私有字段
+
     private readonly EcsWorld _world;
-    private readonly List<Gnosis.ECS.ISystem> _systems;
+    private readonly List<ISystem> _systems;
+    private readonly ulong _seed;
+
+    private Win32Window? _window;
+    private SoftwareRenderSystem? _renderSystem;
     private bool _isRunning;
     private bool _isDisposed;
-    private readonly ulong _seed;
+
+    #endregion
+
+    #region 构造函数
 
     public TerrariaGame(ulong seed = 42)
     {
         _seed = seed;
         _world = new EcsWorld();
-        _systems = new List<Gnosis.ECS.ISystem>();
+        _systems = new List<ISystem>();
     }
+
+    #endregion
+
+    #region 初始化
 
     public void Initialize()
     {
+        var screenWidth = 640;
+        var screenHeight = 480;
+        var tilePixelSize = 8;
+
+        _window = new Win32Window(screenWidth, screenHeight, "Genesis Engine - 泰拉瑞亚 MVP");
+
         var worldGenSystem = new WorldGenerationSystem(_world, _seed);
         _systems.Add(worldGenSystem);
 
         var dayNightSystem = new DayNightSystem(_world);
         _systems.Add(dayNightSystem);
 
-        var movementSystem = new PlayerMovementSystem(_world);
+        var movementSystem = new PlayerMovementSystem(_world, _window);
         _systems.Add(movementSystem);
 
         var physicsSystem = new PhysicsSystem(_world);
@@ -42,35 +63,27 @@ public sealed class TerrariaGame : IDisposable
         var inventorySystem = new InventorySystem(_world);
         _systems.Add(inventorySystem);
 
-        var renderSystem = new ConsoleRenderSystem(_world);
-        _systems.Add(renderSystem);
+        _renderSystem = new SoftwareRenderSystem(_world, screenWidth, screenHeight, tilePixelSize);
+        _systems.Add(_renderSystem);
 
         foreach (var system in _systems)
         {
             system.Initialize();
         }
 
-        Console.WriteLine("[Terraria] 游戏初始化完成");
-        Console.WriteLine("[Terraria] 操作说明:");
-        Console.WriteLine("  WASD / 方向键 - 移动");
-        Console.WriteLine("  空格 - 跳跃");
-        Console.WriteLine("  J - 向左挖掘");
-        Console.WriteLine("  K - 向右挖掘");
-        Console.WriteLine("  I - 向上挖掘");
-        Console.WriteLine("  S / 下箭头 - 向下挖掘");
-        Console.WriteLine("  E - 攻击附近敌人");
-        Console.WriteLine("  1-0 - 选择物品栏");
-        Console.WriteLine("  Q - 退出游戏");
-        Console.WriteLine();
+        Console.WriteLine("[Terraria] 游戏初始化完成 - Gnosis.Graphic SoftwareRenderer");
     }
+
+    #endregion
+
+    #region 主循环
 
     public void Run()
     {
         _isRunning = true;
-
         var lastTime = DateTime.UtcNow;
 
-        while (_isRunning)
+        while (_isRunning && _window != null && _window.ProcessMessages())
         {
             var now = DateTime.UtcNow;
             var delta = (float)(now - lastTime).TotalSeconds;
@@ -81,19 +94,15 @@ public sealed class TerrariaGame : IDisposable
                 delta = 0.1f;
             }
 
-            if (Console.KeyAvailable)
+            if (_window.IsKeyDown(Win32Window.VirtualKey.Escape))
             {
-                var key = Console.ReadKey(true);
-                if (key.Key == ConsoleKey.Q)
-                {
-                    _isRunning = false;
-                    break;
-                }
+                break;
             }
 
             Update(delta);
+            PresentFrame();
 
-            Thread.Sleep(16);
+            Thread.Sleep(1);
         }
     }
 
@@ -105,6 +114,21 @@ public sealed class TerrariaGame : IDisposable
         }
     }
 
+    private void PresentFrame()
+    {
+        if (_renderSystem == null || _window == null)
+        {
+            return;
+        }
+
+        var frameData = _renderSystem.Renderer.GetFramebufferData();
+        _window.PresentFrame(frameData);
+    }
+
+    #endregion
+
+    #region 关闭
+
     public void Shutdown()
     {
         _isRunning = false;
@@ -114,8 +138,13 @@ public sealed class TerrariaGame : IDisposable
             system.Shutdown();
         }
 
+        _window?.Dispose();
         Console.WriteLine("[Terraria] 游戏已关闭");
     }
+
+    #endregion
+
+    #region IDisposable
 
     public void Dispose()
     {
@@ -127,4 +156,6 @@ public sealed class TerrariaGame : IDisposable
         Shutdown();
         _isDisposed = true;
     }
+
+    #endregion
 }

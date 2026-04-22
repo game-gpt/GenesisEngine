@@ -1,5 +1,7 @@
 # API 参考
 
+> **⚠️ 适用范围**：本文档描述的是 Layer 2（Genesis 游戏引擎层）的 C# API，**仅供引擎开发者使用**。游戏开发者（Layer 3）应使用 GGScript 原生函数绑定，不应直接调用这些 C# 接口。
+
 本文档介绍 Genesis 引擎的核心 API。
 
 ## SpacetimeNode API

@@ -1,5 +1,7 @@
 # Minecraft 风格体素世界适配
 
+> **⚠️ 语言规则**：本文档描述的是 Layer 3 游戏内容，所有代码示例必须使用 GGScript/GGShader，**禁止使用 C#**。游戏内容位于 `examples/Genesis.Minecraft/`。
+
 ## 核心挑战
 
 | 挑战项 | 描述 |
@@ -52,13 +54,12 @@
 
 ### 虚空演化原理
 
-```csharp
-ulong signalHash = HashCombine(
-    sourceCircuit.HistoryHash,
-    signalStrength,
-    propagationDelay
+```ggscript
+let signal_hash = hash_combine(
+    source_circuit.history_hash,
+    signal_strength,
+    propagation_delay
 );
-// 直接得到输出端状态，无需加载中间区块
 ```
 
 ## 光照系统
@@ -101,11 +102,8 @@ ulong signalHash = HashCombine(
 
 ### 贪婪网格合并
 
-```csharp
-Mesh BuildChunkMesh(Chunk chunk) {
-    // 贪婪合并相邻同类型面
-    // 只渲染可见表面
-    // 结合层级信息优化
+```ggscript
+micro build_chunk_mesh(chunk: Entity) -> Mesh {
 }
 ```
 

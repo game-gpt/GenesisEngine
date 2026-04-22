@@ -81,14 +81,44 @@ GenesisEngine/
 │       ├── overview/           # 概览
 │       └── technical/          # 技术文档
 ├── projects/                   # 项目目录
-│   └── Genesis/                # 核心模块
-│       ├── Chaos.csproj        # 项目文件
-│       └── readme.md           # 模块文档
+│   ├── Genesis/                # 引擎核心模块（Layer 2，C#）
+│   │   ├── Genesis.csproj      # 项目文件
+│   │   ├── Core/               # 核心抽象与基础类型
+│   │   ├── Spacetime/          # 时空节点系统
+│   │   ├── Causal/             # 因果锚点系统
+│   │   ├── Collapse/           # 波函数坍缩
+│   │   ├── Attention/          # 注意力调度
+│   │   ├── HashLife/           # HashLife 缓存
+│   │   ├── Rules/              # 规则系统
+│   │   ├── Rendering/          # 渲染解耦层
+│   │   ├── World/              # 世界生成
+│   │   └── Persistence/        # 持久化层
+│   └── GenesisEngine/          # 引擎宿主（Layer 2，C#）
+├── examples/                   # 游戏示例目录（Layer 3，GGScript）
+│   ├── Genesis.Terraria/       # 泰拉瑞亚示例（GGScript）
+│   └── Genesis.Minecraft/      # 我的世界示例（GGScript）
 ├── GenesisEngine.sln           # 解决方案文件
 ├── .editorconfig               # 编辑器配置
 ├── .gitignore                  # Git 忽略规则
 └── License.md                  # 许可证
 ```
+
+### ⚠️ 项目路径与语言分层（必须遵守）
+
+Genesis 遵循 Gnosis 三层蛋糕模型，**项目路径与语言选择严格绑定**：
+
+| 层级 | 路径 | 语言 | 说明 |
+|:---|:---|:---|:---|
+| **Layer 2** | `projects/Genesis/` | C# | 引擎核心模块，仅限引擎基础设施 |
+| **Layer 2** | `projects/GenesisEngine/` | C# | 引擎宿主，仅限引擎应用程序 |
+| **Layer 3** | `examples/Genesis.Terraria/` | **GGScript / GGShader / GGObject** | 游戏示例，**禁止 C#** |
+| **Layer 3** | `examples/Genesis.Minecraft/` | **GGScript / GGShader / GGObject** | 游戏示例，**禁止 C#** |
+
+**致命错误**：
+
+- ❌ 在 `projects/Genesis/Terraria/` 中写游戏代码 → **这是引擎项目，游戏内容必须放在 `examples/` 中**
+- ❌ 在 `examples/` 中写 C# 代码 → **Layer 3 一行 C# 都不允许**
+- ❌ 将游戏逻辑耦合进引擎项目 → **违反三层蛋糕模型**
 
 ---
 
