@@ -25,6 +25,7 @@
     <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Core\Gnosis.Core.csproj" />
     <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Graphic\Gnosis.Graphic.csproj" />
     <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Database\Gnosis.Database.csproj" />
+    <ProjectReference Include="..\..\..\SolidDB\projects\SolidDB\SolidDB.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,75 +1,88 @@
-using Gnosis.Database.BTree;
 using Gnosis.Database.Core;
-using Gnosis.Database.SHM;
-using Gnosis.Database.WAL;
 
 namespace Genesis.Persistence;
 
 public sealed class GenesisKvDatabase : IKvDatabase
 {
-    private readonly IBTree _btree;
-    private readonly IWriteAheadLog _wal;
-    private readonly ISharedMemory _shm;
-    private DatabaseStatistics _statistics;
+    #region 字段
 
-    public GenesisKvDatabase(IBTree btree, IWriteAheadLog wal, ISharedMemory shm, DatabaseOptions options)
+    private readonly Gnosis.Database.Engine.GenesisKvDatabase _inner;
+    private bool _disposed;
+
+    #endregion
+
+    #region 构造函数
+
+    public GenesisKvDatabase(DatabaseOptions options)
     {
-        _btree = btree;
-        _wal = wal;
-        _shm = shm;
-        _statistics = DatabaseStatistics.Zero;
+        _inner = new Gnosis.Database.Engine.GenesisKvDatabase(options);
         Options = options;
     }
 
+    #endregion
+
+    #region 属性
+
     public DatabaseOptions Options { get; }
 
-    public DatabaseStatistics Statistics => _statistics;
+    public DatabaseStatistics Statistics => _inner.Statistics;
+
+    #endregion
+
+    #region IKvDatabase 实现
 
     public ITransaction BeginTransaction(IsolationLevel isolationLevel = IsolationLevel.Snapshot)
     {
-        throw new NotImplementedException();
+        return _inner.BeginTransaction(isolationLevel);
     }
 
     public ISnapshot CreateSnapshot()
     {
-        throw new NotImplementedException();
+        return _inner.CreateSnapshot();
     }
 
     public ValueTask<DatabaseValue?> GetAsync(DatabaseKey key, CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        return _inner.GetAsync(key, cancellationToken);
     }
 
     public ValueTask PutAsync(DatabaseKey key, DatabaseValue value, CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        return _inner.PutAsync(key, value, cancellationToken);
     }
 
     public ValueTask<bool> DeleteAsync(DatabaseKey key, CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        return _inner.DeleteAsync(key, cancellationToken);
     }
 
     public ValueTask<bool> ExistsAsync(DatabaseKey key, CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        return _inner.ExistsAsync(key, cancellationToken);
     }
 
     public ICursor Seek(DatabaseKey key)
     {
-        throw new NotImplementedException();
+        return _inner.Seek(key);
     }
+
+    #endregion
+
+    #region IDisposable
 
     public void Dispose()
     {
-        _btree.Dispose();
-        _wal.Dispose();
-        _shm.Dispose();
+        if (_disposed) return;
+        _disposed = true;
+        _inner.Dispose();
     }
 
     public ValueTask DisposeAsync()
     {
-        Dispose();
-        return ValueTask.CompletedTask;
+        if (_disposed) return ValueTask.CompletedTask;
+        _disposed = true;
+        return _inner.DisposeAsync();
     }
+
+    #endregion
 }
