@@ -2,7 +2,7 @@ system ChunkLoadingSystem {
     query_chunks = Query.all(ChunkData);
 
     on_update(delta: f32) {
-        <% foreach (var (_, player_pos) in Query.all(PlayerTag, BlockPosition)) { %>
+        <% loop (_, player_pos) in Query.all(PlayerTag, BlockPosition) { %>
             load_chunks_around(player_pos);
         <% } %>
     }
@@ -27,7 +27,7 @@ system PlayerMovementSystem3D {
     query_players = Query.all(PlayerTag, BlockPosition, Velocity3D);
 
     on_update(delta: f32) {
-        <% foreach (var (_, pos, vel) in query_players) { %>
+        <% loop (_, pos, vel) in query_players { %>
             vel.vx = 0.0;
             vel.vz = 0.0;
 
@@ -86,7 +86,7 @@ system PhysicsSystem3D {
     query_moving = Query.all(Velocity3D, BlockPosition);
 
     on_update(delta: f32) {
-        <% foreach (var (vel, pos) in query_moving) { %>
+        <% loop (vel, pos) in query_moving { %>
             if vel.vy < -78.4 {
                 vel.vy = -78.4;
             }
@@ -108,7 +108,7 @@ system DayNightSystem {
     query_daytime = Query.all(DayTime);
 
     on_update(delta: f32) {
-        <% foreach (var (daytime,) in query_daytime) { %>
+        <% loop (daytime,) in query_daytime { %>
             daytime.time_of_day += delta / daytime.day_duration;
 
             if daytime.time_of_day >= 1.0 {
@@ -126,7 +126,7 @@ system DamageSystem {
     on_update(delta: f32) {
         let entities_to_destroy: [Entity] = [];
 
-        <% foreach (var (health, damage) in query_damage) { %>
+        <% loop (health, damage) in query_damage { %>
             health.current -= damage.value;
 
             let entity = get_entity(health);
@@ -154,7 +154,7 @@ system HungerSystem {
     query_players = Query.all(PlayerTag, Hunger);
 
     on_update(delta: f32) {
-        <% foreach (var (_, hunger) in query_players) { %>
+        <% loop (_, hunger) in query_players { %>
             if hunger.current > 0 {
                 hunger.saturation -= delta * 0.01;
                 if hunger.saturation < 0 {

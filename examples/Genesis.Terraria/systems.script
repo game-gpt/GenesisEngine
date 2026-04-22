@@ -2,7 +2,7 @@ system TileUpdateSystem {
     query_dirty = Query.all(TilePosition, TileType);
 
     on_update(delta: f32) {
-        <% foreach (var (pos, tile) in query_dirty) { %>
+        <% loop (pos, tile) in query_dirty { %>
             if tile.is_solid {
                 apply_gravity(pos, tile, delta);
             }
@@ -14,7 +14,7 @@ system BiomeSpreadSystem {
     query_biome = Query.all(BiomeTag, TilePosition);
 
     on_update(delta: f32) {
-        <% foreach (var (biome, pos) in query_biome) { %>
+        <% loop (biome, pos) in query_biome { %>
             if biome.corruption_level > 0.5 {
                 spread_corruption(pos, biome, delta);
             }
@@ -29,7 +29,7 @@ system PlayerMovementSystem {
     query_players = Query.all(PlayerTag, TilePosition, Velocity);
 
     on_update(delta: f32) {
-        <% foreach (var (_, pos, vel) in query_players) { %>
+        <% loop (_, pos, vel) in query_players { %>
             vel.vx = 0.0;
 
             if input.is_action_pressed("move_left") {
@@ -97,7 +97,7 @@ system PlayerMovementSystem {
         let selected_item = inventory.item_ids[inventory.selected_slot];
         let damage = get_attack_damage(selected_item);
 
-        <% foreach (var (enemy_tag, enemy_pos, _) in Query.all(EnemyTag, TilePosition, Health)) { %>
+        <% loop (enemy_tag, enemy_pos, _) in Query.all(EnemyTag, TilePosition, Health) { %>
             let dx = abs(enemy_pos.x - player_pos.x);
             let dy = abs(enemy_pos.y - player_pos.y);
             if dx <= 2 && dy <= 2 {
@@ -132,7 +132,7 @@ system NpcTownSystem {
     query_npcs = Query.all(NpcTag, TilePosition);
 
     on_update(delta: f32) {
-        <% foreach (var (npc, pos) in query_npcs) { %>
+        <% loop (npc, pos) in query_npcs { %>
             update_happiness(npc, delta);
             if npc.happiness < 0.2 {
                 consider_leave(npc, pos);
@@ -147,7 +147,7 @@ system DamageSystem {
     on_update(delta: f32) {
         let entities_to_destroy: [Entity] = [];
 
-        <% foreach (var (health, damage) in query_damage) { %>
+        <% loop (health, damage) in query_damage { %>
             health.current -= damage.value;
 
             let entity = get_entity(health);
@@ -178,7 +178,7 @@ system DayNightSystem {
     query_daytime = Query.all(DayTime);
 
     on_update(delta: f32) {
-        <% foreach (var (daytime,) in query_daytime) { %>
+        <% loop (daytime,) in query_daytime { %>
             daytime.time_of_day += delta / daytime.day_duration;
 
             if daytime.time_of_day >= 1.0 {
@@ -199,7 +199,7 @@ system PhysicsSystem {
     }
 
     micro apply_gravity(delta: f32) {
-        <% foreach (var (vel, pos) in query_moving) { %>
+        <% loop (vel, pos) in query_moving { %>
             vel.vy += 9.8 * delta;
 
             if vel.vy > 20.0 {
@@ -223,7 +223,7 @@ system PhysicsSystem {
     }
 
     micro apply_tile_collision() {
-        <% foreach (var (pos, vel) in Query.all(TilePosition, Velocity)) { %>
+        <% loop (pos, vel) in Query.all(TilePosition, Velocity) { %>
             if tilemap.is_solid(pos.x, pos.y) {
                 loop y in range(pos.y - 1, -1, -1) {
                     if !tilemap.is_solid(pos.x, y) {
@@ -250,8 +250,8 @@ system EnemyAISystem {
         }
         ai_timer = 0;
 
-        <% foreach (var (_, player_pos) in query_players) { %>
-            <% foreach (var (enemy_tag, pos, vel) in query_enemies) { %>
+        <% loop (_, player_pos) in query_players { %>
+            <% loop (enemy_tag, pos, vel) in query_enemies { %>
                 let dx = player_pos.x - pos.x;
                 let dy = player_pos.y - pos.y;
                 let distance = sqrt(dx * dx + dy * dy);
