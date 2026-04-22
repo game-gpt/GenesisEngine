@@ -17,7 +17,7 @@
     <PackageReadmeFile>readme.md</PackageReadmeFile>
     <PackageLicenseFile>license.md</PackageLicenseFile>
     <Copyright>Copyright (c) 2012 Genesis Engine Team</Copyright>
-    <PackageReleaseNotes>Add Terraria MVP module with ECS-based gameplay</PackageReleaseNotes>
+    <PackageReleaseNotes>Remove Layer 3 Terraria game code from engine project (M-1 architecture fix)</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>

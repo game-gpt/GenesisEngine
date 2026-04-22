@@ -1,0 +1,32 @@
+TileColorTable {
+    tiles: [
+        TileColorEntry { id: 0, name: "Air", r: 0.53, g: 0.81, b: 0.92 },
+        TileColorEntry { id: 1, name: "Dirt", r: 0.55, g: 0.35, b: 0.17 },
+        TileColorEntry { id: 2, name: "Stone", r: 0.50, g: 0.50, b: 0.50 },
+        TileColorEntry { id: 3, name: "Grass", r: 0.13, g: 0.55, b: 0.13 },
+        TileColorEntry { id: 4, name: "Sand", r: 0.82, g: 0.71, b: 0.55 },
+        TileColorEntry { id: 5, name: "Water", r: 0.12, g: 0.56, b: 1.0 },
+        TileColorEntry { id: 6, name: "Wood", r: 0.55, g: 0.27, b: 0.07 },
+        TileColorEntry { id: 7, name: "Leaf", r: 0.0, g: 0.39, b: 0.0 },
+        TileColorEntry { id: 8, name: "IronOre", r: 0.63, g: 0.32, b: 0.18 },
+        TileColorEntry { id: 9, name: "GoldOre", r: 1.0, g: 0.84, b: 0.0 },
+        TileColorEntry { id: 10, name: "CopperOre", r: 0.72, g: 0.45, b: 0.20 },
+        TileColorEntry { id: 11, name: "Snow", r: 0.94, g: 0.94, b: 1.0 },
+        TileColorEntry { id: 12, name: "Ice", r: 0.68, g: 0.85, b: 0.90 },
+        TileColorEntry { id: 13, name: "Clay", r: 0.63, g: 0.32, b: 0.18 },
+        TileColorEntry { id: 99, name: "Boundary", r: 0.15, g: 0.15, b: 0.15 }
+    ],
+    enemies: [
+        EnemyColorEntry { type: 0, name: "Slime", r: 0.0, g: 0.78, b: 0.0 },
+        EnemyColorEntry { type: 1, name: "Zombie", r: 0.0, g: 0.59, b: 0.0 },
+        EnemyColorEntry { type: 2, name: "DemonEye", r: 0.78, g: 0.0, b: 0.0 }
+    ],
+    daylight: {
+        ambient_min: 0.3,
+        ambient_range: 0.7,
+        sky_color: { r: 0.53, g: 0.81, b: 0.92 },
+        underground_color: { r: 0.31, g: 0.24, b: 0.16 },
+        underground_depth_ratio: 0.3,
+        underground_light_factor: 0.3
+    }
+}

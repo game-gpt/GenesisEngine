@@ -1,0 +1,72 @@
+component BlockPosition {
+    x: i32;
+    y: i32;
+    z: i32;
+}
+
+component BlockType {
+    block_id: i32;
+    variant: i32;
+    is_solid: bool;
+}
+
+component Health {
+    current: i32 = 20;
+    max: i32 = 20;
+}
+
+component Inventory {
+    slots: i32 = 36;
+    selected_slot: i32 = 0;
+}
+
+component BiomeTag {
+    biome_id: i32;
+    temperature: f32 = 0.5;
+    humidity: f32 = 0.5;
+}
+
+component PlayerTag {
+    player_id: i32;
+}
+
+component Velocity3D {
+    vx: f32;
+    vy: f32;
+    vz: f32;
+}
+
+component Damage {
+    value: i32;
+    source: i32;
+}
+
+component MobTag {
+    mob_type: i32;
+    ai_state: i32;
+}
+
+component ChunkData {
+    chunk_x: i32;
+    chunk_z: i32;
+    seed: u64;
+}
+
+component DayTime {
+    time_of_day: f32 = 0.25;
+    day_duration: f32 = 1200.0;
+    day_count: i32 = 1;
+}
+
+component CameraFollow3D {
+    offset_x: f32 = 0.0;
+    offset_y: f32 = 1.62;
+    offset_z: f32 = 0.0;
+    smoothing: f32 = 0.1;
+}
+
+component Hunger {
+    current: f32 = 20.0;
+    max: f32 = 20.0;
+    saturation: f32 = 5.0;
+}

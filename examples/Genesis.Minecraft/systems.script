@@ -1,0 +1,182 @@
+system ChunkLoadingSystem {
+    query_chunks = Query.all(ChunkData);
+
+    on_update(delta: f32) {
+        <% foreach (var (_, player_pos) in Query.all(PlayerTag, BlockPosition)) { %>
+            load_chunks_around(player_pos);
+        <% } %>
+    }
+
+    micro load_chunks_around(player_pos: BlockPosition) {
+        let render_distance = 8;
+        let chunk_x = player_pos.x / 16;
+        let chunk_z = player_pos.z / 16;
+        loop dx in range(-render_distance, render_distance + 1) {
+            loop dz in range(-render_distance, render_distance + 1) {
+                let cx = chunk_x + dx;
+                let cz = chunk_z + dz;
+                if !is_chunk_loaded(cx, cz) {
+                    generate_chunk(cx, cz);
+                }
+            }
+        }
+    }
+}
+
+system PlayerMovementSystem3D {
+    query_players = Query.all(PlayerTag, BlockPosition, Velocity3D);
+
+    on_update(delta: f32) {
+        <% foreach (var (_, pos, vel) in query_players) { %>
+            vel.vx = 0.0;
+            vel.vz = 0.0;
+
+            if input.is_action_pressed("move_forward") {
+                vel.vz = -4.317;
+            }
+            if input.is_action_pressed("move_backward") {
+                vel.vz = 4.317;
+            }
+            if input.is_action_pressed("move_left") {
+                vel.vx = -4.317;
+            }
+            if input.is_action_pressed("move_right") {
+                vel.vx = 4.317;
+            }
+            if input.is_action_just_pressed("jump") {
+                try_jump(pos, vel);
+            }
+            if input.is_action_just_pressed("place_block") {
+                place_block(pos);
+            }
+            if input.is_action_just_pressed("break_block") {
+                break_block(pos);
+            }
+
+            pos.x += vel.vx * delta;
+            pos.y += vel.vy * delta;
+            pos.z += vel.vz * delta;
+            vel.vy -= 32.0 * delta;
+        <% } %>
+    }
+
+    micro try_jump(pos: BlockPosition, vel: Velocity3D) {
+        let on_ground = world.is_solid(pos.x, pos.y - 1, pos.z);
+        if on_ground {
+            vel.vy = 8.0;
+        }
+    }
+
+    micro place_block(pos: BlockPosition) {
+        let target = raycast_block(pos, 5.0);
+        if target.is_valid {
+            world.set_block(target.x, target.y, target.z, BLOCK_STONE);
+        }
+    }
+
+    micro break_block(pos: BlockPosition) {
+        let target = raycast_block(pos, 5.0);
+        if target.is_valid {
+            world.set_block(target.x, target.y, target.z, BLOCK_AIR);
+        }
+    }
+}
+
+system PhysicsSystem3D {
+    query_moving = Query.all(Velocity3D, BlockPosition);
+
+    on_update(delta: f32) {
+        <% foreach (var (vel, pos) in query_moving) { %>
+            if vel.vy < -78.4 {
+                vel.vy = -78.4;
+            }
+
+            let new_y = pos.y + vel.vy * delta;
+            if vel.vy < 0 {
+                if world.is_solid(pos.x, new_y, pos.z) {
+                    new_y = new_y + 1;
+                    vel.vy = 0;
+                }
+            }
+
+            pos.y = new_y;
+        <% } %>
+    }
+}
+
+system DayNightSystem {
+    query_daytime = Query.all(DayTime);
+
+    on_update(delta: f32) {
+        <% foreach (var (daytime,) in query_daytime) { %>
+            daytime.time_of_day += delta / daytime.day_duration;
+
+            if daytime.time_of_day >= 1.0 {
+                daytime.time_of_day -= 1.0;
+                daytime.day_count += 1;
+                console::log($"第 {daytime.day_count} 天开始了！");
+            }
+        <% } %>
+    }
+}
+
+system DamageSystem {
+    query_damage = Query.all(Health, Damage);
+
+    on_update(delta: f32) {
+        let entities_to_destroy: [Entity] = [];
+
+        <% foreach (var (health, damage) in query_damage) { %>
+            health.current -= damage.value;
+
+            let entity = get_entity(health);
+            entity.remove<Damage>();
+
+            if health.current <= 0 {
+                health.current = 0;
+
+                if entity.has<MobTag>() {
+                    entities_to_destroy.push(entity);
+                }
+                else if entity.has<PlayerTag>() {
+                    console::log("你死了！点击重生...");
+                }
+            }
+        <% } %>
+
+        loop entity in entities_to_destroy {
+            destroy_entity(entity);
+        }
+    }
+}
+
+system HungerSystem {
+    query_players = Query.all(PlayerTag, Hunger);
+
+    on_update(delta: f32) {
+        <% foreach (var (_, hunger) in query_players) { %>
+            if hunger.current > 0 {
+                hunger.saturation -= delta * 0.01;
+                if hunger.saturation < 0 {
+                    hunger.saturation = 0;
+                    hunger.current -= delta * 0.1;
+                }
+            }
+
+            if hunger.current <= 0 {
+                let entity = get_entity(hunger);
+                if entity.has<Health>() {
+                    entity.add(Damage { value: 1, source: 0 });
+                }
+            }
+        <% } %>
+    }
+}
+
+system WorldGenerationSystem {
+    on_load() {
+        let config = asset.load<gonObject>("config/world.gon");
+        let seed = config.get("seed").as_u64();
+        console::log($"世界生成开始 - 种子: {seed}");
+    }
+}

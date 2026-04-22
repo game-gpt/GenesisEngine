@@ -1,15 +1,14 @@
 scene GameMain {
     let player: Entity;
     let world_seed: u64;
+    let daytime_entity: Entity;
 
     on_load() {
-        world_seed = 42;
-        player = create_entity();
-        player.add(PlayerTag { player_id: 0 });
-        player.add(TilePosition { x: 4200, y: 400 });
-        player.add(Velocity { vx: 0.0, vy: 0.0 });
-        player.add(Health { current: 100, max: 100 });
-        player.add(Inventory { slots: 40, selected_slot: 0 });
+        let config = asset.load<gonObject>("config/world.gon");
+        world_seed = config.get("seed").as_u64();
+
+        daytime_entity = create_entity();
+        daytime_entity.add(DayTime { time_of_day: 0.25, day_duration: 600.0, day_count: 1 });
 
         generate_world(world_seed);
     }
@@ -37,5 +36,6 @@ scene GameMain {
 
     micro update_camera() {
         let pos = player.get<TilePosition>();
+        let camera_follow = player.get<CameraFollow>();
     }
 }

@@ -1,0 +1,36 @@
+scene GameMain {
+    let player: Entity;
+    let world_seed: u64;
+    let daytime_entity: Entity;
+
+    on_load() {
+        let config = asset.load<gonObject>("config/world.gon");
+        world_seed = config.get("seed").as_u64();
+
+        daytime_entity = create_entity();
+        daytime_entity.add(DayTime { time_of_day: 0.25, day_duration: 1200.0, day_count: 1 });
+
+        generate_world(world_seed);
+    }
+
+    on_update(delta: f32) {
+        handle_input(delta);
+        update_camera();
+    }
+
+    micro generate_world(seed: u64) {
+        console::log($"Minecraft 世界生成 - 种子: {seed}");
+    }
+
+    micro handle_input(delta: f32) {
+        let pos = player.get<BlockPosition>();
+        let vel = player.get<Velocity3D>();
+        vel.vx = 0.0;
+        vel.vz = 0.0;
+    }
+
+    micro update_camera() {
+        let pos = player.get<BlockPosition>();
+        let camera_follow = player.get<CameraFollow3D>();
+    }
+}

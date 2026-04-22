@@ -1,0 +1,62 @@
+WorldConfig {
+    world_size: {
+        chunk_width: 16,
+        chunk_height: 256,
+        chunk_depth: 16
+    },
+    seed: 42,
+    biomes: [
+        BiomeEntry {
+            id: 0,
+            name: "Plains",
+            temperature: 0.5,
+            humidity: 0.5
+        },
+        BiomeEntry {
+            id: 1,
+            name: "Desert",
+            temperature: 2.0,
+            humidity: 0.0
+        },
+        BiomeEntry {
+            id: 2,
+            name: "Forest",
+            temperature: 0.7,
+            humidity: 0.8
+        },
+        BiomeEntry {
+            id: 3,
+            name: "Taiga",
+            temperature: -0.5,
+            humidity: 0.4
+        },
+        BiomeEntry {
+            id: 4,
+            name: "Mountains",
+            temperature: 0.2,
+            humidity: 0.3
+        },
+        BiomeEntry {
+            id: 5,
+            name: "Ocean",
+            temperature: 0.5,
+            humidity: 1.0
+        }
+    ],
+    generation: {
+        surface_noise_octaves: 8,
+        surface_noise_persistence: 0.5,
+        surface_noise_lacunarity: 2.0,
+        cave_density: 0.3,
+        ore_density: 0.04,
+        structure_density: 0.01,
+        sea_level: 64
+    },
+    spacetime: {
+        tree_type: "octree",
+        l0_range: 1,
+        l1_range: 3,
+        l2_collapse_threshold: 0.8,
+        l1_merge_threshold: 0.1
+    }
+}

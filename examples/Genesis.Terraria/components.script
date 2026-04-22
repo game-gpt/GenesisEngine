@@ -50,3 +50,21 @@ component EnemyTag {
     enemy_type: i32;
     ai_state: i32;
 }
+
+component TileMapData {
+    width: i32;
+    height: i32;
+    seed: u64;
+}
+
+component DayTime {
+    time_of_day: f32 = 0.25;
+    day_duration: f32 = 600.0;
+    day_count: i32 = 1;
+}
+
+component CameraFollow {
+    offset_x: f32 = 0.0;
+    offset_y: f32 = -5.0;
+    smoothing: f32 = 0.1;
+}

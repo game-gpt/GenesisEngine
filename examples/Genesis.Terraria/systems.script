@@ -30,10 +30,101 @@ system PlayerMovementSystem {
 
     on_update(delta: f32) {
         <% foreach (var (_, pos, vel) in query_players) { %>
+            vel.vx = 0.0;
+
+            if input.is_action_pressed("move_left") {
+                vel.vx = -1.0;
+            }
+            if input.is_action_pressed("move_right") {
+                vel.vx = 1.0;
+            }
+            if input.is_action_just_pressed("jump") {
+                try_jump(pos, vel);
+            }
+            if input.is_action_just_pressed("mine_down") {
+                mine_tile(pos, 0, 1);
+            }
+            if input.is_action_just_pressed("mine_left") {
+                mine_tile(pos, -1, 0);
+            }
+            if input.is_action_just_pressed("mine_right") {
+                mine_tile(pos, 1, 0);
+            }
+            if input.is_action_just_pressed("mine_up") {
+                mine_tile(pos, 0, -1);
+            }
+            if input.is_action_just_pressed("attack") {
+                attack_nearby(pos);
+            }
+
             pos.x += vel.vx * delta;
             pos.y += vel.vy * delta;
             vel.vy += 9.8 * delta;
+
+            handle_inventory_slot_selection();
         <% } %>
+    }
+
+    micro try_jump(pos: TilePosition, vel: Velocity) {
+        if pos.y <= 0 {
+            return;
+        }
+        let on_ground = tilemap.is_solid(pos.x, pos.y + 1);
+        if !on_ground {
+            return;
+        }
+        if !tilemap.is_solid(pos.x, pos.y - 1) {
+            pos.y -= 1;
+            if !tilemap.is_solid(pos.x, pos.y - 1) {
+                pos.y -= 1;
+            }
+        }
+    }
+
+    micro mine_tile(pos: TilePosition, dx: i32, dy: i32) {
+        let target_x = pos.x + dx;
+        let target_y = pos.y + dy;
+        let tile = tilemap.get_tile(target_x, target_y);
+        if tile == TILE_AIR || tile == TILE_BOUNDARY {
+            return;
+        }
+        tilemap.set_tile(target_x, target_y, TILE_AIR);
+        add_item_to_inventory(tile, 1);
+    }
+
+    micro attack_nearby(player_pos: TilePosition) {
+        let inventory = player.get<Inventory>();
+        let selected_item = inventory.item_ids[inventory.selected_slot];
+        let damage = get_attack_damage(selected_item);
+
+        <% foreach (var (enemy_tag, enemy_pos, _) in Query.all(EnemyTag, TilePosition, Health)) { %>
+            let dx = abs(enemy_pos.x - player_pos.x);
+            let dy = abs(enemy_pos.y - player_pos.y);
+            if dx <= 2 && dy <= 2 {
+                let enemy = get_entity(enemy_tag);
+                enemy.add(Damage { value: damage, source: 0 });
+            }
+        <% } %>
+    }
+
+    micro handle_inventory_slot_selection() {
+        let inventory = player.get<Inventory>();
+        let slot = -1;
+
+        if input.is_key_just_pressed("1") { slot = 0; }
+        else if input.is_key_just_pressed("2") { slot = 1; }
+        else if input.is_key_just_pressed("3") { slot = 2; }
+        else if input.is_key_just_pressed("4") { slot = 3; }
+        else if input.is_key_just_pressed("5") { slot = 4; }
+        else if input.is_key_just_pressed("6") { slot = 5; }
+        else if input.is_key_just_pressed("7") { slot = 6; }
+        else if input.is_key_just_pressed("8") { slot = 7; }
+        else if input.is_key_just_pressed("9") { slot = 8; }
+        else if input.is_key_just_pressed("0") { slot = 9; }
+
+        if slot >= 0 && slot < inventory.slots {
+            inventory.selected_slot = slot;
+        }
     }
 }
 
@@ -54,8 +145,367 @@ system DamageSystem {
     query_damage = Query.all(Health, Damage);
 
     on_update(delta: f32) {
+        let entities_to_destroy: [Entity] = [];
+
         <% foreach (var (health, damage) in query_damage) { %>
             health.current -= damage.value;
+
+            let entity = get_entity(health);
+            entity.remove<Damage>();
+
+            if health.current <= 0 {
+                health.current = 0;
+
+                if entity.has<EnemyTag>() {
+                    let enemy_tag = entity.get<EnemyTag>();
+                    let pos = entity.get<TilePosition>();
+                    console::log($"{get_enemy_name(enemy_tag.enemy_type)} 在 ({pos.x}, {pos.y}) 被击败！");
+                    entities_to_destroy.push(entity);
+                }
+                else if entity.has<PlayerTag>() {
+                    console::log("玩家死亡！按 R 重生...");
+                }
+            }
         <% } %>
+
+        loop entity in entities_to_destroy {
+            destroy_entity(entity);
+        }
+    }
+}
+
+system DayNightSystem {
+    query_daytime = Query.all(DayTime);
+
+    on_update(delta: f32) {
+        <% foreach (var (daytime,) in query_daytime) { %>
+            daytime.time_of_day += delta / daytime.day_duration;
+
+            if daytime.time_of_day >= 1.0 {
+                daytime.time_of_day -= 1.0;
+                daytime.day_count += 1;
+                console::log($"第 {daytime.day_count} 天开始了！");
+            }
+        <% } %>
+    }
+}
+
+system PhysicsSystem {
+    query_moving = Query.all(Velocity, TilePosition);
+
+    on_update(delta: f32) {
+        apply_gravity(delta);
+        apply_tile_collision();
+    }
+
+    micro apply_gravity(delta: f32) {
+        <% foreach (var (vel, pos) in query_moving) { %>
+            vel.vy += 9.8 * delta;
+
+            if vel.vy > 20.0 {
+                vel.vy = 20.0;
+            }
+
+            let new_y = pos.y + round(vel.vy * delta);
+
+            if new_y > pos.y {
+                loop y in range(pos.y + 1, new_y + 1) {
+                    if tilemap.is_solid(pos.x, y) {
+                        vel.vy = 0;
+                        new_y = y - 1;
+                        break;
+                    }
+                }
+            }
+
+            pos.y = clamp(new_y, 0, tilemap.height - 1);
+        <% } %>
+    }
+
+    micro apply_tile_collision() {
+        <% foreach (var (pos, vel) in Query.all(TilePosition, Velocity)) { %>
+            if tilemap.is_solid(pos.x, pos.y) {
+                loop y in range(pos.y - 1, -1, -1) {
+                    if !tilemap.is_solid(pos.x, y) {
+                        pos.y = y;
+                        vel.vy = 0;
+                        break;
+                    }
+                }
+            }
+        <% } %>
+    }
+}
+
+system EnemyAISystem {
+    query_enemies = Query.all(EnemyTag, TilePosition, Velocity);
+    query_players = Query.all(PlayerTag, TilePosition);
+    ai_timer: f32 = 0.0;
+
+    on_update(delta: f32) {
+        ai_timer += delta;
+
+        if ai_timer < 0.5 {
+            return;
+        }
+        ai_timer = 0;
+
+        <% foreach (var (_, player_pos) in query_players) { %>
+            <% foreach (var (enemy_tag, pos, vel) in query_enemies) { %>
+                let dx = player_pos.x - pos.x;
+                let dy = player_pos.y - pos.y;
+                let distance = sqrt(dx * dx + dy * dy);
+
+                if enemy_tag.ai_state == AI_IDLE {
+                    if distance < 15 {
+                        enemy_tag.ai_state = AI_CHASE;
+                    }
+                    else if random() < 0.3 {
+                        enemy_tag.ai_state = AI_WANDER;
+                    }
+                }
+                else if enemy_tag.ai_state == AI_WANDER {
+                    if distance < 15 {
+                        enemy_tag.ai_state = AI_CHASE;
+                    }
+                    else {
+                        let move_dir = random_range(-1, 2);
+                        let new_x = pos.x + move_dir;
+                        if !tilemap.is_solid(new_x, pos.y) {
+                            pos.x = new_x;
+                        }
+                        if random() < 0.2 {
+                            enemy_tag.ai_state = AI_IDLE;
+                        }
+                    }
+                }
+                else if enemy_tag.ai_state == AI_CHASE {
+                    if distance > 20 {
+                        enemy_tag.ai_state = AI_IDLE;
+                    }
+                    else if distance < 2 {
+                        enemy_tag.ai_state = AI_ATTACK;
+                    }
+                    else {
+                        let move_x = 0;
+                        if dx > 0 { move_x = 1; }
+                        else if dx < 0 { move_x = -1; }
+                        let new_x = pos.x + move_x;
+                        if !tilemap.is_solid(new_x, pos.y) {
+                            pos.x = new_x;
+                        }
+                        else if !tilemap.is_solid(new_x, pos.y - 1) {
+                            pos.x = new_x;
+                            pos.y -= 1;
+                        }
+                    }
+                }
+                else if enemy_tag.ai_state == AI_ATTACK {
+                    if distance > 3 {
+                        enemy_tag.ai_state = AI_CHASE;
+                    }
+                    else if random() < 0.4 {
+                        let player_entity = get_entity(player_pos);
+                        if player_entity.has<Health>() {
+                            let damage = get_enemy_attack_damage(enemy_tag.enemy_type);
+                            player_entity.add(Damage { value: damage, source: enemy_tag.enemy_type });
+                        }
+                    }
+                }
+            <% } %>
+        <% } %>
+    }
+}
+
+system InventorySystem {
+    query_players = Query.all(PlayerTag, Inventory);
+
+    on_update(delta: f32) {
+    }
+}
+
+system WorldGenerationSystem {
+    on_load() {
+        let config = asset.load<gonObject>("config/world.gon");
+        let world_width = config.get("world_size").get("width").as_int();
+        let world_height = config.get("world_size").get("height").as_int();
+        let seed = config.get("seed").as_u64();
+
+        let tilemap_entity = create_entity();
+        tilemap_entity.add(TileMapData { width: world_width, height: world_height, seed: seed });
+
+        generate_terrain(seed, world_width, world_height);
+        generate_caves(seed, world_width, world_height);
+        generate_ores(seed, world_width, world_height);
+        generate_trees(seed, world_width, world_height);
+
+        let spawn_y = find_spawn_point(world_width, world_height);
+        let spawn_x = world_width / 2;
+
+        create_player(spawn_x, spawn_y);
+        create_enemies(seed, world_width, world_height);
+
+        console::log($"世界生成完成 - 种子: {seed}, 尺寸: {world_width}x{world_height}");
+    }
+
+    micro generate_terrain(seed: u64, width: i32, height: i32) {
+        let surface_base = height * 0.3;
+        loop x in range(0, width) {
+            let surface_height = calculate_surface_height(x, surface_base, height, seed);
+            let biome = get_biome_at(x, width, seed);
+            loop y in range(0, height) {
+                if y < surface_height {
+                    tilemap.set_tile(x, y, TILE_AIR);
+                }
+                else if y == surface_height {
+                    tilemap.set_tile(x, y, get_surface_tile(biome));
+                }
+                else if y < surface_height + 5 {
+                    tilemap.set_tile(x, y, get_subsurface_tile(biome));
+                }
+                else {
+                    tilemap.set_tile(x, y, TILE_STONE);
+                }
+            }
+        }
+    }
+
+    micro generate_caves(seed: u64, width: i32, height: i32) {
+        loop x in range(0, width) {
+            loop y in range(0, height) {
+                if tilemap.get_tile(x, y) == TILE_AIR {
+                    continue;
+                }
+                let cave_value = noise.fractal_2d(seed ^ 0x123456789ABCDEF, x * 0.04, y * 0.04, 3);
+                let large_cave = noise.fractal_2d(seed ^ 0x123456789ABCDEF, x * 0.015, y * 0.015, 2);
+                if cave_value > 0.35 || large_cave > 0.45 {
+                    tilemap.set_tile(x, y, TILE_AIR);
+                }
+            }
+        }
+    }
+
+    micro generate_ores(seed: u64, width: i32, height: i32) {
+        loop x in range(0, width) {
+            loop y in range(0, height) {
+                if tilemap.get_tile(x, y) != TILE_STONE {
+                    continue;
+                }
+                let depth = y / height;
+                let copper_val = noise.fractal_2d(seed ^ 0xFEDCBA987654321, (x + 1000) * 0.08, y * 0.08, 2);
+                if copper_val > 0.55 && depth > 0.2 {
+                    tilemap.set_tile(x, y, TILE_COPPER_ORE);
+                    continue;
+                }
+                let iron_val = noise.fractal_2d(seed ^ 0xFEDCBA987654321, (x + 2000) * 0.08, y * 0.08, 2);
+                if iron_val > 0.6 && depth > 0.35 {
+                    tilemap.set_tile(x, y, TILE_IRON_ORE);
+                    continue;
+                }
+                let gold_val = noise.fractal_2d(seed ^ 0xFEDCBA987654321, (x + 3000) * 0.08, y * 0.08, 2);
+                if gold_val > 0.65 && depth > 0.5 {
+                    tilemap.set_tile(x, y, TILE_GOLD_ORE);
+                }
+            }
+        }
+    }
+
+    micro generate_trees(seed: u64, width: i32, height: i32) {
+        loop x in range(2, width - 2) {
+            if random() > 0.08 {
+                continue;
+            }
+            let biome = get_biome_at(x, width, seed);
+            if biome == BIOME_DESERT || biome == BIOME_OCEAN {
+                continue;
+            }
+            loop y in range(0, height - 1) {
+                if tilemap.get_tile(x, y) != TILE_AIR {
+                    continue;
+                }
+                if tilemap.get_tile(x, y + 1) != TILE_GRASS && tilemap.get_tile(x, y + 1) != TILE_SAND {
+                    continue;
+                }
+                let tree_height = random_range(4, 8);
+                loop ty in range(0, tree_height) {
+                    if y - ty >= 0 {
+                        tilemap.set_tile(x, y - ty, TILE_WOOD);
+                    }
+                }
+                let leaf_start = y - tree_height;
+                loop lx in range(-2, 3) {
+                    loop ly in range(-2, 1) {
+                        let tx = x + lx;
+                        let ty = leaf_start + ly;
+                        if tx >= 0 && tx < width && ty >= 0 && ty < height {
+                            if tilemap.get_tile(tx, ty) == TILE_AIR {
+                                tilemap.set_tile(tx, ty, TILE_LEAF);
+                            }
+                        }
+                    }
+                }
+                break;
+            }
+        }
+    }
+
+    micro find_spawn_point(width: i32, height: i32) -> i32 {
+        let center_x = width / 2;
+        loop dx in range(0, width / 2) {
+            loop dir in range(-1, 2, 2) {
+                let x = center_x + dx * dir;
+                if x < 0 || x >= width {
+                    continue;
+                }
+                loop y in range(0, height - 1) {
+                    if tilemap.get_tile(x, y) == TILE_AIR && tilemap.get_tile(x, y + 1) != TILE_AIR {
+                        return y;
+                    }
+                }
+            }
+        }
+        return height / 3;
+    }
+
+    micro create_player(spawn_x: i32, spawn_y: i32) {
+        let player = create_entity();
+        player.add(PlayerTag { player_id: 0 });
+        player.add(TilePosition { x: spawn_x, y: spawn_y });
+        player.add(Velocity { vx: 0.0, vy: 0.0 });
+        player.add(Health { current: 100, max: 100 });
+        player.add(Inventory { slots: 10, selected_slot: 0 });
+        player.add(CameraFollow { offset_x: 0.0, offset_y: -5.0, smoothing: 0.1 });
+
+        let inventory = player.get<Inventory>();
+        inventory.item_ids[0] = ITEM_COPPER_PICKAXE;
+        inventory.item_counts[0] = 1;
+        inventory.item_ids[1] = ITEM_COPPER_SWORD;
+        inventory.item_counts[1] = 1;
+    }
+
+    micro create_enemies(seed: u64, width: i32, height: i32) {
+        let enemy_count = 5;
+        loop i in range(0, enemy_count) {
+            let enemy_type = random_range(0, 3);
+            let x = random_range(10, width - 10);
+            let surface_y = find_surface_at(x, height);
+            if surface_y < 0 {
+                continue;
+            }
+            let enemy = create_entity();
+            enemy.add(EnemyTag { enemy_type: enemy_type, ai_state: AI_IDLE });
+            enemy.add(TilePosition { x: x, y: surface_y - 1 });
+            enemy.add(Velocity { vx: 0.0, vy: 0.0 });
+            enemy.add(Health { current: get_enemy_max_health(enemy_type), max: get_enemy_max_health(enemy_type) });
+        }
+    }
+
+    micro find_surface_at(x: i32, height: i32) -> i32 {
+        loop y in range(0, height - 1) {
+            if tilemap.get_tile(x, y) == TILE_AIR && tilemap.get_tile(x, y + 1) != TILE_AIR {
+                return y + 1;
+            }
+        }
+        return -1;
     }
 }
