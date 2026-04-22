@@ -1,15 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <TargetFramework>net11.0</TargetFramework>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net11.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>GenesisHost</RootNamespace>
     <PackageId>GenesisHost</PackageId>
     <Version>0.1.0</Version>
     <Authors>Genesis Engine Team</Authors>
-    <Description>Genesis Engine Host - Console application hosting the Genesis causal engine</Description>
+    <Description>Genesis Engine Host - WinForms GUI application hosting the Genesis game engine</Description>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationIcon />
+    <AssemblyName>GenesisEngine</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>
