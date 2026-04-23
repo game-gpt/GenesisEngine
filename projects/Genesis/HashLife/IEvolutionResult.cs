@@ -1,6 +1,6 @@
-using Genesis.Core.ValueObjects;
+using Genesis.Core;
 
-namespace Genesis.HashLife.Interfaces;
+namespace Genesis.HashLife;
 
 public interface IEvolutionResult
 {

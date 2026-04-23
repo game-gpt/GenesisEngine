@@ -1,6 +1,6 @@
-using Genesis.Core.Enums;
+using Genesis.Core;
 
-namespace Genesis.Rules.Interfaces;
+namespace Genesis.Rules;
 
 public interface IRule
 {

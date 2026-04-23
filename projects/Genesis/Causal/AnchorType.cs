@@ -1,4 +1,4 @@
-namespace Genesis.Causal.Enums;
+namespace Genesis.Causal;
 
 public enum AnchorType
 {

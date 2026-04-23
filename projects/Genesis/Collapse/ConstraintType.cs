@@ -1,4 +1,4 @@
-namespace Genesis.Collapse.Enums;
+namespace Genesis.Collapse;
 
 public enum ConstraintType
 {

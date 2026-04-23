@@ -1,4 +1,4 @@
-namespace Genesis.Core.ValueObjects;
+namespace Genesis.Core;
 
 public readonly record struct Position(double X, double Y, double Z)
 {

@@ -1,4 +1,4 @@
-namespace Genesis.World.Enums;
+namespace Genesis.World;
 
 public enum BiomeType
 {

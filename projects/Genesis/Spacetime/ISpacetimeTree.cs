@@ -1,7 +1,6 @@
-using Genesis.Core.Enums;
-using Genesis.Core.ValueObjects;
+using Genesis.Core;
 
-namespace Genesis.Spacetime.Interfaces;
+namespace Genesis.Spacetime;
 
 public interface ISpacetimeTree
 {

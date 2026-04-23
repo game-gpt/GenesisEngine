@@ -1,7 +1,6 @@
-using Genesis.Core.ValueObjects;
-using Genesis.Rendering.ValueObjects;
+using Genesis.Core;
 
-namespace Genesis.Rendering.Interfaces;
+namespace Genesis.Rendering;
 
 public interface IRenderableEntity
 {

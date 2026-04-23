@@ -1,4 +1,4 @@
-namespace Genesis.Core.Enums;
+namespace Genesis.Core;
 
 public enum NodeLevel
 {

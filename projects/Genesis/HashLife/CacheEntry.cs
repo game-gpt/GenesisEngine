@@ -1,6 +1,6 @@
-using Genesis.Core.ValueObjects;
+using Genesis.Core;
 
-namespace Genesis.HashLife.ValueObjects;
+namespace Genesis.HashLife;
 
 public readonly record struct CacheEntry(
     ulong NodeHash,

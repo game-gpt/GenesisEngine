@@ -1,7 +1,6 @@
-using Genesis.Core.Enums;
-using Genesis.Core.ValueObjects;
+using Genesis.Core;
 
-namespace Genesis.Attention.ValueObjects;
+namespace Genesis.Attention;
 
 public readonly record struct DirtyRegion(
     ulong RegionId,

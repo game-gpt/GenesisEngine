@@ -1,4 +1,4 @@
-namespace Genesis.Rules.ValueObjects;
+namespace Genesis.Rules;
 
 public readonly record struct RulePriority(int Value)
 {

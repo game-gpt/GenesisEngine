@@ -1,8 +1,6 @@
-using Genesis.Core.Enums;
-using Genesis.Core.ValueObjects;
-using Genesis.Spacetime.Interfaces;
+using Genesis.Core;
 
-namespace Genesis.Spacetime.Implementations;
+namespace Genesis.Spacetime;
 
 /// <summary>
 /// 时空树实现，管理时空节点的层级结构与索引

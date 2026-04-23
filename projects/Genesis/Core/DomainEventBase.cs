@@ -1,6 +1,4 @@
-using Genesis.Core.ValueObjects;
-
-namespace Genesis.Core.Events;
+namespace Genesis.Core;
 
 public abstract record DomainEventBase(EntityId AggregateId) : IDomainEvent
 {

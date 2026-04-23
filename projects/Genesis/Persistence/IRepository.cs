@@ -1,4 +1,4 @@
-namespace Genesis.Persistence.Interfaces;
+namespace Genesis.Persistence;
 
 public interface IRepository<T> : SolidDB.Core.IRepository<T> where T : class
 {

@@ -1,8 +1,6 @@
-using Genesis.Core.ValueObjects;
-using Genesis.Persistence.Interfaces;
 using SolidDB.Core;
 
-namespace Genesis.Persistence.Implementations;
+namespace Genesis.Persistence;
 
 public sealed class SolidHistoryStore : IHistoryStore, IAsyncDisposable
 {

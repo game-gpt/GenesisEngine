@@ -1,8 +1,6 @@
-using Genesis.Core.Enums;
-using Genesis.Core.ValueObjects;
-using Genesis.Spacetime.Interfaces;
+using Genesis.Core;
 
-namespace Genesis.Spacetime.Implementations;
+namespace Genesis.Spacetime;
 
 /// <summary>
 /// 层级区块节点，实现时空树中的空间分区与历史哈希链

@@ -1,6 +1,4 @@
-using Genesis.Core.ValueObjects;
-
-namespace Genesis.Persistence.Interfaces;
+namespace Genesis.Persistence;
 
 public interface IHistoryStore
 {

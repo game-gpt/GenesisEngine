@@ -1,6 +1,6 @@
-using Genesis.Core.ValueObjects;
+using Genesis.Core;
 
-namespace Genesis.World.Interfaces;
+namespace Genesis.World;
 
 public interface INoiseGenerator
 {

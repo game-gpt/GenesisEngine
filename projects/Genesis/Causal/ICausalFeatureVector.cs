@@ -1,4 +1,4 @@
-namespace Genesis.Causal.Interfaces;
+namespace Genesis.Causal;
 
 public interface ICausalFeatureVector
 {

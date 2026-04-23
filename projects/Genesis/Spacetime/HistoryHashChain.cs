@@ -1,6 +1,4 @@
-using Genesis.Spacetime.Interfaces;
-
-namespace Genesis.Spacetime.Implementations;
+namespace Genesis.Spacetime;
 
 /// <summary>
 /// 基于 Merkle 风格的历史哈希链实现

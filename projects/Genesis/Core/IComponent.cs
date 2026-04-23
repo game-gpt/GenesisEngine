@@ -1,4 +1,4 @@
-namespace Genesis.Core.Interfaces;
+namespace Genesis.Core;
 
 public interface IComponent
 {

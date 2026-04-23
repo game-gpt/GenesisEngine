@@ -1,7 +1,4 @@
-using Genesis.Core.ValueObjects;
-using Genesis.Persistence.Interfaces;
-
-namespace Genesis.Persistence.Implementations;
+namespace Genesis.Persistence;
 
 public class InMemoryHistoryStore : IHistoryStore
 {

@@ -1,7 +1,6 @@
-using Genesis.Core.Enums;
-using Genesis.Core.ValueObjects;
+using Genesis.Core;
 
-namespace Genesis.Spacetime.ValueObjects;
+namespace Genesis.Spacetime;
 
 public readonly record struct SpacetimeNode(
     ulong SpatialHash,

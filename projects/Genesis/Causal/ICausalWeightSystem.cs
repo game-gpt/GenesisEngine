@@ -1,6 +1,6 @@
-using Genesis.Core.ValueObjects;
+using Genesis.Core;
 
-namespace Genesis.Causal.Interfaces;
+namespace Genesis.Causal;
 
 public interface ICausalWeightSystem
 {

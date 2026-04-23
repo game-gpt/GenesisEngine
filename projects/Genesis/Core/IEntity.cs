@@ -1,6 +1,4 @@
-using Genesis.Core.ValueObjects;
-
-namespace Genesis.Core.Interfaces;
+namespace Genesis.Core;
 
 public interface IEntity
 {

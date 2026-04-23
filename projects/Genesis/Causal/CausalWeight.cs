@@ -1,4 +1,4 @@
-namespace Genesis.Causal.ValueObjects;
+namespace Genesis.Causal;
 
 public readonly record struct CausalWeight(string Dimension, double Value)
 {

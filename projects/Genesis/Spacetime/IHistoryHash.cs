@@ -1,4 +1,4 @@
-namespace Genesis.Spacetime.Interfaces;
+namespace Genesis.Spacetime;
 
 public interface IHistoryHash
 {

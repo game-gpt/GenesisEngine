@@ -1,4 +1,4 @@
-namespace Genesis.Core.Events;
+namespace Genesis.Core;
 
 public interface IDomainEventHandler<in TEvent> where TEvent : IDomainEvent
 {

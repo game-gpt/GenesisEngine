@@ -1,6 +1,4 @@
-using Genesis.Core.ValueObjects;
-
-namespace Genesis.Causal.Interfaces;
+namespace Genesis.Causal;
 
 public interface ICausalAnchor
 {

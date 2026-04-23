@@ -1,6 +1,6 @@
-using Genesis.Core.ValueObjects;
+using Genesis.Core;
 
-namespace Genesis.Rendering.ValueObjects;
+namespace Genesis.Rendering;
 
 public readonly record struct SceneDescription(
     ulong SceneHash,

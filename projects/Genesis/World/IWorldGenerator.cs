@@ -1,7 +1,6 @@
-using Genesis.Core.ValueObjects;
-using Genesis.World.Enums;
+using Genesis.Core;
 
-namespace Genesis.World.Interfaces;
+namespace Genesis.World;
 
 public interface IWorldGenerator
 {

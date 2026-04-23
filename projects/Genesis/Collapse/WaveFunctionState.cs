@@ -1,6 +1,6 @@
-using Genesis.Core.Enums;
+using Genesis.Core;
 
-namespace Genesis.Collapse.ValueObjects;
+namespace Genesis.Collapse;
 
 public readonly record struct WaveFunctionState(
     int CellCount,

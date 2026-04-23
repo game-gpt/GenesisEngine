@@ -1,4 +1,4 @@
-namespace Genesis.Attention.ValueObjects;
+namespace Genesis.Attention;
 
 public readonly record struct AttentionLevel(double Value)
 {

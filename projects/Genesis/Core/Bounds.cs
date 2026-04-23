@@ -1,4 +1,4 @@
-namespace Genesis.Core.ValueObjects;
+namespace Genesis.Core;
 
 public readonly record struct Bounds(double MinX, double MinY, double MinZ, double MaxX, double MaxY, double MaxZ)
 {

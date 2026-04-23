@@ -1,4 +1,4 @@
-namespace Genesis.Rules.Interfaces;
+namespace Genesis.Rules;
 
 public interface IDeterministicRule : IRule
 {

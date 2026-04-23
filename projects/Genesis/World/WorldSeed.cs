@@ -1,4 +1,4 @@
-namespace Genesis.World.ValueObjects;
+namespace Genesis.World;
 
 public readonly record struct WorldSeed(ulong Value)
 {

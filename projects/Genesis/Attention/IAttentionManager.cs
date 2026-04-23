@@ -1,9 +1,7 @@
-using Genesis.Core.Enums;
-using Genesis.Core.ValueObjects;
-using Genesis.Spacetime.Interfaces;
-using Genesis.Attention.ValueObjects;
+using Genesis.Core;
+using Genesis.Spacetime;
 
-namespace Genesis.Attention.Interfaces;
+namespace Genesis.Attention;
 
 public interface IAttentionManager
 {

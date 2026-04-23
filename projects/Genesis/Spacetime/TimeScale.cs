@@ -1,4 +1,4 @@
-namespace Genesis.Spacetime.ValueObjects;
+namespace Genesis.Spacetime;
 
 public readonly record struct TimeScale(double Value)
 {

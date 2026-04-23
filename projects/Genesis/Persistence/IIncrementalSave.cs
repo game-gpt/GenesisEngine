@@ -1,4 +1,4 @@
-namespace Genesis.Persistence.Interfaces;
+namespace Genesis.Persistence;
 
 public interface IIncrementalSave
 {

@@ -1,8 +1,6 @@
-using Genesis.Core.Enums;
-using Genesis.Core.ValueObjects;
-using Genesis.Spacetime.Interfaces;
+using Genesis.Core;
 
-namespace Genesis.Spacetime.Implementations;
+namespace Genesis.Spacetime;
 
 /// <summary>
 /// 空间哈希计算器，用于计算空间节点的哈希值

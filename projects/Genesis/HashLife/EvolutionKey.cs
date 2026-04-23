@@ -1,4 +1,4 @@
-namespace Genesis.HashLife.ValueObjects;
+namespace Genesis.HashLife;
 
 public readonly record struct EvolutionKey(ulong NodeHash, float DeltaTime)
 {

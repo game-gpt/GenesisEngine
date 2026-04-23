@@ -1,4 +1,4 @@
-namespace Genesis.Rendering.ValueObjects;
+namespace Genesis.Rendering;
 
 public readonly record struct CausalFeatures(double[] Values)
 {

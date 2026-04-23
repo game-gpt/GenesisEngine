@@ -1,7 +1,4 @@
-using Genesis.Core.Enums;
-using Genesis.Spacetime.Interfaces;
-
-namespace Genesis.Collapse.Interfaces;
+namespace Genesis.Collapse;
 
 public interface ICollapser
 {

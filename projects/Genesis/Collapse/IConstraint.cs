@@ -1,4 +1,4 @@
-namespace Genesis.Collapse.Interfaces;
+namespace Genesis.Collapse;
 
 public interface IConstraint
 {

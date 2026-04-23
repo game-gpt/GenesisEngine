@@ -1,6 +1,4 @@
-using Genesis.Core.ValueObjects;
-
-namespace Genesis.Causal.ValueObjects;
+namespace Genesis.Causal;
 
 public readonly record struct CausalAnchor(
     string Id,

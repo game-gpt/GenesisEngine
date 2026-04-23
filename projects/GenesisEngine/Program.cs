@@ -1,8 +1,6 @@
-using Genesis.EngineHost;
-
 var worldSeed = args.Length > 0 ? ulong.Parse(args[0]) : 42UL;
 
-using var host = new GenesisHost(worldSeed);
+using var host = new GenesisHost.GenesisHost(worldSeed);
 
 Console.CancelKeyPress += (_, e) =>
 {

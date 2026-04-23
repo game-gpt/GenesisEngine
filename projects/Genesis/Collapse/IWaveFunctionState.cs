@@ -1,6 +1,6 @@
-using Genesis.Core.Enums;
+using Genesis.Core;
 
-namespace Genesis.Collapse.Interfaces;
+namespace Genesis.Collapse;
 
 public interface IWaveFunctionState
 {

@@ -1,6 +1,4 @@
-using Genesis.Terraria;
-
-namespace Genesis.EngineHost;
+namespace GenesisHost;
 
 public class GenesisHost : IDisposable
 {

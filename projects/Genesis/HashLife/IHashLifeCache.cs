@@ -1,4 +1,4 @@
-namespace Genesis.HashLife.Interfaces;
+namespace Genesis.HashLife;
 
 public interface IHashLifeCache
 {
