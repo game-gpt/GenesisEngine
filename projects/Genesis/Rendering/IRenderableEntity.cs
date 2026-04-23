@@ -1,4 +1,5 @@
 using Genesis.Core;
+using Gnosis.ECS.Entity;
 
 namespace Genesis.Rendering;
 

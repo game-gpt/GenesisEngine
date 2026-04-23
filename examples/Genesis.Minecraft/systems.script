@@ -31,17 +31,22 @@ system PlayerMovementSystem3D {
             vel.vx = 0.0;
             vel.vz = 0.0;
 
+            let sprint_multiplier = 1.0;
+            if input.is_action_pressed("sprint") {
+                sprint_multiplier = 1.3;
+            }
+
             if input.is_action_pressed("move_forward") {
-                vel.vz = -4.317;
+                vel.vz = -4.317 * sprint_multiplier;
             }
             if input.is_action_pressed("move_backward") {
-                vel.vz = 4.317;
+                vel.vz = 4.317 * sprint_multiplier;
             }
             if input.is_action_pressed("move_left") {
-                vel.vx = -4.317;
+                vel.vx = -4.317 * sprint_multiplier;
             }
             if input.is_action_pressed("move_right") {
-                vel.vx = 4.317;
+                vel.vx = 4.317 * sprint_multiplier;
             }
             if input.is_action_just_pressed("jump") {
                 try_jump(pos, vel);
@@ -70,14 +75,27 @@ system PlayerMovementSystem3D {
     micro place_block(pos: BlockPosition) {
         let target = raycast_block(pos, 5.0);
         if target.is_valid {
-            world.set_block(target.x, target.y, target.z, BLOCK_STONE);
+            let inventory = player.get<Inventory>();
+            let held_item = inventory.item_ids[inventory.selected_slot];
+            if held_item != ITEM_NONE {
+                let block_id = item_to_block(held_item);
+                if block_id != BLOCK_AIR {
+                    world.set_block(target.x, target.y, target.z, block_id);
+                    remove_item_from_slot(inventory, inventory.selected_slot, 1);
+                }
+            }
         }
     }
 
     micro break_block(pos: BlockPosition) {
         let target = raycast_block(pos, 5.0);
         if target.is_valid {
-            world.set_block(target.x, target.y, target.z, BLOCK_AIR);
+            let block_id = world.get_block(target.x, target.y, target.z);
+            if block_id != BLOCK_AIR && block_id != BLOCK_BEDROCK {
+                world.set_block(target.x, target.y, target.z, BLOCK_AIR);
+                let item_id = block_to_item(block_id);
+                add_item_to_inventory(item_id, 1);
+            }
         }
     }
 }
@@ -99,7 +117,46 @@ system PhysicsSystem3D {
                 }
             }
 
+            let new_x = pos.x + vel.vx * delta;
+            if world.is_solid(new_x, pos.y, pos.z) {
+                new_x = pos.x;
+            }
+
+            let new_z = pos.z + vel.vz * delta;
+            if world.is_solid(pos.x, pos.y, new_z) {
+                new_z = pos.z;
+            }
+
+            pos.x = new_x;
             pos.y = new_y;
+            pos.z = new_z;
+        <% } %>
+    }
+}
+
+system FallDamageSystem {
+    query_players = Query.all(PlayerTag, BlockPosition, Velocity3D, FallDistance);
+
+    on_update(delta: f32) {
+        <% loop (_, pos, vel, fall) in query_players { %>
+            let on_ground = world.is_solid(pos.x, pos.y - 1, pos.z);
+
+            if !on_ground && vel.vy < 0 {
+                fall.distance += abs(vel.vy * delta);
+            }
+
+            if on_ground && !fall.was_on_ground {
+                if fall.distance > 3.0 {
+                    let damage = floor((fall.distance - 3.0) * 2);
+                    let entity = get_entity(pos);
+                    if entity.has<Health>() {
+                        entity.add(Damage { value: damage, source: DAMAGE_FALL });
+                    }
+                }
+                fall.distance = 0.0;
+            }
+
+            fall.was_on_ground = on_ground;
         <% } %>
     }
 }
@@ -136,6 +193,10 @@ system DamageSystem {
                 health.current = 0;
 
                 if entity.has<MobTag>() {
+                    let mob_tag = entity.get<MobTag>();
+                    let pos = entity.get<BlockPosition>();
+                    console::log($"{get_mob_name(mob_tag.mob_type)} 在 ({pos.x}, {pos.y}, {pos.z}) 被击败！");
+                    drop_mob_loot(mob_tag.mob_type, pos);
                     entities_to_destroy.push(entity);
                 }
                 else if entity.has<PlayerTag>() {
@@ -148,13 +209,26 @@ system DamageSystem {
             destroy_entity(entity);
         }
     }
+
+    micro drop_mob_loot(mob_type: i32, pos: BlockPosition) {
+        if mob_type == MOB_ZOMBIE {
+            add_item_to_inventory(ITEM_ROTTEN_FLESH, random_range(0, 3));
+        }
+        else if mob_type == MOB_SKELETON {
+            add_item_to_inventory(ITEM_BONE, random_range(0, 3));
+            add_item_to_inventory(ITEM_ARROW, random_range(0, 3));
+        }
+        else if mob_type == MOB_CREEPER {
+            add_item_to_inventory(ITEM_GUNPOWDER, random_range(0, 3));
+        }
+    }
 }
 
 system HungerSystem {
-    query_players = Query.all(PlayerTag, Hunger);
+    query_players = Query.all(PlayerTag, Hunger, Health);
 
     on_update(delta: f32) {
-        <% loop (_, hunger) in query_players { %>
+        <% loop (_, hunger, health) in query_players { %>
             if hunger.current > 0 {
                 hunger.saturation -= delta * 0.01;
                 if hunger.saturation < 0 {
@@ -164,11 +238,371 @@ system HungerSystem {
             }
 
             if hunger.current <= 0 {
+                hunger.current = 0;
                 let entity = get_entity(hunger);
-                if entity.has<Health>() {
-                    entity.add(Damage { value: 1, source: 0 });
+                entity.add(Damage { value: 1, source: DAMAGE_STARVATION });
+            }
+            else if hunger.current >= 18.0 && health.current < health.max {
+                health.current += 1;
+            }
+        <% } %>
+    }
+}
+
+system InventorySystem {
+    query_players = Query.all(PlayerTag, Inventory);
+
+    on_update(delta: f32) {
+        <% loop (_, inventory) in query_players { %>
+            handle_slot_selection(inventory);
+            handle_food_consumption(inventory);
+        <% } %>
+    }
+
+    micro handle_slot_selection(inventory: Inventory) {
+        let slot = -1;
+
+        if input.is_key_just_pressed("1") { slot = 0; }
+        else if input.is_key_just_pressed("2") { slot = 1; }
+        else if input.is_key_just_pressed("3") { slot = 2; }
+        else if input.is_key_just_pressed("4") { slot = 3; }
+        else if input.is_key_just_pressed("5") { slot = 4; }
+        else if input.is_key_just_pressed("6") { slot = 5; }
+        else if input.is_key_just_pressed("7") { slot = 6; }
+        else if input.is_key_just_pressed("8") { slot = 7; }
+        else if input.is_key_just_pressed("9") { slot = 8; }
+
+        if slot >= 0 && slot < inventory.slots {
+            inventory.selected_slot = slot;
+        }
+    }
+
+    micro handle_food_consumption(inventory: Inventory) {
+        if input.is_action_just_pressed("use_item") {
+            let held_item = inventory.item_ids[inventory.selected_slot];
+            let food_value = get_food_value(held_item);
+            if food_value > 0 {
+                let player = get_entity(inventory);
+                if player.has<Hunger>() {
+                    let hunger = player.get<Hunger>();
+                    if hunger.current < hunger.max {
+                        hunger.current = min(hunger.current + food_value, hunger.max);
+                        hunger.saturation = min(hunger.saturation + food_value * 0.4, hunger.max);
+                        remove_item_from_slot(inventory, inventory.selected_slot, 1);
+                    }
                 }
             }
+        }
+    }
+}
+
+system CraftingSystem {
+    query_players = Query.all(PlayerTag, CraftingInput, CraftingOutput);
+
+    on_update(delta: f32) {
+        <% loop (_, input, output) in query_players { %>
+            if input.slot_0 != ITEM_NONE || input.slot_1 != ITEM_NONE || input.slot_2 != ITEM_NONE
+                || input.slot_3 != ITEM_NONE || input.slot_4 != ITEM_NONE || input.slot_5 != ITEM_NONE
+                || input.slot_6 != ITEM_NONE || input.slot_7 != ITEM_NONE || input.slot_8 != ITEM_NONE {
+                let recipe = find_matching_recipe(input);
+                if recipe.is_valid {
+                    output.result_item = recipe.result_item;
+                    output.result_count = recipe.result_count;
+                }
+                else {
+                    output.result_item = ITEM_NONE;
+                    output.result_count = 0;
+                }
+            }
+
+            if input.is_dirty {
+                let recipe = find_matching_recipe(input);
+                if recipe.is_valid {
+                    output.result_item = recipe.result_item;
+                    output.result_count = recipe.result_count;
+                }
+                else {
+                    output.result_item = ITEM_NONE;
+                    output.result_count = 0;
+                }
+                input.is_dirty = false;
+            }
+
+            if input.is_dirty && output.result_item != ITEM_NONE {
+                if input.is_crafting {
+                    craft_item(input, output);
+                    input.is_crafting = false;
+                }
+            }
+        <% } %>
+    }
+
+    micro find_matching_recipe(input: CraftingInput) -> RecipeResult {
+        let recipes = asset.load<gonArray>("config/crafting_recipes.gon");
+
+        loop i in range(0, recipes.length()) {
+            let recipe = recipes.get(i);
+            let pattern = recipe.get("pattern");
+
+            if match_recipe_pattern(input, pattern) {
+                return RecipeResult {
+                    is_valid: true,
+                    result_item: recipe.get("result").get("item").as_int(),
+                    result_count: recipe.get("result").get("count").as_int()
+                };
+            }
+        }
+
+        return RecipeResult { is_valid: false, result_item: ITEM_NONE, result_count: 0 };
+    }
+
+    micro match_recipe_pattern(input: CraftingInput, pattern: gonObject) -> bool {
+        let slots = [input.slot_0, input.slot_1, input.slot_2,
+                     input.slot_3, input.slot_4, input.slot_5,
+                     input.slot_6, input.slot_7, input.slot_8];
+
+        let min_row = 3;
+        let min_col = 3;
+        let max_row = -1;
+        let max_col = -1;
+
+        loop row in range(0, 3) {
+            loop col in range(0, 3) {
+                let idx = row * 3 + col;
+                if slots[idx] != ITEM_NONE {
+                    if row < min_row { min_row = row; }
+                    if row > max_row { max_row = row; }
+                    if col < min_col { min_col = col; }
+                    if col > max_col { max_col = col; }
+                }
+            }
+        }
+
+        if max_row < 0 {
+            return false;
+        }
+
+        let pattern_rows = pattern.get("rows").as_int();
+        let pattern_cols = pattern.get("cols").as_int();
+        let actual_rows = max_row - min_row + 1;
+        let actual_cols = max_col - min_col + 1;
+
+        if actual_rows != pattern_rows || actual_cols != pattern_cols {
+            return false;
+        }
+
+        let keys = pattern.get("keys");
+        loop row in range(0, actual_rows) {
+            loop col in range(0, actual_cols) {
+                let src_row = min_row + row;
+                let src_col = min_col + col;
+                let src_idx = src_row * 3 + src_col;
+                let expected_key = keys.get(row).get(col).as_string();
+
+                if expected_key == " " {
+                    if slots[src_idx] != ITEM_NONE {
+                        return false;
+                    }
+                }
+                else {
+                    let ingredient = pattern.get("ingredients").get(expected_key).as_int();
+                    if slots[src_idx] != ingredient {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        return true;
+    }
+
+    micro craft_item(input: CraftingInput, output: CraftingOutput) {
+        let inventory = player.get<Inventory>();
+        add_item_to_inventory(output.result_item, output.result_count);
+
+        input.slot_0 = ITEM_NONE;
+        input.slot_1 = ITEM_NONE;
+        input.slot_2 = ITEM_NONE;
+        input.slot_3 = ITEM_NONE;
+        input.slot_4 = ITEM_NONE;
+        input.slot_5 = ITEM_NONE;
+        input.slot_6 = ITEM_NONE;
+        input.slot_7 = ITEM_NONE;
+        input.slot_8 = ITEM_NONE;
+
+        output.result_item = ITEM_NONE;
+        output.result_count = 0;
+
+        console::log("合成完成！");
+    }
+}
+
+system MobSpawnSystem {
+    query_spawners = Query.all(MobSpawner);
+    query_players = Query.all(PlayerTag, BlockPosition);
+
+    on_update(delta: f32) {
+        <% loop (spawner, _) in query_spawners { %>
+            spawner.spawn_timer += delta;
+
+            if spawner.spawn_timer < spawner.spawn_interval {
+                continue;
+            }
+            spawner.spawn_timer = 0;
+
+            let mob_count = count_nearby_mobs(spawner);
+            if mob_count >= spawner.max_mobs {
+                continue;
+            }
+
+            <% loop (_, player_pos) in query_players { %>
+                try_spawn_mob(spawner, player_pos);
+            <% } %>
+        <% } %>
+    }
+
+    micro try_spawn_mob(spawner: MobSpawner, player_pos: BlockPosition) {
+        let angle = random() * 6.2832;
+        let dist = random_range(10.0, spawner.spawn_radius);
+        let spawn_x = player_pos.x + round(cos(angle) * dist);
+        let spawn_z = player_pos.z + round(sin(angle) * dist);
+
+        let spawn_y = find_surface_at(spawn_x, spawn_z);
+        if spawn_y < 0 {
+            return;
+        }
+
+        let daytime = get_daytime();
+        let is_night = daytime < 0.25 || daytime > 0.75;
+
+        let mob_type = MOB_ZOMBIE;
+        if is_night {
+            let roll = random();
+            if roll < 0.4 {
+                mob_type = MOB_ZOMBIE;
+            }
+            else if roll < 0.7 {
+                mob_type = MOB_SKELETON;
+            }
+            else {
+                mob_type = MOB_CREEPER;
+            }
+        }
+        else {
+            return;
+        }
+
+        let mob = create_entity();
+        mob.add(MobTag { mob_type: mob_type, ai_state: AI_IDLE });
+        mob.add(BlockPosition { x: spawn_x, y: spawn_y, z: spawn_z });
+        mob.add(Velocity3D { vx: 0.0, vy: 0.0, vz: 0.0 });
+        mob.add(Health { current: get_mob_max_health(mob_type), max: get_mob_max_health(mob_type) });
+    }
+
+    micro find_surface_at(x: i32, z: i32) -> i32 {
+        loop y in range(255, -1, -1) {
+            if world.is_solid(x, y, z) {
+                return y + 1;
+            }
+        }
+        return -1;
+    }
+
+    micro count_nearby_mobs(spawner: MobSpawner) -> i32 {
+        let count = 0;
+        <% loop (_, mob_pos) in Query.all(MobTag, BlockPosition) { %>
+            count += 1;
+        <% } %>
+        return count;
+    }
+}
+
+system MobAISystem {
+    query_mobs = Query.all(MobTag, BlockPosition, Velocity3D);
+    query_players = Query.all(PlayerTag, BlockPosition);
+    ai_timer: f32 = 0.0;
+
+    on_update(delta: f32) {
+        ai_timer += delta;
+
+        if ai_timer < 0.5 {
+            return;
+        }
+        ai_timer = 0;
+
+        <% loop (_, player_pos) in query_players { %>
+            <% loop (mob_tag, pos, vel) in query_mobs { %>
+                let dx = player_pos.x - pos.x;
+                let dz = player_pos.z - pos.z;
+                let distance = sqrt((dx * dx + dz * dz) as f32);
+
+                if mob_tag.ai_state == AI_IDLE {
+                    if distance < 16 {
+                        mob_tag.ai_state = AI_CHASE;
+                    }
+                    else if random() < 0.2 {
+                        mob_tag.ai_state = AI_WANDER;
+                    }
+                }
+                else if mob_tag.ai_state == AI_WANDER {
+                    if distance < 16 {
+                        mob_tag.ai_state = AI_CHASE;
+                    }
+                    else {
+                        let move_x = random_range(-1, 2);
+                        let move_z = random_range(-1, 2);
+                        let new_x = pos.x + move_x;
+                        let new_z = pos.z + move_z;
+                        if !world.is_solid(new_x, pos.y, new_z) {
+                            pos.x = new_x;
+                            pos.z = new_z;
+                        }
+                        if random() < 0.3 {
+                            mob_tag.ai_state = AI_IDLE;
+                        }
+                    }
+                }
+                else if mob_tag.ai_state == AI_CHASE {
+                    if distance > 24 {
+                        mob_tag.ai_state = AI_IDLE;
+                    }
+                    else if distance < 2 {
+                        mob_tag.ai_state = AI_ATTACK;
+                    }
+                    else {
+                        let move_x = 0;
+                        let move_z = 0;
+                        if dx > 0 { move_x = 1; }
+                        else if dx < 0 { move_x = -1; }
+                        if dz > 0 { move_z = 1; }
+                        else if dz < 0 { move_z = -1; }
+
+                        let new_x = pos.x + move_x;
+                        let new_z = pos.z + move_z;
+                        if !world.is_solid(new_x, pos.y, new_z) {
+                            pos.x = new_x;
+                            pos.z = new_z;
+                        }
+                        else if !world.is_solid(new_x, pos.y + 1, new_z) {
+                            pos.x = new_x;
+                            pos.y += 1;
+                            pos.z = new_z;
+                        }
+                    }
+                }
+                else if mob_tag.ai_state == AI_ATTACK {
+                    if distance > 3 {
+                        mob_tag.ai_state = AI_CHASE;
+                    }
+                    else if random() < 0.4 {
+                        let player_entity = get_entity(player_pos);
+                        if player_entity.has<Health>() {
+                            let damage = get_mob_attack_damage(mob_tag.mob_type);
+                            player_entity.add(Damage { value: damage, source: mob_tag.mob_type });
+                        }
+                    }
+                }
+            <% } %>
         <% } %>
     }
 }
@@ -177,6 +611,262 @@ system WorldGenerationSystem {
     on_load() {
         let config = asset.load<gonObject>("config/world.gon");
         let seed = config.get("seed").as_u64();
-        console::log($"世界生成开始 - 种子: {seed}");
+        let chunk_width = config.get("world_size").get("chunk_width").as_int();
+        let chunk_height = config.get("world_size").get("chunk_height").as_int();
+        let chunk_depth = config.get("world_size").get("chunk_depth").as_int();
+        let sea_level = config.get("generation").get("sea_level").as_int();
+
+        let tilemap_entity = create_entity();
+        tilemap_entity.add(TileMapData { width: chunk_width, height: chunk_height, seed: seed });
+
+        generate_spawn_chunks(seed, chunk_width, chunk_height, chunk_depth, sea_level);
+
+        let spawn_y = find_spawn_point(seed, chunk_width, chunk_height, sea_level);
+        let spawn_x = chunk_width / 2;
+        let spawn_z = chunk_depth / 2;
+
+        create_player(spawn_x, spawn_y, spawn_z);
+        create_mob_spawner();
+
+        console::log($"世界生成完成 - 种子: {seed}");
+    }
+
+    micro generate_spawn_chunks(seed: u64, width: i32, height: i32, depth: i32, sea_level: i32) {
+        loop cx in range(-1, 2) {
+            loop cz in range(-1, 2) {
+                generate_chunk_terrain(seed, cx, cz, width, height, depth, sea_level);
+            }
+        }
+    }
+
+    micro generate_chunk_terrain(seed: u64, cx: i32, cz: i32, width: i32, height: i32, depth: i32, sea_level: i32) {
+        let base_x = cx * width;
+        let base_z = cz * depth;
+
+        loop x in range(0, width) {
+            loop z in range(0, depth) {
+                let world_x = base_x + x;
+                let world_z = base_z + z;
+
+                let biome = get_biome_at(world_x, world_z, seed);
+                let surface_height = calculate_surface_height(world_x, world_z, seed, sea_level);
+
+                loop y in range(0, height) {
+                    if y == 0 {
+                        world.set_block(world_x, y, world_z, BLOCK_BEDROCK);
+                    }
+                    else if y < surface_height - 4 {
+                        world.set_block(world_x, y, world_z, BLOCK_STONE);
+                    }
+                    else if y < surface_height {
+                        if biome == BIOME_DESERT {
+                            world.set_block(world_x, y, world_z, BLOCK_SAND);
+                        }
+                        else {
+                            world.set_block(world_x, y, world_z, BLOCK_DIRT);
+                        }
+                    }
+                    else if y == surface_height {
+                        if biome == BIOME_DESERT {
+                            world.set_block(world_x, y, world_z, BLOCK_SAND);
+                        }
+                        else if biome == BIOME_TAIGA || biome == BIOME_MOUNTAINS {
+                            world.set_block(world_x, y, world_z, BLOCK_SNOW);
+                        }
+                        else {
+                            world.set_block(world_x, y, world_z, BLOCK_GRASS);
+                        }
+                    }
+                    else if y <= sea_level && y > surface_height {
+                        world.set_block(world_x, y, world_z, BLOCK_WATER);
+                    }
+                    else {
+                        world.set_block(world_x, y, world_z, BLOCK_AIR);
+                    }
+                }
+            }
+        }
+
+        generate_caves(seed, base_x, base_z, width, height, depth);
+        generate_ores(seed, base_x, base_z, width, height, depth);
+        generate_trees(seed, base_x, base_z, width, height, depth, surface_height, biome);
+    }
+
+    micro calculate_surface_height(x: i32, z: i32, seed: u64, sea_level: i32) -> i32 {
+        let base = sea_level;
+        let hill = noise.fractal_2d(seed, x * 0.01, z * 0.01, 6) * 20;
+        let detail = noise.fractal_2d(seed ^ 0x11111111, x * 0.05, z * 0.05, 3) * 5;
+        return floor(base + hill + detail);
+    }
+
+    micro get_biome_at(x: i32, z: i32, seed: u64) -> i32 {
+        let temp = noise.fractal_2d(seed ^ 0xAAAAAAAA, x * 0.005, z * 0.005, 4);
+        let humid = noise.fractal_2d(seed ^ 0x55555555, x * 0.005, z * 0.005, 4);
+
+        if temp < 0.2 { return BIOME_TAIGA; }
+        if temp > 0.7 && humid < 0.3 { return BIOME_DESERT; }
+        if humid > 0.7 { return BIOME_OCEAN; }
+        if temp > 0.5 && humid > 0.4 { return BIOME_FOREST; }
+        if temp > 0.6 { return BIOME_MOUNTAINS; }
+        return BIOME_PLAINS;
+    }
+
+    micro generate_caves(seed: u64, base_x: i32, base_z: i32, width: i32, height: i32, depth: i32) {
+        loop x in range(0, width) {
+            loop z in range(0, depth) {
+                loop y in range(1, height) {
+                    let world_x = base_x + x;
+                    let world_z = base_z + z;
+                    if world.get_block(world_x, y, world_z) == BLOCK_AIR {
+                        continue;
+                    }
+                    if world.get_block(world_x, y, world_z) == BLOCK_WATER {
+                        continue;
+                    }
+                    let cave_value = noise.fractal_3d(seed ^ 0x12345678, world_x * 0.04, y * 0.04, world_z * 0.04, 3);
+                    if cave_value > 0.4 {
+                        world.set_block(world_x, y, world_z, BLOCK_AIR);
+                    }
+                }
+            }
+        }
+    }
+
+    micro generate_ores(seed: u64, base_x: i32, base_z: i32, width: i32, height: i32, depth: i32) {
+        loop x in range(0, width) {
+            loop z in range(0, depth) {
+                loop y in range(1, height) {
+                    let world_x = base_x + x;
+                    let world_z = base_z + z;
+                    if world.get_block(world_x, y, world_z) != BLOCK_STONE {
+                        continue;
+                    }
+                    let depth_ratio = y as f32 / height as f32;
+
+                    let coal_val = noise.fractal_3d(seed ^ 0xFEDCBA98, (world_x + 1000) * 0.08, y * 0.08, world_z * 0.08, 2);
+                    if coal_val > 0.5 && depth_ratio > 0.1 {
+                        world.set_block(world_x, y, world_z, BLOCK_COAL_ORE);
+                        continue;
+                    }
+                    let iron_val = noise.fractal_3d(seed ^ 0xFEDCBA99, (world_x + 2000) * 0.08, y * 0.08, world_z * 0.08, 2);
+                    if iron_val > 0.55 && depth_ratio > 0.25 {
+                        world.set_block(world_x, y, world_z, BLOCK_IRON_ORE);
+                        continue;
+                    }
+                    let gold_val = noise.fractal_3d(seed ^ 0xFEDCBAA0, (world_x + 3000) * 0.08, y * 0.08, world_z * 0.08, 2);
+                    if gold_val > 0.6 && depth_ratio > 0.4 {
+                        world.set_block(world_x, y, world_z, BLOCK_GOLD_ORE);
+                        continue;
+                    }
+                    let diamond_val = noise.fractal_3d(seed ^ 0xFEDCBAA1, (world_x + 4000) * 0.1, y * 0.1, world_z * 0.1, 2);
+                    if diamond_val > 0.7 && depth_ratio > 0.6 {
+                        world.set_block(world_x, y, world_z, BLOCK_DIAMOND_ORE);
+                    }
+                }
+            }
+        }
+    }
+
+    micro generate_trees(seed: u64, base_x: i32, base_z: i32, width: i32, height: i32, depth: i32, surface_height: i32, biome: i32) {
+        loop x in range(2, width - 2) {
+            loop z in range(2, depth - 2) {
+                if random() > 0.02 {
+                    continue;
+                }
+                let world_x = base_x + x;
+                let world_z = base_z + z;
+                let local_biome = get_biome_at(world_x, world_z, seed);
+
+                if local_biome == BIOME_DESERT || local_biome == BIOME_OCEAN {
+                    continue;
+                }
+
+                let tree_y = find_surface_at(world_x, world_z, height);
+                if tree_y < 0 {
+                    continue;
+                }
+
+                let block_below = world.get_block(world_x, tree_y - 1, world_z);
+                if block_below != BLOCK_GRASS && block_below != BLOCK_DIRT {
+                    continue;
+                }
+
+                let tree_height = random_range(4, 7);
+                loop ty in range(0, tree_height) {
+                    if tree_y + ty < height {
+                        world.set_block(world_x, tree_y + ty, world_z, BLOCK_WOOD);
+                    }
+                }
+
+                let leaf_start = tree_y + tree_height - 2;
+                loop lx in range(-2, 3) {
+                    loop lz in range(-2, 3) {
+                        loop ly in range(0, 3) {
+                            if abs(lx) == 2 && abs(lz) == 2 && ly < 2 {
+                                continue;
+                            }
+                            let tx = world_x + lx;
+                            let tz = world_z + lz;
+                            let ty = leaf_start + ly;
+                            if tx >= 0 && tx < width && tz >= 0 && tz < depth && ty < height {
+                                if world.get_block(tx, ty, tz) == BLOCK_AIR {
+                                    world.set_block(tx, ty, tz, BLOCK_LEAF);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    micro find_surface_at(x: i32, z: i32, height: i32) -> i32 {
+        loop y in range(height - 1, -1, -1) {
+            let block = world.get_block(x, y, z);
+            if block != BLOCK_AIR && block != BLOCK_WATER && block != BLOCK_LEAF {
+                return y + 1;
+            }
+        }
+        return -1;
+    }
+
+    micro find_spawn_point(seed: u64, width: i32, height: i32, sea_level: i32) -> i32 {
+        let center_x = width / 2;
+        let center_z = height / 2;
+        loop y in range(sea_level + 10, -1, -1) {
+            if world.is_solid(center_x, y, center_z) {
+                return y + 1;
+            }
+        }
+        return sea_level + 1;
+    }
+
+    micro create_player(spawn_x: i32, spawn_y: i32, spawn_z: i32) {
+        let player = create_entity();
+        player.add(PlayerTag { player_id: 0 });
+        player.add(BlockPosition { x: spawn_x, y: spawn_y, z: spawn_z });
+        player.add(Velocity3D { vx: 0.0, vy: 0.0, vz: 0.0 });
+        player.add(Health { current: 20, max: 20 });
+        player.add(Inventory { slots: 36, selected_slot: 0 });
+        player.add(Hunger { current: 20.0, max: 20.0, saturation: 5.0 });
+        player.add(CameraFollow3D { offset_x: 0.0, offset_y: 1.62, offset_z: 0.0, smoothing: 0.1 });
+        player.add(FallDistance { distance: 0.0, was_on_ground: true });
+        player.add(CraftingInput { slot_0: ITEM_NONE, slot_1: ITEM_NONE, slot_2: ITEM_NONE,
+                                    slot_3: ITEM_NONE, slot_4: ITEM_NONE, slot_5: ITEM_NONE,
+                                    slot_6: ITEM_NONE, slot_7: ITEM_NONE, slot_8: ITEM_NONE });
+        player.add(CraftingOutput { result_item: ITEM_NONE, result_count: 0 });
+
+        let inventory = player.get<Inventory>();
+        inventory.item_ids[0] = ITEM_WOODEN_PICKAXE;
+        inventory.item_counts[0] = 1;
+        inventory.item_ids[1] = ITEM_WOODEN_SWORD;
+        inventory.item_counts[1] = 1;
+        inventory.item_ids[2] = ITEM_WOODEN_AXE;
+        inventory.item_counts[2] = 1;
+    }
+
+    micro create_mob_spawner() {
+        let spawner = create_entity();
+        spawner.add(MobSpawner { spawn_radius: 24.0, max_mobs: 6, spawn_timer: 0.0, spawn_interval: 30.0, mob_types: [] });
     }
 }

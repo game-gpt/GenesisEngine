@@ -1,0 +1,268 @@
+CraftingRecipes {
+    recipes: [
+        RecipeEntry {
+            name: "木棍",
+            pattern: {
+                rows: 2,
+                cols: 1,
+                keys: [
+                    ["W"],
+                    ["W"]
+                ],
+                ingredients: {
+                    W: ITEM_WOOD_PLANKS
+                }
+            },
+            result: { item: ITEM_STICK, count: 4 }
+        },
+        RecipeEntry {
+            name: "木板",
+            pattern: {
+                rows: 1,
+                cols: 1,
+                keys: [
+                    ["W"]
+                ],
+                ingredients: {
+                    W: ITEM_WOOD
+                }
+            },
+            result: { item: ITEM_WOOD_PLANKS, count: 4 }
+        },
+        RecipeEntry {
+            name: "木镐",
+            pattern: {
+                rows: 2,
+                cols: 3,
+                keys: [
+                    ["P", "P", "P"],
+                    [" ", "S", " "]
+                ],
+                ingredients: {
+                    P: ITEM_WOOD_PLANKS,
+                    S: ITEM_STICK
+                }
+            },
+            result: { item: ITEM_WOODEN_PICKAXE, count: 1 }
+        },
+        RecipeEntry {
+            name: "木剑",
+            pattern: {
+                rows: 2,
+                cols: 1,
+                keys: [
+                    ["P"],
+                    ["S"]
+                ],
+                ingredients: {
+                    P: ITEM_WOOD_PLANKS,
+                    S: ITEM_STICK
+                }
+            },
+            result: { item: ITEM_WOODEN_SWORD, count: 1 }
+        },
+        RecipeEntry {
+            name: "木斧",
+            pattern: {
+                rows: 2,
+                cols: 2,
+                keys: [
+                    ["P", "P"],
+                    ["P", "S"]
+                ],
+                ingredients: {
+                    P: ITEM_WOOD_PLANKS,
+                    S: ITEM_STICK
+                }
+            },
+            result: { item: ITEM_WOODEN_AXE, count: 1 }
+        },
+        RecipeEntry {
+            name: "石镐",
+            pattern: {
+                rows: 2,
+                cols: 3,
+                keys: [
+                    ["C", "C", "C"],
+                    [" ", "S", " "]
+                ],
+                ingredients: {
+                    C: ITEM_COBBLESTONE,
+                    S: ITEM_STICK
+                }
+            },
+            result: { item: ITEM_STONE_PICKAXE, count: 1 }
+        },
+        RecipeEntry {
+            name: "石剑",
+            pattern: {
+                rows: 2,
+                cols: 1,
+                keys: [
+                    ["C"],
+                    ["S"]
+                ],
+                ingredients: {
+                    C: ITEM_COBBLESTONE,
+                    S: ITEM_STICK
+                }
+            },
+            result: { item: ITEM_STONE_SWORD, count: 1 }
+        },
+        RecipeEntry {
+            name: "石斧",
+            pattern: {
+                rows: 2,
+                cols: 2,
+                keys: [
+                    ["C", "C"],
+                    ["C", "S"]
+                ],
+                ingredients: {
+                    C: ITEM_COBBLESTONE,
+                    S: ITEM_STICK
+                }
+            },
+            result: { item: ITEM_STONE_AXE, count: 1 }
+        },
+        RecipeEntry {
+            name: "铁镐",
+            pattern: {
+                rows: 2,
+                cols: 3,
+                keys: [
+                    ["I", "I", "I"],
+                    [" ", "S", " "]
+                ],
+                ingredients: {
+                    I: ITEM_IRON_INGOT,
+                    S: ITEM_STICK
+                }
+            },
+            result: { item: ITEM_IRON_PICKAXE, count: 1 }
+        },
+        RecipeEntry {
+            name: "铁剑",
+            pattern: {
+                rows: 2,
+                cols: 1,
+                keys: [
+                    ["I"],
+                    ["S"]
+                ],
+                ingredients: {
+                    I: ITEM_IRON_INGOT,
+                    S: ITEM_STICK
+                }
+            },
+            result: { item: ITEM_IRON_SWORD, count: 1 }
+        },
+        RecipeEntry {
+            name: "铁斧",
+            pattern: {
+                rows: 2,
+                cols: 2,
+                keys: [
+                    ["I", "I"],
+                    ["I", "S"]
+                ],
+                ingredients: {
+                    I: ITEM_IRON_INGOT,
+                    S: ITEM_STICK
+                }
+            },
+            result: { item: ITEM_IRON_AXE, count: 1 }
+        },
+        RecipeEntry {
+            name: "铁锭",
+            pattern: {
+                rows: 1,
+                cols: 1,
+                keys: [
+                    ["O"]
+                ],
+                ingredients: {
+                    O: ITEM_IRON_ORE
+                }
+            },
+            result: { item: ITEM_IRON_INGOT, count: 1 }
+        },
+        RecipeEntry {
+            name: "金锭",
+            pattern: {
+                rows: 1,
+                cols: 1,
+                keys: [
+                    ["O"]
+                ],
+                ingredients: {
+                    O: ITEM_GOLD_ORE
+                }
+            },
+            result: { item: ITEM_GOLD_INGOT, count: 1 }
+        },
+        RecipeEntry {
+            name: "钻石镐",
+            pattern: {
+                rows: 2,
+                cols: 3,
+                keys: [
+                    ["D", "D", "D"],
+                    [" ", "S", " "]
+                ],
+                ingredients: {
+                    D: ITEM_DIAMOND,
+                    S: ITEM_STICK
+                }
+            },
+            result: { item: ITEM_DIAMOND_PICKAXE, count: 1 }
+        },
+        RecipeEntry {
+            name: "钻石剑",
+            pattern: {
+                rows: 2,
+                cols: 1,
+                keys: [
+                    ["D"],
+                    ["S"]
+                ],
+                ingredients: {
+                    D: ITEM_DIAMOND,
+                    S: ITEM_STICK
+                }
+            },
+            result: { item: ITEM_DIAMOND_SWORD, count: 1 }
+        },
+        RecipeEntry {
+            name: "熔炉",
+            pattern: {
+                rows: 3,
+                cols: 3,
+                keys: [
+                    ["C", "C", "C"],
+                    ["C", " ", "C"],
+                    ["C", "C", "C"]
+                ],
+                ingredients: {
+                    C: ITEM_COBBLESTONE
+                }
+            },
+            result: { item: ITEM_FURNACE, count: 1 }
+        },
+        RecipeEntry {
+            name: "箱子",
+            pattern: {
+                rows: 2,
+                cols: 3,
+                keys: [
+                    ["P", "P", "P"],
+                    ["P", "P", "P"]
+                ],
+                ingredients: {
+                    P: ITEM_WOOD_PLANKS
+                }
+            },
+            result: { item: ITEM_CHEST, count: 1 }
+        }
+    ]
+}

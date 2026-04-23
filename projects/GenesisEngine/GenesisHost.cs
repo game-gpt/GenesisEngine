@@ -1,12 +1,16 @@
+using Gnosis.ECS.World;
+
 namespace GenesisHost;
 
 public class GenesisHost : IDisposable
 {
     #region 私有字段
 
-    private TerrariaGame? _terrariaGame;
     private readonly ulong _worldSeed;
+    private World? _world;
+    private bool _isRunning;
     private bool _disposed;
+    private DateTime _lastFrameTime;
 
     #endregion
 
@@ -25,22 +29,42 @@ public class GenesisHost : IDisposable
     {
         Console.WriteLine($"[Genesis] 引擎初始化 - 世界种子: {_worldSeed}");
 
-        _terrariaGame = new TerrariaGame(_worldSeed);
-        _terrariaGame.Initialize();
+        _world = new World();
+        _isRunning = true;
+        _lastFrameTime = DateTime.UtcNow;
+
+        Console.WriteLine("[Genesis] ECS 世界已创建");
     }
 
     public void Run()
     {
+        if (_world is null)
+        {
+            throw new InvalidOperationException("引擎未初始化，请先调用 Initialize()");
+        }
+
         Console.WriteLine("[Genesis] 引擎主循环启动");
 
-        _terrariaGame?.Run();
+        while (_isRunning)
+        {
+            var now = DateTime.UtcNow;
+            var delta = (float)(now - _lastFrameTime).TotalSeconds;
+            _lastFrameTime = now;
+
+            if (delta > 0.1f)
+            {
+                delta = 0.1f;
+            }
+
+            _world.Update(delta);
+        }
 
         Console.WriteLine("[Genesis] 引擎主循环退出");
     }
 
     public void Shutdown()
     {
-        _terrariaGame?.Shutdown();
+        _isRunning = false;
         Console.WriteLine("[Genesis] 引擎关闭");
     }
 
@@ -55,7 +79,7 @@ public class GenesisHost : IDisposable
             return;
         }
 
-        _terrariaGame?.Dispose();
+        _world = null;
         _disposed = true;
     }
 

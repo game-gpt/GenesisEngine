@@ -7,8 +7,26 @@ on:
     branches: [ "master", "dev" ]
 
 jobs:
+  language-check:
+    runs-on: ubuntu-latest
+    name: Layer 3 Language Check
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Check examples directory for C# files
+      run: |
+        cs_files=$(find examples/ -name "*.cs" 2>/dev/null)
+        if [ -n "$cs_files" ]; then
+          echo "::error::Layer 3 (examples/) 目录禁止包含 C# 文件。游戏逻辑应使用 GGScript 编写。"
+          echo "发现以下违规文件："
+          echo "$cs_files"
+          exit 1
+        fi
+        echo "✅ 语言检查通过：examples/ 目录无 C# 文件"
+
   build:
     runs-on: ubuntu-latest
+    needs: language-check
 
     steps:
     - uses: actions/checkout@v6

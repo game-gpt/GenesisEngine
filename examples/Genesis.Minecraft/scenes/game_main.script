@@ -23,14 +23,18 @@ scene GameMain {
     }
 
     micro handle_input(delta: f32) {
-        let pos = player.get<BlockPosition>();
-        let vel = player.get<Velocity3D>();
-        vel.vx = 0.0;
-        vel.vz = 0.0;
+        if player.is_valid {
+            let pos = player.get<BlockPosition>();
+            let vel = player.get<Velocity3D>();
+            vel.vx = 0.0;
+            vel.vz = 0.0;
+        }
     }
 
     micro update_camera() {
-        let pos = player.get<BlockPosition>();
-        let camera_follow = player.get<CameraFollow3D>();
+        if player.is_valid {
+            let pos = player.get<BlockPosition>();
+            let camera_follow = player.get<CameraFollow3D>();
+        }
     }
 }

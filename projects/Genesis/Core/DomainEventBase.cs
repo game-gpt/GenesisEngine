@@ -1,3 +1,5 @@
+using Gnosis.ECS.Entity;
+
 namespace Genesis.Core;
 
 public abstract record DomainEventBase(EntityId AggregateId) : IDomainEvent
