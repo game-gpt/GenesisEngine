@@ -1,86 +1,114 @@
-# Terraria 风格 2D 沙盒适配
+# Terraria 风格适配
 
-> **⚠️ 语言规则**：本文档描述的是 Layer 3 游戏内容，所有代码示例必须使用 GGScript/GGShader，**禁止使用 C#**。游戏内容位于 `examples/Genesis.Terraria/`。
+本指南展示如何使用 Genesis Engine 创建 Terraria 风格的 2D 沙盒游戏。
 
-## 核心挑战
+## 核心机制
 
-| 挑战项 | 描述 |
-| :--- | :--- |
-| 巨大世界 | 大型世界可达 8400 × 2400 物块 |
-| 生物群系蔓延 | 猩红/腐化/神圣的动态扩散 |
-| NPC 生态 | 城镇系统、快乐度、入住条件 |
-| 世界生成 | 复杂的洞穴、结构、矿物分布 |
+| 机制 | 实现方式 |
+|:---|:---|
+| 2D 方块世界 | `TileComponent` 和 `WorldSystem` |
+| 挖掘/建造 | `MiningSystem` 处理方块交互 |
+| 物品/装备 | `InventorySystem` 管理物品 |
+| 生物群落 | `BiomeSystem` 基于深度和位置 |
+| Boss 战 | `BossSystem` 处理特殊敌人 |
 
-## 层级策略
-
-### 世界划分
-
-- 使用**四叉树**层级结构
-- 玩家周围 **3×3 大区块**保持 L0/L1 精度
-- 远方区域降级为 L2 概率云
-
-### L0/L1 层级分配
-
-| 层级 | 范围 | 更新频率 | 内容 |
-| :--- | :--- | :--- | :--- |
-| L0 | 玩家周围 1 屏 | 60Hz | 玩家、射弹、交互物块 |
-| L1 | 玩家周围 3 屏 | 20Hz | 怪物、流动液体、火焰 |
-| L2 | 其他区域 | 按需坍缩 | 未加载洞穴、远方森林 |
-
-## 生物群系蔓延
-
-### 猩红/腐化蔓延处理
+## 项目结构
 
 ```
-L2 层存储：
-├── 蔓延边界坐标
-├── 蔓延速度参数
-└── 已感染区块列表
+Genesis.Game.Terraria/
+├── components.script      # 图块、物品、NPC 组件
+├── systems.script         # 挖掘、生成、战斗系统
+├── scenes/
+│   └── game_main.story    # 主游戏场景
+├── config/
+│   ├── tile_colors.gon    # 图块颜色配置
+│   └── world.gon          # 世界生成配置
+└── shaders/
+    ├── tile.shader        # 图块着色器
+    ├── entity.shader      # 实体着色器
+    └── renderer.shader    # 渲染器着色器
 ```
 
-- **宏观模型**：L2 层以边界参数存储蔓延状态
-- **细节生成**：玩家接近时通过 `WFC` 坍缩生成感染细节
-- **因果保证**：历史哈希确保蔓延结果自洽
+## 关键组件
 
-## NPC 城镇管理
+```valkyrie
+// components.script
+component Tile {
+    tile_id: u32,
+    wall_id: u32 = 0,
+    liquid: f32 = 0.0,
+    is_active: bool = true,
+}
 
-### 兴趣点机制
+component Item {
+    item_id: u32,
+    count: u32 = 1,
+    prefix: u32 = 0,
+}
 
-- NPC 城镇标记为**兴趣点**
-- 玩家离开时仅记录：
-  - 时间流逝
-  - 快乐度变化
-  - 事件触发状态
-
-### 返回时处理
-
-```ggscript
-micro on_player_return(town: Entity) {
-    apply_time_effects(town, delta_time);
+component NPC {
+    npc_id: u32,
+    ai_style: u32 = 0,
+    is_friendly: bool = false,
+    is_boss: bool = false,
 }
 ```
 
 ## 世界生成
 
-### 多层 WFC 生成管线
+```valkyrie
+// systems.script
+system WorldGenerationSystem {
+    query: (World, Transform),
+    
+    on_load: () => {
+        for (world, transform) in query {
+            generate_surface(world);
+            generate_underground(world);
+            generate_caverns(world);
+            generate_hell(world);
+        }
+    }
+}
 
-| 阶段 | 内容 | 算法 |
-| :--- | :--- | :--- |
-| 宏观层 | 生物群系边界 | Perlin 噪声 + WFC |
-| 中观层 | 地形特征（洞穴、河流） | WFC 约束传播 |
-| 微观层 | 物块细节、矿物、植被 | 按需坍缩 |
+fn generate_surface(world: World) {
+    // 生成地表地形
+    for x in 0..world.width {
+        let height = surface_height(x);
+        
+        for y in height..height + 5 {
+            world.set_tile(x, y, TileId::Dirt);
+        }
+        
+        world.set_tile(x, height - 1, TileId::Grass);
+    }
+}
+```
 
-### 边界约束处理
+## 配置文件
 
-- 区块边缘作为固定约束传递给相邻区块
-- 保证生物群系过渡自然
-- 避免生成不合理的结构
+```gon
+// config/world.gon
+world {
+    name: "Terraria World"
+    seed: 12345
+    
+    size {
+        width: 4200
+        height: 1200
+    }
+    
+    layers {
+        surface: { min_y: 0, max_y: 200 }
+        underground: { min_y: 200, max_y: 400 }
+        caverns: { min_y: 400, max_y: 800 }
+        underworld: { min_y: 800, max_y: 1200 }
+    }
+}
+```
 
-## 性能优化
+## 运行
 
-| 优化项 | 方法 |
-| :--- | :--- |
-| 区块加载 | 基于玩家位置的预加载 |
-| 蔓延计算 | 宏观参数 + 按需坍缩 |
-| NPC 更新 | 兴趣点 + 时间跳跃 |
-| 存档大小 | 历史哈希 + 增量存储 |
+```bash
+dotnet run --project projects/GenesisEngine -- --game examples/Genesis.Game.Terraria
+```

@@ -1,122 +1,148 @@
-# Minecraft 风格体素世界适配
+# Minecraft 风格适配
 
-> **⚠️ 语言规则**：本文档描述的是 Layer 3 游戏内容，所有代码示例必须使用 GGScript/GGShader，**禁止使用 C#**。游戏内容位于 `examples/Genesis.Minecraft/`。
+本指南展示如何使用 Genesis Engine 创建 Minecraft 风格的游戏。
 
-## 核心挑战
+## 核心机制
 
-| 挑战项 | 描述 |
-| :--- | :--- |
-| 三维区块加载 | 玩家可上下移动，加载范围复杂 |
-| 红石跨区 | 电路信号跨越未加载区块 |
-| 光照更新 | 天光、方块光传播计算量大 |
-| 生物生成 | 基于条件的怪物/动物生成 |
+| 机制 | 实现方式 |
+|:---|:---|
+| 方块世界 | 使用 `BlockComponent` 和 `ChunkSystem` |
+| 挖掘/放置 | `MiningSystem` 处理交互 |
+| 合成系统 | `CraftingSystem` 查询配方 |
+| 生物群落 | `BiomeSystem` 基于噪声生成 |
 
-## 八叉树层级世界
-
-### 层级结构
-
-| 层级 | 范围 | 数据结构 | 更新频率 |
-| :--- | :--- | :--- | :--- |
-| L0 | 玩家周围 4 个 16³ 子区块 | 确定性体素数组 | 60Hz |
-| L1 | 玩家周围 3×3×3 区块 | 确定性区块 | 20Hz |
-| L2 | 视野内其他区块 | WFC 叠加态 | 按需坍缩 |
-| L3 | 远方区块 | 历史哈希 + 宏观参数 | 极低频 |
-
-### L0 活跃区域
+## 项目结构
 
 ```
-玩家位置 (x, y, z)
-    ↓
-确定 4 个相邻 16×16×16 子区块
-├── 脚下区块
-├── 头顶区块（如存在）
-└── 水平相邻区块
+Genesis.Game.Minecraft/
+├── components.script      # 方块、物品、生物组件
+├── systems.script         # 挖掘、合成、生成系统
+├── scenes/
+│   └── game_main.story    # 主游戏场景
+├── config/
+│   ├── block_colors.gon   # 方块颜色配置
+│   ├── crafting_recipes.gon # 合成配方
+│   └── world.gon          # 世界生成配置
+└── shaders/
+    ├── block.shader       # 方块着色器
+    └── camera.shader      # 相机着色器
 ```
 
-## 红石电路优化
+## 关键组件
 
-### 电路识别与缓存
+```valkyrie
+// components.script
+component Block {
+    block_id: u32,
+    durability: f32 = 1.0,
+    is_solid: bool = true,
+}
 
-```
-红石电路分析：
-├── 识别为逻辑电路图
-├── 提取输入/输出节点
-└── HashLife 缓存真值表
-```
+component Item {
+    item_id: u32,
+    count: u32 = 1,
+    max_stack: u32 = 64,
+}
 
-### 跨区块信号传播
-
-| 场景 | 处理方式 |
-| :--- | :--- |
-| 区块内电路 | HashLife 缓存加速 |
-| 跨已加载区块 | 正常信号传播 |
-| 跨未加载区块 | "虚空演化" - 通过哈希计算结果 |
-
-### 虚空演化原理
-
-```ggscript
-let signal_hash = hash_combine(
-    source_circuit.history_hash,
-    signal_strength,
-    propagation_delay
-);
-```
-
-## 光照系统
-
-### LOD 光照传播
-
-| 距离 | 光照精度 | 更新方式 |
-| :--- | :--- | :--- |
-| L0 区域 | 逐方块精确 | 实时更新 |
-| L1 区域 | 4×4 采样 | 延迟更新 |
-| L2+ 区域 | 区块级近似 | 按需重建 |
-
-### 光照缓存
-
-- 天光：基于高度图预计算
-- 方块光：存储光源列表，增量更新
-
-## 生物生成
-
-### L2 层宏观参数
-
-```
-生物容量参数：
-├── 生物群系类型
-├── 光照条件范围
-├── 方块类型统计
-└── 玩家距离因子
-```
-
-### WFC 坍缩生成
-
-| 阶段 | 操作 |
-| :--- | :--- |
-| 玩家进入 L1 | 读取 L2 生物容量参数 |
-| 条件检查 | 光照、方块、距离满足条件 |
-| 坍缩生成 | 通过 WFC 确定具体生物实体 |
-| 实例化 | 创建实体并加入 L0 模拟 |
-
-## 区块网格生成
-
-### 贪婪网格合并
-
-```ggscript
-micro build_chunk_mesh(chunk: Entity) -> Mesh {
+component Player {
+    inventory: [Item; 36],
+    selected_slot: u32 = 0,
 }
 ```
 
-### 增量更新
+## 世界生成
 
-- 局部变化只重建受影响区域
-- 完全同质区块使用预生成网格
+```valkyrie
+// systems.script
+system WorldGenerationSystem {
+    query: (Chunk, Transform),
+    
+    on_load: () => {
+        for (chunk, transform) in query {
+            generate_chunk(chunk, transform);
+        }
+    }
+}
 
-## 性能指标
+fn generate_chunk(chunk: Chunk, transform: Transform) {
+    // 使用噪声生成地形
+    let height = noise(transform.x, transform.z);
+    
+    for y in 0..height {
+        if y < height - 3 {
+            chunk.set_block(x, y, z, BlockId::Stone);
+        } else if y < height - 1 {
+            chunk.set_block(x, y, z, BlockId::Dirt);
+        } else {
+            chunk.set_block(x, y, z, BlockId::Grass);
+        }
+    }
+}
+```
 
-| 指标 | 目标值 |
-| :--- | :--- |
-| 视距 | 12 区块（192 格） |
-| L0 更新 | < 4ms |
-| 区块加载延迟 | < 50ms |
-| 红石电路缓存命中率 | > 80% |
+## 配置文件
+
+```gon
+// config/world.gon
+world {
+    name: "Minecraft World"
+    seed: 12345
+    
+    generation {
+        chunk_size: 16
+        max_height: 256
+        sea_level: 63
+    }
+    
+    biomes: [
+        { name: "Plains", weight: 0.4 },
+        { name: "Forest", weight: 0.3 },
+        { name: "Desert", weight: 0.2 },
+        { name: "Mountains", weight: 0.1 }
+    ]
+}
+
+// config/crafting_recipes.gon
+recipes {
+    wooden_planks: {
+        input: [{ item: "log", count: 1 }],
+        output: { item: "planks", count: 4 }
+    }
+    
+    crafting_table: {
+        input: [{ item: "planks", count: 4 }],
+        output: { item: "crafting_table", count: 1 }
+    }
+}
+```
+
+## 着色器
+
+```valkyrie-shader
+// shaders/block.shader
+#version 450
+
+layout(location = 0) in vec3 position;
+layout(location = 1) in vec2 uv;
+layout(location = 2) in vec3 normal;
+
+layout(location = 0) out vec2 fragUv;
+layout(location = 1) out vec3 fragNormal;
+
+layout(set = 0, binding = 0) uniform Camera {
+    mat4 view_proj;
+    vec3 position;
+} camera;
+
+void main() {
+    gl_Position = camera.view_proj * vec4(position, 1.0);
+    fragUv = uv;
+    fragNormal = normal;
+}
+```
+
+## 运行
+
+```bash
+dotnet run --project projects/GenesisEngine -- --game examples/Genesis.Game.Minecraft
+```

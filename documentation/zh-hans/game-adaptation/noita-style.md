@@ -1,66 +1,161 @@
-# Noita 风格像素沙盒适配
+# Noita 风格适配
 
-## 核心挑战
+本指南展示如何使用 Genesis Engine 创建 Noita 风格的像素物理沙盒游戏。
 
-| 挑战项 | 描述 |
-| :--- | :--- |
-| 每像素物理 | 屏幕内数万单元同时模拟 |
-| 实时流体 | 水、岩浆、酸液等流体交互 |
-| 材料反应 | 火烧木、水灭火、酸腐蚀等复杂化学反应 |
-| 世界持久性 | 离开区域后状态需保持一致 |
+## 核心机制
 
-## 层级策略
+| 机制 | 实现方式 |
+|:---|:---|
+| 像素物理 | `PixelPhysicsSystem` 处理每个像素 |
+| 材料系统 | `MaterialComponent` 定义材料属性 |
+| 法术系统 | `SpellSystem` 处理魔法效果 |
+| 程序生成 | `ProceduralSystem` 生成世界 |
 
-### L0 层：全精度模拟
-
-- **范围**：仅屏幕范围内的像素
-- **更新频率**：60Hz（每帧）
-- **优化手段**：使用 `HashLife` 缓存常见局部模式
-  - 单像素宽通道水流
-  - 沙堆稳定形态
-  - 封闭空间液体平衡
-
-### L1 层：预测缓冲区
-
-- **范围**：屏幕外扩 2 个屏幕的区域
-- **更新频率**：降低至 20Hz
-- **用途**：预测玩家滚动方向，预加载演化结果
-
-### L2 层：概率云存储
-
-- **数据结构**：历史哈希 + 宏观参数
-- **转换时机**：玩家离开区域时
-- **重建方式**：使用 `Evolve(离开时间)` 坍缩重建
-
-## 滚动优化
+## 项目结构
 
 ```
-玩家移动方向预测
-    ↓
-后台 HashLife 预演化
-    ↓
-滚动时无延迟切换
+Genesis.Game.Noita/
+├── components.script      # 材料、法术、实体组件
+├── systems.script         # 物理、法术、生成系统
+├── scenes/
+│   └── game_main.story    # 主游戏场景
+├── config/
+│   ├── materials.gon      # 材料属性配置
+│   └── spells.gon         # 法术配置
+└── shaders/
+    ├── pixel.shader       # 像素着色器
+    └── postprocess.shader # 后处理着色器
 ```
 
-## 性能预估
+## 关键组件
 
-| 指标 | 数值 |
-| :--- | :--- |
-| 活跃区域 | 512 × 512 像素 |
-| 帧率目标 | 60 FPS |
-| CPU 要求 | 消费级 CPU |
-| 世界规模 | 理论无限（受磁盘限制） |
+```valkyrie
+// components.script
+component Material {
+    material_id: u32,
+    density: f32,
+    viscosity: f32 = 0.0,
+    is_liquid: bool = false,
+    is_gas: bool = false,
+    is_solid: bool = true,
+    flammability: f32 = 0.0,
+    corrosion: f32 = 0.0,
+}
 
-## 关键技术点
+component Spell {
+    spell_id: u32,
+    mana_cost: f32,
+    cooldown: f32,
+    charges: i32 = -1,
+}
 
-1. **HashLife 缓存**：将常见物理模式缓存，避免重复计算
-2. **增量坍缩**：玩家视线扫过时逐步确定像素状态
-3. **因果自洽**：历史哈希保证返回时状态一致
-4. **后台预演**：利用多线程预计算未来帧状态
+component Wand {
+    capacity: u32,
+    spells: [Spell; 10],
+    shuffle: bool = false,
+}
+```
 
-## 与传统方案对比
+## 像素物理系统
 
-| 方案 | 内存占用 | CPU 消耗 | 世界规模 |
-| :--- | :--- | :--- | :--- |
-| 传统全量模拟 | O(世界面积) | O(世界面积) | 有限 |
-| Genesis 方案 | O(活跃区域) | O(屏幕面积) | 无限 |
+```valkyrie
+// systems.script
+system PixelPhysicsSystem {
+    query: (World, Transform),
+    
+    on_update: (delta: f32) => {
+        for (world, transform) in query {
+            // 更新每个像素
+            for x in 0..world.width {
+                for y in 0..world.height {
+                    update_pixel(world, x, y);
+                }
+            }
+        }
+    }
+}
+
+fn update_pixel(world: World, x: u32, y: u32) {
+    let pixel = world.get_pixel(x, y);
+    
+    if (pixel.material.is_liquid) {
+        // 液体流动
+        if (world.is_empty(x, y + 1)) {
+            world.move_pixel(x, y, x, y + 1);
+        } else if (world.is_empty(x - 1, y + 1)) {
+            world.move_pixel(x, y, x - 1, y + 1);
+        } else if (world.is_empty(x + 1, y + 1)) {
+            world.move_pixel(x, y, x + 1, y + 1);
+        }
+    } else if (pixel.material.is_gas) {
+        // 气体上升
+        if (world.is_empty(x, y - 1)) {
+            world.move_pixel(x, y, x, y - 1);
+        }
+    }
+}
+```
+
+## 配置文件
+
+```gon
+// config/materials.gon
+materials {
+    sand: {
+        density: 1.5,
+        is_solid: true,
+        color: [194, 178, 128]
+    }
+    
+    water: {
+        density: 1.0,
+        is_liquid: true,
+        viscosity: 0.1,
+        color: [28, 107, 160]
+    }
+    
+    oil: {
+        density: 0.8,
+        is_liquid: true,
+        viscosity: 0.5,
+        flammability: 1.0,
+        color: [80, 60, 40]
+    }
+    
+    fire: {
+        density: 0.1,
+        is_gas: true,
+        flammability: 1.0,
+        color: [255, 100, 0]
+    }
+}
+
+// config/spells.gon
+spells {
+    spark_bolt: {
+        mana_cost: 5.0,
+        damage: 3.0,
+        speed: 100.0,
+        lifetime: 2.0
+    }
+    
+    bomb: {
+        mana_cost: 25.0,
+        damage: 50.0,
+        radius: 5.0,
+        explosive: true
+    }
+    
+    teleport: {
+        mana_cost: 15.0,
+        range: 50.0,
+        cooldown: 3.0
+    }
+}
+```
+
+## 运行
+
+```bash
+dotnet run --project projects/GenesisEngine -- --game examples/Genesis.Game.Noita
+```

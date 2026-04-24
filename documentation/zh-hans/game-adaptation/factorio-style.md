@@ -1,108 +1,117 @@
-# Factorio 风格工厂自动化适配
+# Factorio 风格适配
 
-## 核心挑战
+本指南展示如何使用 Genesis Engine 创建 Factorio 风格的自动化工厂游戏。
 
-| 挑战项 | 描述 |
-| :--- | :--- |
-| 确定性要求 | 传送带网络必须 100% 确定性 |
-| 大规模产线 | 数千条传送带同时运行 |
-| 物流网络 | 机器人、火车、管道网络 |
-| 污染系统 | 污染扩散与虫群进化 |
+## 核心机制
 
-## 层级策略
+| 机制 | 实现方式 |
+|:---|:---|
+| 传送带系统 | `BeltSystem` 处理物品传输 |
+| 机器合成 | `CraftingSystem` 处理配方 |
+| 物流网络 | `LogisticSystem` 管理机器人 |
+| 资源生成 | `ResourceSystem` 生成矿脉 |
 
-### 工厂区特殊处理
-
-| 区域类型 | 层级 | 精度要求 | 说明 |
-| :--- | :--- | :--- | :--- |
-| 玩家工厂区 | L0 | 永不降级 | 强制全精度确定性模拟 |
-| 远方工厂 | L1 | 降低频率 | 保持确定性但减少更新 |
-| 未探索区 | L2 | 概率云 | 按需坍缩 |
-
-### 为什么工厂区不能降级？
-
-- 传送带物品位置影响后续所有产线
-- 物品堆叠顺序必须精确
-- 电路网络信号需要确定性
-
-## 传送带优化
-
-### HashLife 缓存策略
+## 项目结构
 
 ```
-直线传送带段：
-├── 输入端物品序列
-├── 输出端物品序列（缓存结果）
-└── 运输时间线
+Genesis.Game.Factorio/
+├── components.script      # 机器、传送带、物品组件
+├── systems.script         # 自动化、物流、生产系统
+├── scenes/
+│   └── game_main.story    # 主游戏场景
+├── config/
+│   ├── recipes.gon        # 生产配方
+│   └── world.gon          # 世界生成配置
+└── shaders/
+    ├── entity.shader      # 实体着色器
+    └── belt.shader        # 传送带着色器
 ```
 
-- 将直线传送带视为**单一单元**
-- 缓存物品运输时间线
-- 查询复杂度：O(1)
+## 关键组件
 
-### 分段缓存
+```valkyrie
+// components.script
+component Machine {
+    recipe_id: u32,
+    progress: f32 = 0.0,
+    input_inventory: [Item; 4],
+    output_inventory: [Item; 2],
+}
 
-| 传送带类型 | 缓存策略 |
-| :--- | :--- |
-| 直线段 | 完整 HashLife 缓存 |
-| 弯道/分叉 | 需要实时计算 |
-| 交汇点 | 合并逻辑缓存 |
+component Belt {
+    direction: Vec2,
+    speed: f32 = 1.0,
+    items: [Item; 8],
+}
 
-## 物流网络抽象
-
-### 机器人网络
-
-- **不模拟**每个机器人的飞行轨迹
-- 使用**宏观统计模型**计算：
-  - 箱子内物品数量变化
-  - 平均运输时间
-  - 吞吐量瓶颈
-
-### 统计模型示例
-
-```csharp
-struct LogisticsStats {
-    int itemCount;        // 物品总量
-    float avgDeliveryTime; // 平均配送时间
-    int robotCapacity;    // 机器人容量
+component Power {
+    consumption: f32,
+    production: f32 = 0.0,
+    buffer: f32 = 0.0,
+    max_buffer: f32 = 1000.0,
 }
 ```
 
-## 污染与虫群
+## 自动化系统
 
-### L2 概率云演化
-
-| 系统 | L2 存储内容 | 坍缩时机 |
-| :--- | :--- | :--- |
-| 污染 | 污染值分布函数 | 玩家查看地图/靠近 |
-| 虫群 | 虫巢数量、进化等级 | 玩家靠近虫巢 |
-
-### 虫群进化
-
-```
-L2 宏观参数：
-├── 进化时间因子
-├── 污染贡献因子
-└── 虫巢分布哈希
-```
-
-## ECS 确定性更新
-
-```csharp
-[DeterministicSystem]
-public class BeltTransportSystem : ISystem {
-    public void Execute(FactoryChunk chunk, float deltaTime) {
-        // 确定性物品移动逻辑
-        // 相同输入 → 相同输出
+```valkyrie
+// systems.script
+system ProductionSystem {
+    query: (Machine, Power),
+    
+    on_update: (delta: f32) => {
+        for (machine, power) in query {
+            if (power.buffer < machine.power_consumption) {
+                continue;
+            }
+            
+            // 检查输入
+            if (!has_required_inputs(machine)) {
+                continue;
+            }
+            
+            // 生产进度
+            machine.progress += delta;
+            
+            if (machine.progress >= 1.0) {
+                produce_output(machine);
+                machine.progress = 0.0;
+            }
+        }
     }
 }
 ```
 
-## 性能对比
+## 配置文件
 
-| 指标 | 传统方案 | Genesis 方案 |
-| :--- | :--- | :--- |
-| 传送带更新 | O(传送带长度) | O(缓存段数) |
-| 物流计算 | O(机器人数量) | O(网络节点数) |
-| 污染计算 | O(污染面积) | O(污染边界) |
-| 多人同步 | 同步所有物品 | 同步历史哈希 |
+```gon
+// config/recipes.gon
+recipes {
+    iron_plate: {
+        time: 3.2,
+        input: [{ item: "iron_ore", count: 1 }],
+        output: [{ item: "iron_plate", count: 1 }]
+    }
+    
+    copper_cable: {
+        time: 0.5,
+        input: [{ item: "copper_plate", count: 1 }],
+        output: [{ item: "copper_cable", count: 2 }]
+    }
+    
+    electronic_circuit: {
+        time: 0.5,
+        input: [
+            { item: "iron_plate", count: 1 },
+            { item: "copper_cable", count: 3 }
+        ],
+        output: [{ item: "electronic_circuit", count: 1 }]
+    }
+}
+```
+
+## 运行
+
+```bash
+dotnet run --project projects/GenesisEngine -- --game examples/Genesis.Game.Factorio
+```
