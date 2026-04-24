@@ -7,7 +7,7 @@
     <Nullable>enable</Nullable>
     <RootNamespace>GenesisHost</RootNamespace>
     <PackageId>GenesisHost</PackageId>
-    <Version>0.1.0</Version>
+    <Version>0.0.0</Version>
     <Authors>Genesis Engine Team</Authors>
     <Description>Genesis Engine Host - Application hosting the Genesis game engine with Gnosis.Graphic rendering</Description>
   </PropertyGroup>

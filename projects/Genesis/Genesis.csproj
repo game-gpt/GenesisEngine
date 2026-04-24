@@ -7,7 +7,7 @@
     <RootNamespace>Genesis</RootNamespace>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <PackageId>GenesisEngine</PackageId>
-    <Version>0.1.0</Version>
+    <Version>0.0.0</Version>
     <Authors>Genesis Engine Team</Authors>
     <Description>Genesis Engine Core Library - A causal engine for emergent narrative and infinite worlds with spacetime tree and causal anchor systems</Description>
     <PackageTags>game-engine;genesis;causal;spacetime;wave-function-collapse;emergent;narrative;entity-component;hashlife</PackageTags>
