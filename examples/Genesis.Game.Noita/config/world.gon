@@ -1,0 +1,82 @@
+WorldConfig {
+    world_size: {
+        width: 400,
+        height: 300
+    },
+    seed: 42,
+    physics: {
+        gravity: 9.8,
+        pixel_scale: 1.0,
+        max_falling_speed: 20.0,
+        simulation_steps: 1
+    },
+    generation: {
+        surface_ratio: 0.15,
+        cave_noise_scale: 0.03,
+        cave_noise_octaves: 5,
+        cave_threshold: 0.35,
+        large_cave_scale: 0.01,
+        large_cave_threshold: 0.45,
+        tunnel_scale: 0.06,
+        tunnel_threshold: 0.55,
+        water_level_ratio: 0.6,
+        water_fill_chance: 0.3,
+        oil_level_ratio: 0.7,
+        oil_noise_scale: 0.05,
+        oil_threshold: 0.65,
+        lava_level_ratio: 0.85,
+        lava_noise_scale: 0.04,
+        lava_threshold: 0.6,
+        pocket_count_divisor: 20,
+        pocket_min_radius: 3,
+        pocket_max_radius: 8,
+        gold_noise_scale: 0.08,
+        gold_threshold: 0.6,
+        gold_min_depth_ratio: 0.5
+    },
+    materials: {
+        boundary: 0,
+        none: -1,
+        sand: 1,
+        dirt: 2,
+        stone: 3,
+        water: 4,
+        oil: 5,
+        fire: 6,
+        acid: 7,
+        lava: 8,
+        steam: 9,
+        smoke: 10,
+        ice: 11,
+        gold: 12
+    },
+    spells: {
+        none: -1,
+        spark_bolt: 0,
+        bomb: 1,
+        water_spray: 2,
+        teleport: 3
+    },
+    spell_types: {
+        projectile: 0,
+        bomb: 1,
+        spray: 2,
+        teleport: 3
+    },
+    elements: {
+        none: 0,
+        fire: 1,
+        water: 2,
+        acid: 3,
+        ice: 4,
+        lava: 5,
+        oil: 6
+    },
+    spacetime: {
+        tree_type: "quadtree",
+        l0_range: 1,
+        l1_range: 3,
+        l2_collapse_threshold: 0.8,
+        l1_merge_threshold: 0.1
+    }
+}

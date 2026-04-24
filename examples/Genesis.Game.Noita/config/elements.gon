@@ -1,0 +1,208 @@
+ElementTable {
+    elements: [
+        ElementEntry {
+            id: 0,
+            name: "Boundary",
+            density: 999.0,
+            viscosity: 0.0,
+            is_solid: true,
+            is_liquid: false,
+            is_gas: false,
+            is_powder: false,
+            flammability: 0.0,
+            corrosion: 0.0,
+            color: { r: 0.15, g: 0.15, b: 0.15 }
+        },
+        ElementEntry {
+            id: 1,
+            name: "Sand",
+            density: 1.5,
+            viscosity: 0.0,
+            is_solid: false,
+            is_liquid: false,
+            is_gas: false,
+            is_powder: true,
+            flammability: 0.0,
+            corrosion: 0.0,
+            color: { r: 0.76, g: 0.70, b: 0.50 }
+        },
+        ElementEntry {
+            id: 2,
+            name: "Dirt",
+            density: 1.3,
+            viscosity: 0.0,
+            is_solid: true,
+            is_liquid: false,
+            is_gas: false,
+            is_powder: false,
+            flammability: 0.0,
+            corrosion: 0.0,
+            color: { r: 0.55, g: 0.35, b: 0.17 }
+        },
+        ElementEntry {
+            id: 3,
+            name: "Stone",
+            density: 2.5,
+            viscosity: 0.0,
+            is_solid: true,
+            is_liquid: false,
+            is_gas: false,
+            is_powder: false,
+            flammability: 0.0,
+            corrosion: 0.0,
+            color: { r: 0.50, g: 0.50, b: 0.50 }
+        },
+        ElementEntry {
+            id: 4,
+            name: "Water",
+            density: 1.0,
+            viscosity: 0.1,
+            is_solid: false,
+            is_liquid: true,
+            is_gas: false,
+            is_powder: false,
+            flammability: 0.0,
+            corrosion: 0.0,
+            color: { r: 0.12, g: 0.42, b: 0.63 }
+        },
+        ElementEntry {
+            id: 5,
+            name: "Oil",
+            density: 0.8,
+            viscosity: 0.5,
+            is_solid: false,
+            is_liquid: true,
+            is_gas: false,
+            is_powder: false,
+            flammability: 1.0,
+            corrosion: 0.0,
+            color: { r: 0.31, g: 0.24, b: 0.16 }
+        },
+        ElementEntry {
+            id: 6,
+            name: "Fire",
+            density: 0.1,
+            viscosity: 0.0,
+            is_solid: false,
+            is_liquid: false,
+            is_gas: true,
+            is_powder: false,
+            flammability: 1.0,
+            corrosion: 0.0,
+            lifetime: 1.5,
+            color: { r: 1.0, g: 0.40, b: 0.0 }
+        },
+        ElementEntry {
+            id: 7,
+            name: "Acid",
+            density: 1.1,
+            viscosity: 0.3,
+            is_solid: false,
+            is_liquid: true,
+            is_gas: false,
+            is_powder: false,
+            flammability: 0.0,
+            corrosion: 1.0,
+            color: { r: 0.30, g: 1.0, b: 0.10 }
+        },
+        ElementEntry {
+            id: 8,
+            name: "Lava",
+            density: 3.0,
+            viscosity: 0.8,
+            is_solid: false,
+            is_liquid: true,
+            is_gas: false,
+            is_powder: false,
+            flammability: 1.0,
+            corrosion: 0.5,
+            color: { r: 1.0, g: 0.20, b: 0.0 }
+        },
+        ElementEntry {
+            id: 9,
+            name: "Steam",
+            density: 0.05,
+            viscosity: 0.0,
+            is_solid: false,
+            is_liquid: false,
+            is_gas: true,
+            is_powder: false,
+            flammability: 0.0,
+            corrosion: 0.0,
+            lifetime: 4.0,
+            color: { r: 0.80, g: 0.80, b: 0.90 }
+        },
+        ElementEntry {
+            id: 10,
+            name: "Smoke",
+            density: 0.08,
+            viscosity: 0.0,
+            is_solid: false,
+            is_liquid: false,
+            is_gas: true,
+            is_powder: false,
+            flammability: 0.0,
+            corrosion: 0.0,
+            lifetime: 6.0,
+            color: { r: 0.30, g: 0.30, b: 0.30 }
+        },
+        ElementEntry {
+            id: 11,
+            name: "Ice",
+            density: 0.9,
+            viscosity: 0.0,
+            is_solid: true,
+            is_liquid: false,
+            is_gas: false,
+            is_powder: false,
+            flammability: 0.0,
+            corrosion: 0.0,
+            color: { r: 0.68, g: 0.85, b: 0.90 }
+        },
+        ElementEntry {
+            id: 12,
+            name: "Gold",
+            density: 19.3,
+            viscosity: 0.0,
+            is_solid: true,
+            is_liquid: false,
+            is_gas: false,
+            is_powder: false,
+            flammability: 0.0,
+            corrosion: 0.0,
+            color: { r: 1.0, g: 0.84, b: 0.0 }
+        }
+    ],
+    color_variants: {
+        sand: [
+            { r: 0.76, g: 0.70, b: 0.50 },
+            { r: 0.72, g: 0.66, b: 0.46 },
+            { r: 0.80, g: 0.74, b: 0.54 }
+        ],
+        dirt: [
+            { r: 0.55, g: 0.35, b: 0.17 },
+            { r: 0.50, g: 0.32, b: 0.15 },
+            { r: 0.58, g: 0.38, b: 0.19 }
+        ],
+        stone: [
+            { r: 0.50, g: 0.50, b: 0.50 },
+            { r: 0.47, g: 0.47, b: 0.47 },
+            { r: 0.53, g: 0.53, b: 0.53 }
+        ],
+        water: [
+            { r: 0.12, g: 0.42, b: 0.63 },
+            { r: 0.10, g: 0.40, b: 0.60 },
+            { r: 0.14, g: 0.44, b: 0.66 }
+        ],
+        fire: [
+            { r: 1.0, g: 0.40, b: 0.0 },
+            { r: 1.0, g: 0.60, b: 0.0 },
+            { r: 1.0, g: 0.20, b: 0.0 }
+        ],
+        lava: [
+            { r: 1.0, g: 0.20, b: 0.0 },
+            { r: 1.0, g: 0.30, b: 0.0 },
+            { r: 0.90, g: 0.10, b: 0.0 }
+        ]
+    }
+}

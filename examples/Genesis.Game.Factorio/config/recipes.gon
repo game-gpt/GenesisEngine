@@ -1,0 +1,153 @@
+RecipeTable {
+    recipes: [
+        RecipeEntry {
+            name: "铁板",
+            category: "smelting",
+            time: 3.2,
+            input: [{ item: ITEM_IRON_ORE, count: 1 }],
+            output: [{ item: ITEM_IRON_PLATE, count: 1 }]
+        },
+        RecipeEntry {
+            name: "铜板",
+            category: "smelting",
+            time: 3.2,
+            input: [{ item: ITEM_COPPER_ORE, count: 1 }],
+            output: [{ item: ITEM_COPPER_PLATE, count: 1 }]
+        },
+        RecipeEntry {
+            name: "石砖",
+            category: "smelting",
+            time: 3.2,
+            input: [{ item: ITEM_STONE, count: 2 }],
+            output: [{ item: ITEM_STONE_BRICK, count: 1 }]
+        },
+        RecipeEntry {
+            name: "铁齿轮",
+            category: "crafting",
+            time: 0.5,
+            input: [{ item: ITEM_IRON_PLATE, count: 2 }],
+            output: [{ item: ITEM_IRON_GEAR, count: 1 }]
+        },
+        RecipeEntry {
+            name: "铜缆",
+            category: "crafting",
+            time: 0.5,
+            input: [{ item: ITEM_COPPER_PLATE, count: 1 }],
+            output: [{ item: ITEM_COPPER_CABLE, count: 2 }]
+        },
+        RecipeEntry {
+            name: "电子电路",
+            category: "crafting",
+            time: 0.5,
+            input: [
+                { item: ITEM_COPPER_CABLE, count: 3 },
+                { item: ITEM_IRON_PLATE, count: 1 }
+            ],
+            output: [{ item: ITEM_ELECTRONIC_CIRCUIT, count: 1 }]
+        },
+        RecipeEntry {
+            name: "传送带",
+            category: "crafting",
+            time: 0.5,
+            input: [
+                { item: ITEM_IRON_GEAR, count: 1 },
+                { item: ITEM_IRON_PLATE, count: 1 }
+            ],
+            output: [{ item: ITEM_TRANSPORT_BELT, count: 2 }]
+        },
+        RecipeEntry {
+            name: "插入器",
+            category: "crafting",
+            time: 0.5,
+            input: [
+                { item: ITEM_ELECTRONIC_CIRCUIT, count: 1 },
+                { item: ITEM_IRON_GEAR, count: 1 },
+                { item: ITEM_IRON_PLATE, count: 1 }
+            ],
+            output: [{ item: ITEM_INSERTER, count: 1 }]
+        },
+        RecipeEntry {
+            name: "组装机",
+            category: "crafting",
+            time: 0.5,
+            input: [
+                { item: ITEM_ELECTRONIC_CIRCUIT, count: 3 },
+                { item: ITEM_IRON_GEAR, count: 5 },
+                { item: ITEM_IRON_PLATE, count: 3 }
+            ],
+            output: [{ item: ITEM_ASSEMBLING_MACHINE, count: 1 }]
+        },
+        RecipeEntry {
+            name: "蒸汽机",
+            category: "crafting",
+            time: 1.0,
+            input: [
+                { item: ITEM_IRON_GEAR, count: 2 },
+                { item: ITEM_IRON_PLATE, count: 3 },
+                { item: ITEM_STONE_BRICK, count: 1 }
+            ],
+            output: [{ item: ITEM_STEAM_ENGINE, count: 1 }]
+        },
+        RecipeEntry {
+            name: "锅炉",
+            category: "crafting",
+            time: 1.0,
+            input: [
+                { item: ITEM_STONE_BRICK, count: 4 },
+                { item: ITEM_IRON_PLATE, count: 2 }
+            ],
+            output: [{ item: ITEM_BOILER, count: 1 }]
+        },
+        RecipeEntry {
+            name: "电线杆",
+            category: "crafting",
+            time: 0.5,
+            input: [
+                { item: ITEM_COPPER_CABLE, count: 2 },
+                { item: ITEM_IRON_PLATE, count: 1 }
+            ],
+            output: [{ item: ITEM_POWER_POLE, count: 1 }]
+        },
+        RecipeEntry {
+            name: "物流机器人",
+            category: "crafting",
+            time: 1.0,
+            input: [
+                { item: ITEM_ELECTRONIC_CIRCUIT, count: 1 },
+                { item: ITEM_IRON_GEAR, count: 1 }
+            ],
+            output: [{ item: ITEM_LOGISTIC_ROBOT, count: 1 }]
+        },
+        RecipeEntry {
+            name: "物流中心",
+            category: "crafting",
+            time: 1.0,
+            input: [
+                { item: ITEM_ELECTRONIC_CIRCUIT, count: 5 },
+                { item: ITEM_IRON_PLATE, count: 5 },
+                { item: ITEM_IRON_GEAR, count: 3 }
+            ],
+            output: [{ item: ITEM_ROBOPORT, count: 1 }]
+        },
+        RecipeEntry {
+            name: "请求箱",
+            category: "crafting",
+            time: 0.5,
+            input: [
+                { item: ITEM_ELECTRONIC_CIRCUIT, count: 1 },
+                { item: ITEM_IRON_PLATE, count: 2 }
+            ],
+            output: [{ item: ITEM_REQUESTER_CHEST, count: 1 }]
+        },
+        RecipeEntry {
+            name: "供应箱",
+            category: "crafting",
+            time: 0.5,
+            input: [
+                { item: ITEM_ELECTRONIC_CIRCUIT, count: 1 },
+                { item: ITEM_IRON_PLATE, count: 2 }
+            ],
+            output: [{ item: ITEM_PROVIDER_CHEST, count: 1 }]
+        }
+    ]
+}

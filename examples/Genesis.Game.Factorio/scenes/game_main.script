@@ -1,0 +1,146 @@
+scene GameMain {
+    let player: Entity;
+    let world_seed: u64;
+    let stats_entity: Entity;
+    let power_network_entity: Entity;
+
+    on_load() {
+        let config = asset.load<gonObject>("config/world.gon");
+        world_seed = config.get("seed").as_u64();
+
+        console::log($"Factorio 世界初始化 - 种子: {world_seed}");
+    }
+
+    on_update(delta: f32) {
+        update_stats(delta);
+        handle_input(delta);
+        update_camera();
+    }
+
+    micro update_stats(delta: f32) {
+        if stats_entity.is_valid {
+            let stats = stats_entity.get<WorldStats>();
+            stats.play_time += delta;
+
+            if power_network_entity.is_valid {
+                let network = power_network_entity.get<PowerNetwork>();
+                stats.total_power_production = network.total_production;
+                stats.total_power_consumption = network.total_consumption;
+            }
+        }
+    }
+
+    micro handle_input(delta: f32) {
+        if player.is_valid {
+            let pos = player.get<GridPosition>();
+
+            if input.is_action_just_pressed("set_recipe") {
+                let target_x = pos.x + get_facing_offset_x();
+                let target_y = pos.y + get_facing_offset_y();
+                let machine = find_machine_at(target_x, target_y);
+                if machine.is_valid {
+                    cycle_recipe(machine);
+                }
+            }
+
+            if input.is_action_just_pressed("set_request") {
+                let target_x = pos.x + get_facing_offset_x();
+                let target_y = pos.y + get_facing_offset_y();
+                let chest = find_chest_at(target_x, target_y);
+                if chest.is_valid && chest.chest_type == CHEST_REQUESTER {
+                    cycle_request(chest);
+                }
+            }
+
+            if input.is_action_just_pressed("connect_power") {
+                let target_x = pos.x + get_facing_offset_x();
+                let target_y = pos.y + get_facing_offset_y();
+                connect_to_power_network(target_x, target_y);
+            }
+        }
+    }
+
+    micro cycle_recipe(machine: Machine) {
+        let recipes = asset.load<gonArray>("config/recipes.gon");
+        let category = "crafting";
+        if machine.machine_type == MACHINE_FURNACE {
+            category = "smelting";
+        }
+
+        let current_idx = -1;
+        let valid_recipes: [i32] = [];
+
+        loop i in range(0, recipes.length()) {
+            let recipe = recipes.get(i);
+            if recipe.get("category").as_string() == category {
+                valid_recipes.push(i);
+                if machine.recipe_id == i {
+                    current_idx = valid_recipes.length() - 1;
+                }
+            }
+        }
+
+        if valid_recipes.length() == 0 {
+            return;
+        }
+
+        let next_idx = (current_idx + 1) % valid_recipes.length();
+        machine.recipe_id = valid_recipes.get(next_idx);
+
+        let recipe_name = recipes.get(machine.recipe_id).get("name").as_string();
+        console::log($"配方已设置：{recipe_name}");
+    }
+
+    micro cycle_request(chest: LogisticChest) {
+        let items = asset.load<gonArray>("config/items.gon");
+        let current_idx = -1;
+        let valid_items: [i32] = [];
+
+        loop i in range(0, items.length()) {
+            let item = items.get(i);
+            if item.get("type").as_string() == "intermediate" || item.get("type").as_string() == "resource" {
+                let item_id = item.get("id").as_int();
+                valid_items.push(item_id);
+                if chest.request_id == item_id {
+                    current_idx = valid_items.length() - 1;
+                }
+            }
+        }
+
+        if valid_items.length() == 0 {
+            return;
+        }
+
+        let next_idx = (current_idx + 1) % valid_items.length();
+        chest.request_id = valid_items.get(next_idx);
+        chest.request_count = 10;
+
+        console::log($"请求物品已设置：{items.get(next_idx).get("name").as_string()} x{chest.request_count}");
+    }
+
+    micro connect_to_power_network(x: i32, y: i32) {
+        let entity = find_entity_at(x, y);
+        if !entity.is_valid {
+            return;
+        }
+
+        if entity.has<Power>() {
+            let power = entity.get<Power>();
+            power.network_id = 0;
+            console::log($"已连接到电力网络：({x}, {y})");
+        }
+
+        if entity.has<PowerPole>() {
+            let pole = entity.get<PowerPole>();
+            pole.network_id = 0;
+            console::log($"电线杆已连接：({x}, {y})");
+        }
+    }
+
+    micro update_camera() {
+        if player.is_valid {
+            let pos = player.get<GridPosition>();
+            let camera_follow = player.get<CameraFollow>();
+        }
+    }
+}

@@ -1,0 +1,1353 @@
+system PixelPhysicsSystem {
+    query_pixels = Query.all(PixelPosition, Material, PixelUpdated);
+    query_grid = Query.all(PixelGrid);
+    current_frame: u64 = 0;
+
+    on_update(delta: f32) {
+        current_frame += 1;
+
+        <% loop (_, grid) in query_grid { %>
+            let width = grid.width;
+            let height = grid.height;
+
+            let start_y = height - 2;
+            if current_frame % 2 == 0 {
+                loop x in range(0, width) {
+                    loop y in range(start_y, -1, -1) {
+                        update_pixel(x, y, width, height);
+                    }
+                }
+            }
+            else {
+                loop x in range(width - 1, -1, -1) {
+                    loop y in range(start_y, -1, -1) {
+                        update_pixel(x, y, width, height);
+                    }
+                }
+            }
+        <% } %>
+    }
+
+    micro update_pixel(x: i32, y: i32, width: i32, height: i32) {
+        let pixel = pixelgrid.get_pixel(x, y);
+        if pixel == MATERIAL_NONE || pixel == MATERIAL_BOUNDARY {
+            return;
+        }
+
+        let updated = pixelgrid.get_updated(x, y);
+        if updated == current_frame {
+            return;
+        }
+        pixelgrid.set_updated(x, y, current_frame);
+
+        let mat = get_material_properties(pixel);
+
+        if mat.is_powder {
+            update_powder(x, y, width, height, mat);
+        }
+        else if mat.is_liquid {
+            update_liquid(x, y, width, height, mat);
+        }
+        else if mat.is_gas {
+            update_gas(x, y, width, height, mat);
+        }
+
+        if mat.lifetime > 0 {
+            let age = pixelgrid.get_age(x, y);
+            age += delta;
+            pixelgrid.set_age(x, y, age);
+            if age >= mat.lifetime {
+                pixelgrid.set_pixel(x, y, MATERIAL_NONE);
+            }
+        }
+    }
+
+    micro update_powder(x: i32, y: i32, width: i32, height: i32, mat: Material) {
+        if y + 1 >= height {
+            return;
+        }
+
+        let below = pixelgrid.get_pixel(x, y + 1);
+        if below == MATERIAL_NONE {
+            pixelgrid.swap(x, y, x, y + 1);
+            return;
+        }
+
+        let below_mat = get_material_properties(below);
+        if below_mat.is_liquid && below_mat.density < mat.density {
+            pixelgrid.swap(x, y, x, y + 1);
+            return;
+        }
+
+        let dir = 1;
+        if current_frame % 2 == 0 {
+            dir = -1;
+        }
+
+        let dx1 = x + dir;
+        let dx2 = x - dir;
+
+        if dx1 >= 0 && dx1 < width {
+            let diag = pixelgrid.get_pixel(dx1, y + 1);
+            if diag == MATERIAL_NONE {
+                pixelgrid.swap(x, y, dx1, y + 1);
+                return;
+            }
+            let diag_mat = get_material_properties(diag);
+            if diag_mat.is_liquid && diag_mat.density < mat.density {
+                pixelgrid.swap(x, y, dx1, y + 1);
+                return;
+            }
+        }
+
+        if dx2 >= 0 && dx2 < width {
+            let diag = pixelgrid.get_pixel(dx2, y + 1);
+            if diag == MATERIAL_NONE {
+                pixelgrid.swap(x, y, dx2, y + 1);
+                return;
+            }
+            let diag_mat = get_material_properties(diag);
+            if diag_mat.is_liquid && diag_mat.density < mat.density {
+                pixelgrid.swap(x, y, dx2, y + 1);
+                return;
+            }
+        }
+    }
+
+    micro update_liquid(x: i32, y: i32, width: i32, height: i32, mat: Material) {
+        if y + 1 < height {
+            let below = pixelgrid.get_pixel(x, y + 1);
+            if below == MATERIAL_NONE {
+                pixelgrid.swap(x, y, x, y + 1);
+                return;
+            }
+
+            let below_mat = get_material_properties(below);
+            if below_mat.is_liquid && below_mat.density > mat.density {
+                pixelgrid.swap(x, y, x, y + 1);
+                return;
+            }
+
+            let dir = 1;
+            if current_frame % 2 == 0 {
+                dir = -1;
+            }
+
+            let dx1 = x + dir;
+            let dx2 = x - dir;
+
+            if dx1 >= 0 && dx1 < width {
+                let diag = pixelgrid.get_pixel(dx1, y + 1);
+                if diag == MATERIAL_NONE {
+                    pixelgrid.swap(x, y, dx1, y + 1);
+                    return;
+                }
+            }
+
+            if dx2 >= 0 && dx2 < width {
+                let diag = pixelgrid.get_pixel(dx2, y + 1);
+                if diag == MATERIAL_NONE {
+                    pixelgrid.swap(x, y, dx2, y + 1);
+                    return;
+                }
+            }
+        }
+
+        let spread = get_spread_distance(mat.viscosity);
+        let dir = 1;
+        if random() < 0.5 {
+            dir = -1;
+        }
+
+        loop d in range(1, spread + 1) {
+            let nx = x + dir * d;
+            if nx < 0 || nx >= width {
+                break;
+            }
+            let side = pixelgrid.get_pixel(nx, y);
+            if side != MATERIAL_NONE {
+                break;
+            }
+            pixelgrid.swap(x, y, nx, y);
+            return;
+        }
+
+        loop d in range(1, spread + 1) {
+            let nx = x - dir * d;
+            if nx < 0 || nx >= width {
+                break;
+            }
+            let side = pixelgrid.get_pixel(nx, y);
+            if side != MATERIAL_NONE {
+                break;
+            }
+            pixelgrid.swap(x, y, nx, y);
+            return;
+        }
+    }
+
+    micro update_gas(x: i32, y: i32, width: i32, height: i32, mat: Material) {
+        if y - 1 >= 0 {
+            let above = pixelgrid.get_pixel(x, y - 1);
+            if above == MATERIAL_NONE {
+                pixelgrid.swap(x, y, x, y - 1);
+                return;
+            }
+
+            let dir = 1;
+            if random() < 0.5 {
+                dir = -1;
+            }
+
+            let dx1 = x + dir;
+            if dx1 >= 0 && dx1 < width {
+                let diag = pixelgrid.get_pixel(dx1, y - 1);
+                if diag == MATERIAL_NONE {
+                    pixelgrid.swap(x, y, dx1, y - 1);
+                    return;
+                }
+            }
+
+            let dx2 = x - dir;
+            if dx2 >= 0 && dx2 < width {
+                let diag = pixelgrid.get_pixel(dx2, y - 1);
+                if diag == MATERIAL_NONE {
+                    pixelgrid.swap(x, y, dx2, y - 1);
+                    return;
+                }
+            }
+        }
+
+        if random() < 0.3 {
+            let dir = 1;
+            if random() < 0.5 {
+                dir = -1;
+            }
+            let nx = x + dir;
+            if nx >= 0 && nx < width {
+                let side = pixelgrid.get_pixel(nx, y);
+                if side == MATERIAL_NONE {
+                    pixelgrid.swap(x, y, nx, y);
+                }
+            }
+        }
+    }
+
+    micro get_spread_distance(viscosity: f32) -> i32 {
+        if viscosity < 0.1 {
+            return 5;
+        }
+        else if viscosity < 0.3 {
+            return 3;
+        }
+        else if viscosity < 0.6 {
+            return 2;
+        }
+        else {
+            return 1;
+        }
+    }
+}
+
+system FluidPressureSystem {
+    query_grid = Query.all(PixelGrid);
+    query_fluid = Query.all(FluidCell, PixelPosition);
+
+    on_update(delta: f32) {
+        <% loop (_, grid) in query_grid { %>
+            let width = grid.width;
+            let height = grid.height;
+
+            loop x in range(0, width) {
+                loop y in range(0, height) {
+                    let pixel = pixelgrid.get_pixel(x, y);
+                    if pixel == MATERIAL_NONE {
+                        continue;
+                    }
+                    let mat = get_material_properties(pixel);
+                    if !mat.is_liquid {
+                        continue;
+                    }
+
+                    let pressure = 0.0;
+                    let depth = 0;
+
+                    loop check_y in range(y - 1, -1, -1) {
+                        let above = pixelgrid.get_pixel(x, check_y);
+                        if above == MATERIAL_NONE {
+                            break;
+                        }
+                        let above_mat = get_material_properties(above);
+                        if above_mat.is_liquid {
+                            depth += 1;
+                            pressure += above_mat.density * 0.1;
+                        }
+                        else if above_mat.is_solid || above_mat.is_powder {
+                            pressure += above_mat.density * 0.15;
+                            depth += 1;
+                        }
+                        else {
+                            break;
+                        }
+                    }
+
+                    if pressure > 0.5 {
+                        let weakest_x = x;
+                        let weakest_pressure = pressure;
+
+                        loop dx in range(-1, 2) {
+                            let nx = x + dx;
+                            if nx < 0 || nx >= width {
+                                continue;
+                            }
+                            let neighbor = pixelgrid.get_pixel(nx, y);
+                            if neighbor == MATERIAL_NONE {
+                                weakest_x = nx;
+                                weakest_pressure = 0.0;
+                                break;
+                            }
+                        }
+
+                        if weakest_x != x && weakest_pressure < pressure {
+                            pixelgrid.set_pixel(x, y, MATERIAL_NONE);
+                            pixelgrid.set_pixel(weakest_x, y, pixel);
+                        }
+                    }
+                }
+            }
+        <% } %>
+    }
+}
+
+system ChemicalReactionSystem {
+    query_grid = Query.all(PixelGrid);
+    query_burning = Query.all(Burning, PixelPosition);
+    query_corroding = Query.all(Corroding, PixelPosition);
+    reaction_timer: f32 = 0.0;
+
+    on_update(delta: f32) {
+        reaction_timer += delta;
+        if reaction_timer < 0.05 {
+            return;
+        }
+        reaction_timer = 0.0;
+
+        <% loop (_, grid) in query_grid { %>
+            let width = grid.width;
+            let height = grid.height;
+
+            loop x in range(0, width) {
+                loop y in range(0, height) {
+                    let pixel = pixelgrid.get_pixel(x, y);
+                    if pixel == MATERIAL_NONE {
+                        continue;
+                    }
+
+                    check_reactions(x, y, pixel, width, height);
+                }
+            }
+        <% } %>
+
+        update_burning(delta);
+        update_corroding(delta);
+    }
+
+    micro check_reactions(x: i32, y: i32, pixel: i32, width: i32, height: i32) {
+        loop dx in range(-1, 2) {
+            loop dy in range(-1, 2) {
+                if dx == 0 && dy == 0 {
+                    continue;
+                }
+                let nx = x + dx;
+                let ny = y + dy;
+                if nx < 0 || nx >= width || ny < 0 || ny >= height {
+                    continue;
+                }
+                let neighbor = pixelgrid.get_pixel(nx, ny);
+                if neighbor == MATERIAL_NONE {
+                    continue;
+                }
+
+                let reaction = find_reaction(pixel, neighbor);
+                if reaction.is_valid {
+                    apply_reaction(x, y, nx, ny, reaction);
+                }
+            }
+        }
+    }
+
+    micro find_reaction(a: i32, b: i32) -> ReactionResult {
+        if a == MATERIAL_WATER && b == MATERIAL_FIRE {
+            return ReactionResult { is_valid: true, product_a: MATERIAL_STEAM, product_b: MATERIAL_NONE, energy: 0.0 };
+        }
+        if a == MATERIAL_FIRE && b == MATERIAL_WATER {
+            return ReactionResult { is_valid: true, product_a: MATERIAL_NONE, product_b: MATERIAL_STEAM, energy: 0.0 };
+        }
+
+        if a == MATERIAL_WATER && b == MATERIAL_LAVA {
+            return ReactionResult { is_valid: true, product_a: MATERIAL_STEAM, product_b: MATERIAL_STONE, energy: 5.0 };
+        }
+        if a == MATERIAL_LAVA && b == MATERIAL_WATER {
+            return ReactionResult { is_valid: true, product_a: MATERIAL_STONE, product_b: MATERIAL_STEAM, energy: 5.0 };
+        }
+
+        if a == MATERIAL_OIL && b == MATERIAL_FIRE {
+            return ReactionResult { is_valid: true, product_a: MATERIAL_FIRE, product_b: MATERIAL_FIRE, energy: 2.0 };
+        }
+        if a == MATERIAL_FIRE && b == MATERIAL_OIL {
+            return ReactionResult { is_valid: true, product_a: MATERIAL_FIRE, product_b: MATERIAL_FIRE, energy: 2.0 };
+        }
+
+        if a == MATERIAL_ACID && b != MATERIAL_ACID && b != MATERIAL_NONE && b != MATERIAL_BOUNDARY {
+            let mat_b = get_material_properties(b);
+            if mat_b.is_solid || mat_b.is_powder {
+                if random() < 0.4 {
+                    return ReactionResult { is_valid: true, product_a: MATERIAL_ACID, product_b: MATERIAL_NONE, energy: 0.5 };
+                }
+            }
+        }
+
+        if a == MATERIAL_LAVA && b != MATERIAL_LAVA && b != MATERIAL_NONE && b != MATERIAL_BOUNDARY {
+            let mat_b = get_material_properties(b);
+            if mat_b.flammability > 0.5 {
+                return ReactionResult { is_valid: true, product_a: MATERIAL_LAVA, product_b: MATERIAL_FIRE, energy: 1.0 };
+            }
+            if mat_b.is_solid && b != MATERIAL_STONE {
+                if random() < 0.2 {
+                    return ReactionResult { is_valid: true, product_a: MATERIAL_LAVA, product_b: MATERIAL_LAVA, energy: 3.0 };
+                }
+            }
+        }
+
+        if a == MATERIAL_FIRE {
+            let mat_b = get_material_properties(b);
+            if mat_b.flammability > 0.0 && random() < mat_b.flammability {
+                return ReactionResult { is_valid: true, product_a: MATERIAL_FIRE, product_b: MATERIAL_FIRE, energy: 0.5 };
+            }
+        }
+
+        if a == MATERIAL_ICE && b == MATERIAL_FIRE {
+            return ReactionResult { is_valid: true, product_a: MATERIAL_WATER, product_b: MATERIAL_NONE, energy: 0.0 };
+        }
+        if a == MATERIAL_FIRE && b == MATERIAL_ICE {
+            return ReactionResult { is_valid: true, product_a: MATERIAL_NONE, product_b: MATERIAL_WATER, energy: 0.0 };
+        }
+
+        if a == MATERIAL_ICE && b == MATERIAL_LAVA {
+            return ReactionResult { is_valid: true, product_a: MATERIAL_STEAM, product_b: MATERIAL_STONE, energy: 2.0 };
+        }
+
+        return ReactionResult { is_valid: false, product_a: MATERIAL_NONE, product_b: MATERIAL_NONE, energy: 0.0 };
+    }
+
+    micro apply_reaction(x1: i32, y1: i32, x2: i32, y2: i32, reaction: ReactionResult) {
+        if reaction.product_a != MATERIAL_NONE {
+            pixelgrid.set_pixel(x1, y1, reaction.product_a);
+        }
+        if reaction.product_b != MATERIAL_NONE {
+            pixelgrid.set_pixel(x2, y2, reaction.product_b);
+        }
+        if reaction.energy > 2.0 {
+            let entity = create_entity();
+            entity.add(Explosion {
+                center_x: (x1 + x2) / 2,
+                center_y: (y1 + y2) / 2,
+                radius: reaction.energy * 2.0,
+                force: reaction.energy * 10.0,
+                damage: reaction.energy * 5.0 as i32,
+                timer: 0.0,
+                expanding: true,
+                current_radius: 0.0,
+                expansion_speed: reaction.energy * 20.0
+            });
+        }
+    }
+
+    micro update_burning(delta: f32) {
+        let expired: [Entity] = [];
+
+        <% loop (burning, pos) in query_burning { %>
+            burning.burn_timer += delta;
+
+            if burning.burn_timer >= burning.burn_duration {
+                pixelgrid.set_pixel(pos.x, pos.y, MATERIAL_NONE);
+                if burning.smoke_material != MATERIAL_NONE && random() < 0.5 {
+                    if pos.y > 0 && pixelgrid.get_pixel(pos.x, pos.y - 1) == MATERIAL_NONE {
+                        pixelgrid.set_pixel(pos.x, pos.y - 1, burning.smoke_material);
+                    }
+                }
+                expired.push(get_entity(burning));
+                continue;
+            }
+
+            if random() < burning.spread_chance * delta {
+                loop dx in range(-1, 2) {
+                    loop dy in range(-1, 2) {
+                        let nx = pos.x + dx;
+                        let ny = pos.y + dy;
+                        let neighbor = pixelgrid.get_pixel(nx, ny);
+                        if neighbor == MATERIAL_NONE {
+                            continue;
+                        }
+                        let mat = get_material_properties(neighbor);
+                        if mat.flammability > 0.0 && random() < mat.flammability {
+                            let fire_entity = create_entity();
+                            fire_entity.add(PixelPosition { x: nx, y: ny });
+                            fire_entity.add(Burning {
+                                burn_timer: 0.0,
+                                burn_duration: mat.flammability * 3.0,
+                                spread_chance: 0.3,
+                                smoke_material: MATERIAL_SMOKE
+                            });
+                        }
+                    }
+                }
+            }
+        <% } %>
+
+        loop entity in expired {
+            destroy_entity(entity);
+        }
+    }
+
+    micro update_corroding(delta: f32) {
+        let expired: [Entity] = [];
+
+        <% loop (corroding, pos) in query_corroding { %>
+            corroding.corrode_timer += delta;
+
+            if corroding.corrode_rate <= 0 {
+                continue;
+            }
+
+            if corroding.corrode_timer >= 1.0 / corroding.corrode_rate {
+                corroding.corrode_timer = 0.0;
+                pixelgrid.set_pixel(pos.x, pos.y, corroding.residue_material);
+                expired.push(get_entity(corroding));
+            }
+        <% } %>
+
+        loop entity in expired {
+            destroy_entity(entity);
+        }
+    }
+}
+
+system ExplosionSystem {
+    query_explosions = Query.all(Explosion);
+    query_waves = Query.all(PressureWave);
+    query_grid = Query.all(PixelGrid);
+
+    on_update(delta: f32) {
+        let completed_explosions: [Entity] = [];
+        let completed_waves: [Entity] = [];
+
+        <% loop (explosion, _) in query_explosions { %>
+            if !explosion.expanding {
+                completed_explosions.push(get_entity(explosion));
+                continue;
+            }
+
+            explosion.current_radius += explosion.expansion_speed * delta;
+            explosion.timer += delta;
+
+            if explosion.current_radius >= explosion.radius {
+                explosion.expanding = false;
+                continue;
+            }
+
+            <% loop (_, grid) in query_grid { %>
+                let cx = explosion.center_x;
+                let cy = explosion.center_y;
+                let r = explosion.current_radius as i32;
+                let max_r = explosion.radius as i32;
+
+                loop dx in range(-r, r + 1) {
+                    loop dy in range(-r, r + 1) {
+                        let dist = sqrt((dx * dx + dy * dy) as f32);
+                        if dist > explosion.current_radius || dist < explosion.current_radius - explosion.expansion_speed * delta {
+                            continue;
+                        }
+
+                        let px = cx + dx;
+                        let py = cy + dy;
+                        if px < 0 || px >= grid.width || py < 0 || py >= grid.height {
+                            continue;
+                        }
+
+                        let pixel = pixelgrid.get_pixel(px, py);
+                        if pixel == MATERIAL_NONE || pixel == MATERIAL_BOUNDARY {
+                            continue;
+                        }
+
+                        let mat = get_material_properties(pixel);
+                        let destroy_chance = explosion.force / (dist + 1.0);
+                        if random() < destroy_chance * delta {
+                            if mat.flammability > 0.0 && random() < mat.flammability {
+                                pixelgrid.set_pixel(px, py, MATERIAL_FIRE);
+                            }
+                            else {
+                                pixelgrid.set_pixel(px, py, MATERIAL_NONE);
+                            }
+                        }
+                    }
+                }
+            <% } %>
+        <% } %>
+
+        <% loop (wave, _) in query_waves { %>
+            wave.current_radius += wave.speed * delta;
+            wave.force *= wave.decay;
+
+            if wave.current_radius >= wave.radius || wave.force < 0.1 {
+                completed_waves.push(get_entity(wave));
+                continue;
+            }
+
+            <% loop (_, grid) in query_grid { %>
+                let cx = wave.center_x;
+                let cy = wave.center_y;
+                let r = wave.current_radius as i32;
+
+                loop dx in range(-r, r + 1) {
+                    loop dy in range(-r, r + 1) {
+                        let dist = sqrt((dx * dx + dy * dy) as f32);
+                        if dist > wave.current_radius || dist < wave.current_radius - wave.speed * delta {
+                            continue;
+                        }
+
+                        let px = cx + dx;
+                        let py = cy + dy;
+                        if px < 0 || px >= grid.width || py < 0 || py >= grid.height {
+                            continue;
+                        }
+
+                        let pixel = pixelgrid.get_pixel(px, py);
+                        if pixel == MATERIAL_NONE || pixel == MATERIAL_BOUNDARY {
+                            continue;
+                        }
+
+                        let push_force = wave.force / (dist + 1.0);
+                        if random() < push_force * delta * 0.5 {
+                            let angle = atan2(dy as f32, dx as f32);
+                            let push_x = px + round(cos(angle) * push_force * 0.5) as i32;
+                            let push_y = py + round(sin(angle) * push_force * 0.5) as i32;
+
+                            if push_x >= 0 && push_x < grid.width && push_y >= 0 && push_y < grid.height {
+                                if pixelgrid.get_pixel(push_x, push_y) == MATERIAL_NONE {
+                                    pixelgrid.swap(px, py, push_x, push_y);
+                                }
+                            }
+                        }
+                    }
+                }
+            <% } %>
+        <% } %>
+
+        loop entity in completed_explosions {
+            destroy_entity(entity);
+        }
+        loop entity in completed_waves {
+            destroy_entity(entity);
+        }
+    }
+}
+
+system MagicSystem {
+    query_players = Query.all(PlayerTag, PixelPosition, Wand, ManaPool);
+    query_projectiles = Query.all(Projectile, PixelPosition);
+    query_grid = Query.all(PixelGrid);
+
+    on_update(delta: f32) {
+        update_wand_recharge(delta);
+        handle_cast_input(delta);
+        update_projectiles(delta);
+    }
+
+    micro update_wand_recharge(delta: f32) {
+        <% loop (_, _, wand, mana) in query_players { %>
+            if wand.recharge_timer > 0 {
+                wand.recharge_timer -= delta;
+            }
+
+            mana.current = min(mana.current + mana.regen_rate * delta, mana.max);
+        <% } %>
+    }
+
+    micro handle_cast_input(delta: f32) {
+        <% loop (_, pos, wand, mana) in query_players { %>
+            if !input.is_action_pressed("cast") {
+                return;
+            }
+
+            if wand.recharge_timer > 0 {
+                return;
+            }
+
+            let spell = get_current_spell(wand);
+            if spell.spell_id == SPELL_NONE {
+                return;
+            }
+
+            if mana.current < spell.mana_cost {
+                return;
+            }
+
+            mana.current -= spell.mana_cost;
+
+            let aim_x = input.get_aim_x();
+            let aim_y = input.get_aim_y();
+            let dir_x = aim_x - pos.x as f32;
+            let dir_y = aim_y - pos.y as f32;
+            let len = sqrt(dir_x * dir_x + dir_y * dir_y);
+            if len > 0 {
+                dir_x = dir_x / len;
+                dir_y = dir_y / len;
+            }
+
+            dir_x += (random() - 0.5) * wand.spread;
+            dir_y += (random() - 0.5) * wand.spread;
+
+            cast_spell(pos, spell, dir_x, dir_y);
+
+            wand.recharge_timer = wand.cast_delay;
+            advance_wand_slot(wand);
+        <% } %>
+    }
+
+    micro cast_spell(pos: PixelPosition, spell: Spell, dir_x: f32, dir_y: f32) {
+        if spell.spell_type == SPELL_TYPE_PROJECTILE {
+            let projectile = create_entity();
+            projectile.add(PixelPosition { x: pos.x, y: pos.y });
+            projectile.add(Projectile {
+                vx: dir_x * spell.speed,
+                vy: dir_y * spell.speed,
+                lifetime: spell.lifetime,
+                damage: spell.damage,
+                radius: spell.radius,
+                spell_type: spell.spell_type,
+                element: spell.element,
+                bounces: spell.bounces,
+                piercing: spell.piercing,
+                trail_material: get_trail_material(spell.element)
+            });
+        }
+        else if spell.spell_type == SPELL_TYPE_BOMB {
+            let aim_x = input.get_aim_x() as i32;
+            let aim_y = input.get_aim_y() as i32;
+
+            let entity = create_entity();
+            entity.add(Explosion {
+                center_x: aim_x,
+                center_y: aim_y,
+                radius: spell.radius * 3.0,
+                force: spell.damage * 2.0,
+                damage: spell.damage as i32,
+                timer: 0.0,
+                expanding: true,
+                current_radius: 0.0,
+                expansion_speed: spell.radius * 10.0
+            });
+
+            let wave = create_entity();
+            wave.add(PressureWave {
+                center_x: aim_x,
+                center_y: aim_y,
+                radius: spell.radius * 5.0,
+                force: spell.damage,
+                speed: 80.0,
+                current_radius: 0.0,
+                decay: 0.92
+            });
+        }
+        else if spell.spell_type == SPELL_TYPE_TELEPORT {
+            let aim_x = input.get_aim_x() as i32;
+            let aim_y = input.get_aim_y() as i32;
+
+            let player_entity = get_entity(pos);
+            let new_pos = player_entity.get<PixelPosition>();
+            new_pos.x = aim_x;
+            new_pos.y = aim_y;
+        }
+        else if spell.spell_type == SPELL_TYPE_SPRAY {
+            loop i in range(0, 5) {
+                let spread_x = dir_x + (random() - 0.5) * 0.5;
+                let spread_y = dir_y + (random() - 0.5) * 0.5;
+                let len = sqrt(spread_x * spread_x + spread_y * spread_y);
+                spread_x = spread_x / len;
+                spread_y = spread_y / len;
+
+                let projectile = create_entity();
+                projectile.add(PixelPosition { x: pos.x, y: pos.y });
+                projectile.add(Projectile {
+                    vx: spread_x * spell.speed * 0.7,
+                    vy: spread_y * spell.speed * 0.7,
+                    lifetime: spell.lifetime * 0.5,
+                    damage: spell.damage * 0.4,
+                    radius: spell.radius * 0.5,
+                    spell_type: SPELL_TYPE_PROJECTILE,
+                    element: spell.element,
+                    bounces: 0,
+                    piercing: false,
+                    trail_material: get_trail_material(spell.element)
+                });
+            }
+        }
+    }
+
+    micro update_projectiles(delta: f32) {
+        let expired: [Entity] = [];
+
+        <% loop (proj, pos) in query_projectiles { %>
+            proj.lifetime -= delta;
+            if proj.lifetime <= 0 {
+                on_projectile_impact(pos, proj);
+                expired.push(get_entity(proj));
+                continue;
+            }
+
+            let new_x = pos.x + round(proj.vx * delta) as i32;
+            let new_y = pos.y + round(proj.vy * delta) as i32;
+
+            if proj.trail_material != MATERIAL_NONE {
+                if pixelgrid.get_pixel(pos.x, pos.y) == MATERIAL_NONE {
+                    pixelgrid.set_pixel(pos.x, pos.y, proj.trail_material);
+                }
+            }
+
+            let hit_something = false;
+
+            <% loop (_, grid) in query_grid { %>
+                let steps = max(abs(new_x - pos.x), abs(new_y - pos.y));
+                if steps == 0 {
+                    steps = 1;
+                }
+
+                loop step in range(1, steps + 1) {
+                    let t = step as f32 / steps as f32;
+                    let check_x = pos.x + round((new_x - pos.x) as f32 * t) as i32;
+                    let check_y = pos.y + round((new_y - pos.y) as f32 * t) as i32;
+
+                    if check_x < 0 || check_x >= grid.width || check_y < 0 || check_y >= grid.height {
+                        on_projectile_impact(pos, proj);
+                        hit_something = true;
+                        break;
+                    }
+
+                    let pixel = pixelgrid.get_pixel(check_x, check_y);
+                    if pixel != MATERIAL_NONE && pixel != MATERIAL_FIRE && pixel != MATERIAL_SMOKE && pixel != MATERIAL_STEAM {
+                        if proj.piercing {
+                            pixelgrid.set_pixel(check_x, check_y, MATERIAL_NONE);
+                        }
+                        else {
+                            on_projectile_impact(pos, proj);
+                            hit_something = true;
+                            break;
+                        }
+                    }
+                }
+            <% } %>
+
+            if !hit_something {
+                pos.x = new_x;
+                pos.y = new_y;
+                proj.vy += 9.8 * delta;
+            }
+            else {
+                expired.push(get_entity(proj));
+            }
+        <% } %>
+
+        loop entity in expired {
+            destroy_entity(entity);
+        }
+    }
+
+    micro on_projectile_impact(pos: PixelPosition, proj: Projectile) {
+        let impact_material = get_impact_material(proj.element);
+
+        let r = proj.radius as i32;
+        loop dx in range(-r, r + 1) {
+            loop dy in range(-r, r + 1) {
+                if dx * dx + dy * dy > r * r {
+                    continue;
+                }
+                let px = pos.x + dx;
+                let py = pos.y + dy;
+                let pixel = pixelgrid.get_pixel(px, py);
+                if pixel == MATERIAL_BOUNDARY {
+                    continue;
+                }
+
+                if impact_material != MATERIAL_NONE && (pixel == MATERIAL_NONE || random() < 0.5) {
+                    pixelgrid.set_pixel(px, py, impact_material);
+                }
+            }
+        }
+
+        if proj.element == ELEMENT_FIRE {
+            let fire_r = (proj.radius + 1) as i32;
+            loop dx in range(-fire_r, fire_r + 1) {
+                loop dy in range(-fire_r, fire_r + 1) {
+                    let px = pos.x + dx;
+                    let py = pos.y + dy;
+                    let pixel = pixelgrid.get_pixel(px, py);
+                    if pixel == MATERIAL_NONE || pixel == MATERIAL_BOUNDARY {
+                        continue;
+                    }
+                    let mat = get_material_properties(pixel);
+                    if mat.flammability > 0.0 && random() < mat.flammability * 0.5 {
+                        pixelgrid.set_pixel(px, py, MATERIAL_FIRE);
+                    }
+                }
+            }
+        }
+
+        if proj.damage > 20 {
+            let entity = create_entity();
+            entity.add(Explosion {
+                center_x: pos.x,
+                center_y: pos.y,
+                radius: proj.damage * 0.1,
+                force: proj.damage * 0.5,
+                damage: proj.damage as i32 * 2,
+                timer: 0.0,
+                expanding: true,
+                current_radius: 0.0,
+                expansion_speed: proj.damage * 2.0
+            });
+        }
+    }
+
+    micro get_trail_material(element: i32) -> i32 {
+        if element == ELEMENT_FIRE { return MATERIAL_FIRE; }
+        if element == ELEMENT_WATER { return MATERIAL_WATER; }
+        if element == ELEMENT_ACID { return MATERIAL_ACID; }
+        if element == ELEMENT_ICE { return MATERIAL_ICE; }
+        if element == ELEMENT_LAVA { return MATERIAL_LAVA; }
+        return MATERIAL_NONE;
+    }
+
+    micro get_impact_material(element: i32) -> i32 {
+        if element == ELEMENT_FIRE { return MATERIAL_FIRE; }
+        if element == ELEMENT_WATER { return MATERIAL_WATER; }
+        if element == ELEMENT_ACID { return MATERIAL_ACID; }
+        if element == ELEMENT_ICE { return MATERIAL_ICE; }
+        if element == ELEMENT_LAVA { return MATERIAL_LAVA; }
+        if element == ELEMENT_OIL { return MATERIAL_OIL; }
+        return MATERIAL_NONE;
+    }
+
+    micro get_current_spell(wand: Wand) -> Spell {
+        if wand.spell_count == 0 {
+            return Spell { spell_id: SPELL_NONE, mana_cost: 0, cooldown: 0, charges: 0, damage: 0, speed: 0, lifetime: 0, radius: 0, spell_type: 0, element: 0, bounces: 0, piercing: false };
+        }
+        return wand.spells[wand.current_slot];
+    }
+
+    micro advance_wand_slot(wand: Wand) {
+        if wand.spell_count == 0 {
+            return;
+        }
+        if wand.shuffle {
+            wand.current_slot = random_range(0, wand.spell_count) as u32;
+        }
+        else {
+            wand.current_slot = (wand.current_slot + 1) % wand.spell_count;
+        }
+    }
+}
+
+system PlayerMovementSystem {
+    query_players = Query.all(PlayerTag, PixelPosition, Health);
+
+    on_update(delta: f32) {
+        <% loop (_, pos, health) in query_players { %>
+            if health.current <= 0 {
+                return;
+            }
+
+            let move_x = 0.0;
+            let move_y = 0.0;
+
+            if input.is_action_pressed("move_left") {
+                move_x = -1.0;
+            }
+            if input.is_action_pressed("move_right") {
+                move_x = 1.0;
+            }
+            if input.is_action_pressed("move_up") {
+                if is_on_ground(pos) {
+                    move_y = -3.0;
+                }
+            }
+            if input.is_action_pressed("move_down") {
+                move_y = 1.0;
+            }
+
+            if input.is_action_pressed("fly_up") {
+                move_y = -2.0;
+            }
+            if input.is_action_pressed("fly_down") {
+                move_y = 2.0;
+            }
+
+            let new_x = pos.x + round(move_x * 60.0 * delta) as i32;
+            let new_y = pos.y + round(move_y * 60.0 * delta) as i32;
+
+            if pixelgrid.get_pixel(new_x, new_y) == MATERIAL_NONE {
+                pos.x = new_x;
+                pos.y = new_y;
+            }
+            else if pixelgrid.get_pixel(new_x, pos.y) == MATERIAL_NONE {
+                pos.x = new_x;
+            }
+            else if pixelgrid.get_pixel(pos.x, new_y) == MATERIAL_NONE {
+                pos.y = new_y;
+            }
+
+            if input.is_action_just_pressed("dig") {
+                let aim_x = input.get_aim_x() as i32;
+                let aim_y = input.get_aim_y() as i32;
+                dig_area(aim_x, aim_y, 3);
+            }
+
+            if input.is_action_just_pressed("pour_water") {
+                let aim_x = input.get_aim_x() as i32;
+                let aim_y = input.get_aim_y() as i32;
+                pour_material(aim_x, aim_y, MATERIAL_WATER, 5);
+            }
+
+            if input.is_action_just_pressed("pour_oil") {
+                let aim_x = input.get_aim_x() as i32;
+                let aim_y = input.get_aim_y() as i32;
+                pour_material(aim_x, aim_y, MATERIAL_OIL, 5);
+            }
+
+            if input.is_action_just_pressed("pour_acid") {
+                let aim_x = input.get_aim_x() as i32;
+                let aim_y = input.get_aim_y() as i32;
+                pour_material(aim_x, aim_y, MATERIAL_ACID, 5);
+            }
+
+            if input.is_action_just_pressed("pour_lava") {
+                let aim_x = input.get_aim_x() as i32;
+                let aim_y = input.get_aim_y() as i32;
+                pour_material(aim_x, aim_y, MATERIAL_LAVA, 5);
+            }
+
+            if input.is_action_just_pressed("place_sand") {
+                let aim_x = input.get_aim_x() as i32;
+                let aim_y = input.get_aim_y() as i32;
+                pour_material(aim_x, aim_y, MATERIAL_SAND, 5);
+            }
+
+            if input.is_action_just_pressed("detonate") {
+                let aim_x = input.get_aim_x() as i32;
+                let aim_y = input.get_aim_y() as i32;
+                create_explosion(aim_x, aim_y, 15.0, 50.0, 30);
+            }
+        <% } %>
+    }
+
+    micro is_on_ground(pos: PixelPosition) -> bool {
+        let below = pixelgrid.get_pixel(pos.x, pos.y + 1);
+        return below != MATERIAL_NONE && below != MATERIAL_WATER && below != MATERIAL_OIL;
+    }
+
+    micro dig_area(cx: i32, cy: i32, radius: i32) {
+        loop dx in range(-radius, radius + 1) {
+            loop dy in range(-radius, radius + 1) {
+                if dx * dx + dy * dy > radius * radius {
+                    continue;
+                }
+                let px = cx + dx;
+                let py = cy + dy;
+                let pixel = pixelgrid.get_pixel(px, py);
+                if pixel != MATERIAL_NONE && pixel != MATERIAL_BOUNDARY {
+                    pixelgrid.set_pixel(px, py, MATERIAL_NONE);
+                }
+            }
+        }
+    }
+
+    micro pour_material(cx: i32, cy: i32, material: i32, radius: i32) {
+        loop dx in range(-radius, radius + 1) {
+            loop dy in range(-radius, radius + 1) {
+                if dx * dx + dy * dy > radius * radius {
+                    continue;
+                }
+                let px = cx + dx;
+                let py = cy + dy;
+                if pixelgrid.get_pixel(px, py) == MATERIAL_NONE {
+                    pixelgrid.set_pixel(px, py, material);
+                }
+            }
+        }
+    }
+
+    micro create_explosion(cx: i32, cy: i32, radius: f32, force: f32, damage: i32) {
+        let entity = create_entity();
+        entity.add(Explosion {
+            center_x: cx,
+            center_y: cy,
+            radius: radius,
+            force: force,
+            damage: damage,
+            timer: 0.0,
+            expanding: true,
+            current_radius: 0.0,
+            expansion_speed: radius * 5.0
+        });
+
+        let wave = create_entity();
+        wave.add(PressureWave {
+            center_x: cx,
+            center_y: cy,
+            radius: radius * 3.0,
+            force: force * 0.5,
+            speed: 100.0,
+            current_radius: 0.0,
+            decay: 0.93
+        });
+    }
+}
+
+system DamageSystem {
+    query_damage = Query.all(Health, Damage);
+
+    on_update(delta: f32) {
+        <% loop (health, damage) in query_damage { %>
+            health.current -= damage.value;
+
+            let entity = get_entity(health);
+            entity.remove<Damage>();
+
+            if health.current <= 0 {
+                health.current = 0;
+
+                if entity.has<PlayerTag>() {
+                    console::log("玩家死亡！按 R 重生...");
+                }
+            }
+        <% } %>
+    }
+}
+
+system DayNightSystem {
+    query_daytime = Query.all(DayTime);
+
+    on_update(delta: f32) {
+        <% loop (daytime,) in query_daytime { %>
+            daytime.time_of_day += delta / daytime.day_duration;
+
+            if daytime.time_of_day >= 1.0 {
+                daytime.time_of_day -= 1.0;
+                daytime.day_count += 1;
+                console::log($"第 {daytime.day_count} 天开始了！");
+            }
+        <% } %>
+    }
+}
+
+system WorldGenerationSystem {
+    on_load() {
+        let config = asset.load<gonObject>("config/world.gon");
+        let world_width = config.get("world_size").get("width").as_int();
+        let world_height = config.get("world_size").get("height").as_int();
+        let seed = config.get("seed").as_u64();
+
+        let grid_entity = create_entity();
+        grid_entity.add(PixelGrid { width: world_width, height: world_height, seed: seed });
+
+        generate_cave_world(seed, world_width, world_height);
+
+        let spawn_x = world_width / 2;
+        let spawn_y = find_spawn_point(spawn_x, world_width, world_height);
+
+        create_player(spawn_x, spawn_y);
+
+        console::log($"Noita 世界生成完成 - 种子: {seed}, 尺寸: {world_width}x{world_height}");
+    }
+
+    micro generate_cave_world(seed: u64, width: i32, height: i32) {
+        loop x in range(0, width) {
+            loop y in range(0, height) {
+                if x == 0 || x == width - 1 || y == height - 1 {
+                    pixelgrid.set_pixel(x, y, MATERIAL_BOUNDARY);
+                    continue;
+                }
+
+                let surface_y = height * 0.15;
+
+                if y < surface_y {
+                    pixelgrid.set_pixel(x, y, MATERIAL_NONE);
+                }
+                else {
+                    let cave_value = noise.fractal_2d(seed, x * 0.03, y * 0.03, 5);
+                    let large_cave = noise.fractal_2d(seed ^ 0xAAAA, x * 0.01, y * 0.01, 3);
+                    let tunnel = noise.fractal_2d(seed ^ 0x5555, x * 0.06, y * 0.06, 4);
+
+                    if cave_value > 0.35 || large_cave > 0.45 || tunnel > 0.55 {
+                        pixelgrid.set_pixel(x, y, MATERIAL_NONE);
+                    }
+                    else {
+                        let depth_ratio = (y - surface_y) as f32 / (height - surface_y) as f32;
+
+                        if depth_ratio < 0.2 {
+                            pixelgrid.set_pixel(x, y, MATERIAL_DIRT);
+                        }
+                        else if depth_ratio < 0.5 {
+                            pixelgrid.set_pixel(x, y, MATERIAL_STONE);
+                        }
+                        else {
+                            pixelgrid.set_pixel(x, y, MATERIAL_STONE);
+
+                            let gold_val = noise.fractal_2d(seed ^ 0x1234, (x + 500) * 0.08, y * 0.08, 3);
+                            if gold_val > 0.6 {
+                                pixelgrid.set_pixel(x, y, MATERIAL_GOLD);
+                            }
+                        }
+
+                        let water_level = height * 0.6;
+                        if y > water_level && pixelgrid.get_pixel(x, y) == MATERIAL_NONE {
+                            let water_chance = (y - water_level) as f32 / (height - water_level) as f32;
+                            if random() < water_chance * 0.3 {
+                                pixelgrid.set_pixel(x, y, MATERIAL_WATER);
+                            }
+                        }
+
+                        let oil_level = height * 0.7;
+                        if y > oil_level {
+                            let oil_val = noise.fractal_2d(seed ^ 0xBEEF, (x + 1000) * 0.05, y * 0.05, 3);
+                            if oil_val > 0.65 {
+                                if pixelgrid.get_pixel(x, y) == MATERIAL_NONE {
+                                    pixelgrid.set_pixel(x, y, MATERIAL_OIL);
+                                }
+                            }
+                        }
+
+                        let lava_level = height * 0.85;
+                        if y > lava_level {
+                            let lava_val = noise.fractal_2d(seed ^ 0xDEAD, (x + 2000) * 0.04, y * 0.04, 2);
+                            if lava_val > 0.6 {
+                                if pixelgrid.get_pixel(x, y) == MATERIAL_NONE {
+                                    pixelgrid.set_pixel(x, y, MATERIAL_LAVA);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        generate_pockets(seed, width, height);
+    }
+
+    micro generate_pockets(seed: u64, width: i32, height: i32) {
+        let pocket_count = width / 20;
+        loop i in range(0, pocket_count) {
+            let px = random_range(10, width - 10);
+            let py = random_range(height / 3, height - 10);
+            let pocket_type = random_range(0, 4);
+            let pocket_radius = random_range(3, 8);
+
+            let material = MATERIAL_ACID;
+            if pocket_type == 1 { material = MATERIAL_WATER; }
+            else if pocket_type == 2 { material = MATERIAL_OIL; }
+            else if pocket_type == 3 { material = MATERIAL_LAVA; }
+
+            loop dx in range(-pocket_radius, pocket_radius + 1) {
+                loop dy in range(-pocket_radius, pocket_radius + 1) {
+                    if dx * dx + dy * dy > pocket_radius * pocket_radius {
+                        continue;
+                    }
+                    let nx = px + dx;
+                    let ny = py + dy;
+                    if nx > 0 && nx < width - 1 && ny > 0 && ny < height - 1 {
+                        let current = pixelgrid.get_pixel(nx, ny);
+                        if current != MATERIAL_NONE && current != MATERIAL_BOUNDARY {
+                            if random() < 0.7 {
+                                pixelgrid.set_pixel(nx, ny, material);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    micro find_spawn_point(spawn_x: i32, width: i32, height: i32) -> i32 {
+        loop y in range(0, height) {
+            if pixelgrid.get_pixel(spawn_x, y) != MATERIAL_NONE {
+                if y > 0 && pixelgrid.get_pixel(spawn_x, y - 1) == MATERIAL_NONE {
+                    return y - 2;
+                }
+            }
+        }
+        return height / 4;
+    }
+
+    micro create_player(spawn_x: i32, spawn_y: i32) {
+        let player = create_entity();
+        player.add(PlayerTag { player_id: 0 });
+        player.add(PixelPosition { x: spawn_x, y: spawn_y });
+        player.add(Health { current: 100, max: 100 });
+        player.add(ManaPool { current: 100.0, max: 100.0, regen_rate: 5.0 });
+        player.add(CameraFollow { offset_x: 0.0, offset_y: -5.0, smoothing: 0.1 });
+        player.add(Wand {
+            capacity: 5,
+            spell_count: 3,
+            shuffle: false,
+            cast_delay: 0.15,
+            recharge_time: 0.5,
+            spread: 0.05,
+            current_slot: 0,
+            recharge_timer: 0.0
+        });
+
+        let wand = player.get<Wand>();
+        wand.spells[0] = Spell {
+            spell_id: SPELL_SPARK_BOLT,
+            mana_cost: 5.0,
+            cooldown: 0.1,
+            charges: -1,
+            damage: 8.0,
+            speed: 250.0,
+            lifetime: 3.0,
+            radius: 1.0,
+            spell_type: SPELL_TYPE_PROJECTILE,
+            element: ELEMENT_FIRE,
+            bounces: 0,
+            piercing: false
+        };
+        wand.spells[1] = Spell {
+            spell_id: SPELL_BOMB,
+            mana_cost: 25.0,
+            cooldown: 0.5,
+            charges: -1,
+            damage: 50.0,
+            speed: 0.0,
+            lifetime: 0.0,
+            radius: 8.0,
+            spell_type: SPELL_TYPE_BOMB,
+            element: ELEMENT_FIRE,
+            bounces: 0,
+            piercing: false
+        };
+        wand.spells[2] = Spell {
+            spell_id: SPELL_WATER_SPRAY,
+            mana_cost: 3.0,
+            cooldown: 0.05,
+            charges: -1,
+            damage: 2.0,
+            speed: 150.0,
+            lifetime: 1.0,
+            radius: 0.5,
+            spell_type: SPELL_TYPE_SPRAY,
+            element: ELEMENT_WATER,
+            bounces: 0,
+            piercing: false
+        };
+    }
+}

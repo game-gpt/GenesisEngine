@@ -1,0 +1,1199 @@
+system BeltSystem {
+    query_belts = Query.all(Belt, GridPosition);
+
+    on_update(delta: f32) {
+        <% loop (belt, pos) in query_belts { %>
+            advance_belt_items(belt, delta);
+            try_accept_from_upstream(belt, pos);
+        <% } %>
+    }
+
+    micro advance_belt_items(belt: Belt, delta: f32) {
+        let move_amount = belt.speed * delta;
+
+        if belt.item_3_id != ITEM_NONE {
+            belt.item_3_progress += move_amount;
+            if belt.item_3_progress >= 1.0 {
+                let next_pos = get_direction_offset(belt.direction);
+                let target_x = pos.x + next_pos.x;
+                let target_y = pos.y + next_pos.y;
+                if try_push_item_to_belt(target_x, target_y, belt.item_3_id) {
+                    belt.item_3_id = ITEM_NONE;
+                    belt.item_3_progress = 0.0;
+                }
+                else {
+                    belt.item_3_progress = 1.0;
+                }
+            }
+        }
+
+        if belt.item_2_id != ITEM_NONE {
+            belt.item_2_progress += move_amount;
+            if belt.item_2_progress >= 1.0 {
+                if belt.item_3_id == ITEM_NONE {
+                    belt.item_3_id = belt.item_2_id;
+                    belt.item_3_progress = belt.item_2_progress - 1.0;
+                    belt.item_2_id = ITEM_NONE;
+                    belt.item_2_progress = 0.0;
+                }
+                else {
+                    belt.item_2_progress = 1.0;
+                }
+            }
+        }
+
+        if belt.item_1_id != ITEM_NONE {
+            belt.item_1_progress += move_amount;
+            if belt.item_1_progress >= 1.0 {
+                if belt.item_2_id == ITEM_NONE {
+                    belt.item_2_id = belt.item_1_id;
+                    belt.item_2_progress = belt.item_1_progress - 1.0;
+                    belt.item_1_id = ITEM_NONE;
+                    belt.item_1_progress = 0.0;
+                }
+                else {
+                    belt.item_1_progress = 1.0;
+                }
+            }
+        }
+
+        if belt.item_0_id != ITEM_NONE {
+            belt.item_0_progress += move_amount;
+            if belt.item_0_progress >= 1.0 {
+                if belt.item_1_id == ITEM_NONE {
+                    belt.item_1_id = belt.item_0_id;
+                    belt.item_1_progress = belt.item_0_progress - 1.0;
+                    belt.item_0_id = ITEM_NONE;
+                    belt.item_0_progress = 0.0;
+                }
+                else {
+                    belt.item_0_progress = 1.0;
+                }
+            }
+        }
+    }
+
+    micro try_accept_from_upstream(belt: Belt, pos: GridPosition) {
+        let upstream_dirs = get_upstream_directions(belt.direction);
+        loop dir in upstream_dirs {
+            let src_x = pos.x + dir.x;
+            let src_y = pos.y + dir.y;
+            let src_belt = find_belt_at(src_x, src_y);
+            if src_belt.is_valid {
+                if src_belt.item_3_id != ITEM_NONE && src_belt.item_3_progress >= 1.0 {
+                    if belt.item_0_id == ITEM_NONE {
+                        belt.item_0_id = src_belt.item_3_id;
+                        belt.item_0_progress = 0.0;
+                        src_belt.item_3_id = ITEM_NONE;
+                        src_belt.item_3_progress = 0.0;
+                    }
+                }
+            }
+        }
+    }
+
+    micro try_push_item_to_belt(x: i32, y: i32, item_id: i32) -> bool {
+        let target_belt = find_belt_at(x, y);
+        if !target_belt.is_valid {
+            return false;
+        }
+        if target_belt.item_0_id != ITEM_NONE {
+            return false;
+        }
+        target_belt.item_0_id = item_id;
+        target_belt.item_0_progress = 0.0;
+        return true;
+    }
+
+    micro get_direction_offset(direction: i32) -> Vec2 {
+        if direction == DIR_NORTH { return Vec2 { x: 0, y: -1 }; }
+        if direction == DIR_SOUTH { return Vec2 { x: 0, y: 1 }; }
+        if direction == DIR_EAST { return Vec2 { x: 1, y: 0 }; }
+        if direction == DIR_WEST { return Vec2 { x: -1, y: 0 }; }
+        return Vec2 { x: 0, y: 0 };
+    }
+
+    micro get_upstream_directions(direction: i32) -> [Vec2] {
+        if direction == DIR_NORTH { return [Vec2 { x: 0, y: 1 }, Vec2 { x: -1, y: 0 }, Vec2 { x: 1, y: 0 }]; }
+        if direction == DIR_SOUTH { return [Vec2 { x: 0, y: -1 }, Vec2 { x: -1, y: 0 }, Vec2 { x: 1, y: 0 }]; }
+        if direction == DIR_EAST { return [Vec2 { x: -1, y: 0 }, Vec2 { x: 0, y: -1 }, Vec2 { x: 0, y: 1 }]; }
+        if direction == DIR_WEST { return [Vec2 { x: 1, y: 0 }, Vec2 { x: 0, y: -1 }, Vec2 { x: 0, y: 1 }]; }
+        return [];
+    }
+}
+
+system InserterSystem {
+    query_inserters = Query.all(Inserter, GridPosition);
+
+    on_update(delta: f32) {
+        <% loop (inserter, pos) in query_inserters { %>
+            if inserter.state == INSERTER_IDLE {
+                try_pickup_item(inserter, pos);
+            }
+            else if inserter.state == INSERTER_PICKING {
+                inserter.arm_angle += inserter.swing_speed * delta;
+                if inserter.arm_angle >= inserter.target_angle {
+                    inserter.arm_angle = inserter.target_angle;
+                    inserter.state = INSERTER_DROPPING;
+                    try_place_item(inserter, pos);
+                }
+            }
+            else if inserter.state == INSERTER_DROPPING {
+                inserter.arm_angle -= inserter.swing_speed * delta;
+                if inserter.arm_angle <= 0.0 {
+                    inserter.arm_angle = 0.0;
+                    inserter.state = INSERTER_IDLE;
+                }
+            }
+        <% } %>
+    }
+
+    micro try_pickup_item(inserter: Inserter, pos: GridPosition) {
+        let src_x = pos.x + inserter.source_offset_x;
+        let src_y = pos.y + inserter.source_offset_y;
+
+        let belt = find_belt_at(src_x, src_y);
+        if belt.is_valid {
+            if belt.item_0_id != ITEM_NONE {
+                inserter.held_item_id = belt.item_0_id;
+                belt.item_0_id = ITEM_NONE;
+                belt.item_0_progress = 0.0;
+                inserter.state = INSERTER_PICKING;
+                return;
+            }
+            if belt.item_1_id != ITEM_NONE {
+                inserter.held_item_id = belt.item_1_id;
+                belt.item_1_id = ITEM_NONE;
+                belt.item_1_progress = 0.0;
+                inserter.state = INSERTER_PICKING;
+                return;
+            }
+        }
+
+        let chest = find_chest_at(src_x, src_y);
+        if chest.is_valid {
+            if chest.slot_0_count > 0 {
+                inserter.held_item_id = chest.slot_0_id;
+                chest.slot_0_count -= 1;
+                if chest.slot_0_count == 0 {
+                    chest.slot_0_id = ITEM_NONE;
+                }
+                inserter.state = INSERTER_PICKING;
+                return;
+            }
+        }
+
+        let resource = find_resource_at(src_x, src_y);
+        if resource.is_valid {
+            inserter.held_item_id = resource.resource_type;
+            resource.amount -= 1;
+            if resource.amount <= 0 {
+                destroy_entity(get_entity(resource));
+            }
+            inserter.state = INSERTER_PICKING;
+            return;
+        }
+    }
+
+    micro try_place_item(inserter: Inserter, pos: GridPosition) {
+        if inserter.held_item_id == ITEM_NONE {
+            return;
+        }
+
+        let dest_x = pos.x + inserter.dest_offset_x;
+        let dest_y = pos.y + inserter.dest_offset_y;
+
+        let machine = find_machine_at(dest_x, dest_y);
+        if machine.is_valid {
+            if try_insert_item_into_machine(machine, inserter.held_item_id) {
+                inserter.held_item_id = ITEM_NONE;
+                return;
+            }
+        }
+
+        let belt = find_belt_at(dest_x, dest_y);
+        if belt.is_valid {
+            if belt.item_0_id == ITEM_NONE {
+                belt.item_0_id = inserter.held_item_id;
+                belt.item_0_progress = 0.0;
+                inserter.held_item_id = ITEM_NONE;
+                return;
+            }
+        }
+
+        let chest = find_chest_at(dest_x, dest_y);
+        if chest.is_valid {
+            if try_insert_item_into_chest(chest, inserter.held_item_id) {
+                inserter.held_item_id = ITEM_NONE;
+                return;
+            }
+        }
+    }
+
+    micro try_insert_item_into_machine(machine: Machine, item_id: i32) -> bool {
+        if machine.recipe_id == RECIPE_NONE {
+            return false;
+        }
+        let recipe = get_recipe(machine.recipe_id);
+        loop i in range(0, recipe.input.length()) {
+            let required = recipe.input.get(i);
+            if required.item == item_id {
+                if i == 0 && machine.input_0_count < required.count * 2 {
+                    if machine.input_0_id == ITEM_NONE || machine.input_0_id == item_id {
+                        machine.input_0_id = item_id;
+                        machine.input_0_count += 1;
+                        return true;
+                    }
+                }
+                if i == 1 && machine.input_1_count < required.count * 2 {
+                    if machine.input_1_id == ITEM_NONE || machine.input_1_id == item_id {
+                        machine.input_1_id = item_id;
+                        machine.input_1_count += 1;
+                        return true;
+                    }
+                }
+                if i == 2 && machine.input_2_count < required.count * 2 {
+                    if machine.input_2_id == ITEM_NONE || machine.input_2_id == item_id {
+                        machine.input_2_id = item_id;
+                        machine.input_2_count += 1;
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    micro try_insert_item_into_chest(chest: LogisticChest, item_id: i32) -> bool {
+        if chest.slot_0_id == ITEM_NONE || (chest.slot_0_id == item_id && chest.slot_0_count < 100) {
+            chest.slot_0_id = item_id;
+            chest.slot_0_count += 1;
+            return true;
+        }
+        if chest.slot_1_id == ITEM_NONE || (chest.slot_1_id == item_id && chest.slot_1_count < 100) {
+            chest.slot_1_id = item_id;
+            chest.slot_1_count += 1;
+            return true;
+        }
+        if chest.slot_2_id == ITEM_NONE || (chest.slot_2_id == item_id && chest.slot_2_count < 100) {
+            chest.slot_2_id = item_id;
+            chest.slot_2_count += 1;
+            return true;
+        }
+        if chest.slot_3_id == ITEM_NONE || (chest.slot_3_id == item_id && chest.slot_3_count < 100) {
+            chest.slot_3_id = item_id;
+            chest.slot_3_count += 1;
+            return true;
+        }
+        return false;
+    }
+}
+
+system ProductionSystem {
+    query_machines = Query.all(Machine, GridPosition, Power);
+
+    on_update(delta: f32) {
+        <% loop (machine, pos, power) in query_machines { %>
+            if machine.recipe_id == RECIPE_NONE {
+                continue;
+            }
+
+            if power.buffer < machine_power_cost(machine.machine_type) * delta {
+                continue;
+            }
+
+            if !has_required_inputs(machine) {
+                continue;
+            }
+
+            if is_output_full(machine) {
+                continue;
+            }
+
+            power.buffer -= machine_power_cost(machine.machine_type) * delta;
+
+            let recipe = get_recipe(machine.recipe_id);
+            let speed_multiplier = machine_speed_multiplier(machine.machine_type);
+            machine.progress += delta * speed_multiplier / recipe.time;
+
+            if machine.progress >= 1.0 {
+                consume_inputs(machine, recipe);
+                produce_outputs(machine, recipe);
+                machine.progress = 0.0;
+
+                let stats = get_world_stats();
+                stats.item_production += recipe.output.get(0).count;
+            }
+        <% } %>
+    }
+
+    micro has_required_inputs(machine: Machine) -> bool {
+        if machine.recipe_id == RECIPE_NONE {
+            return false;
+        }
+        let recipe = get_recipe(machine.recipe_id);
+        loop i in range(0, recipe.input.length()) {
+            let required = recipe.input.get(i);
+            let available = 0;
+            if i == 0 { available = machine.input_0_count; }
+            else if i == 1 { available = machine.input_1_count; }
+            else if i == 2 { available = machine.input_2_count; }
+            if available < required.count {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    micro is_output_full(machine: Machine) -> bool {
+        if machine.output_0_id != ITEM_NONE && machine.output_0_count >= 50 {
+            return true;
+        }
+        return false;
+    }
+
+    micro consume_inputs(machine: Machine, recipe: gonObject) {
+        loop i in range(0, recipe.input.length()) {
+            let required = recipe.input.get(i);
+            if i == 0 {
+                machine.input_0_count -= required.count;
+                if machine.input_0_count <= 0 {
+                    machine.input_0_id = ITEM_NONE;
+                    machine.input_0_count = 0;
+                }
+            }
+            else if i == 1 {
+                machine.input_1_count -= required.count;
+                if machine.input_1_count <= 0 {
+                    machine.input_1_id = ITEM_NONE;
+                    machine.input_1_count = 0;
+                }
+            }
+            else if i == 2 {
+                machine.input_2_count -= required.count;
+                if machine.input_2_count <= 0 {
+                    machine.input_2_id = ITEM_NONE;
+                    machine.input_2_count = 0;
+                }
+            }
+        }
+    }
+
+    micro produce_outputs(machine: Machine, recipe: gonObject) {
+        let result = recipe.output.get(0);
+        if machine.output_0_id == ITEM_NONE || machine.output_0_id == result.item {
+            machine.output_0_id = result.item;
+            machine.output_0_count += result.count;
+        }
+    }
+
+    micro machine_power_cost(machine_type: i32) -> f32 {
+        if machine_type == MACHINE_FURNACE { return 0.0; }
+        if machine_type == MACHINE_ASSEMBLER { return 75.0; }
+        if machine_type == MACHINE_BOILER { return 0.0; }
+        if machine_type == MACHINE_STEAM_ENGINE { return 0.0; }
+        return 50.0;
+    }
+
+    micro machine_speed_multiplier(machine_type: i32) -> f32 {
+        if machine_type == MACHINE_FURNACE { return 1.0; }
+        if machine_type == MACHINE_ASSEMBLER { return 0.75; }
+        return 1.0;
+    }
+}
+
+system PowerSystem {
+    query_networks = Query.all(PowerNetwork);
+    query_generators = Query.all(Power, GridPosition) where Power.production > 0;
+    query_consumers = Query.all(Power, GridPosition) where Power.consumption > 0;
+    query_poles = Query.all(PowerPole, GridPosition);
+
+    on_update(delta: f32) {
+        <% loop (network,) in query_networks { %>
+            network.total_production = 0.0;
+            network.total_consumption = 0.0;
+            network.total_buffer = 0.0;
+        <% } %>
+
+        <% loop (power, _) in query_generators { %>
+            if power.network_id == POWER_NETWORK_NONE {
+                continue;
+            }
+            let network = find_power_network(power.network_id);
+            if network.is_valid {
+                network.total_production += power.production;
+                network.total_buffer += power.buffer;
+            }
+        <% } %>
+
+        <% loop (power, _) in query_consumers { %>
+            if power.network_id == POWER_NETWORK_NONE {
+                continue;
+            }
+            let network = find_power_network(power.network_id);
+            if network.is_valid {
+                network.total_consumption += power.consumption;
+            }
+        <% } %>
+
+        <% loop (network,) in query_networks { %>
+            if network.total_consumption > 0 {
+                network.satisfaction = min(network.total_production / network.total_consumption, 1.0);
+            }
+            else {
+                network.satisfaction = 1.0;
+            }
+
+            let surplus = network.total_production - network.total_consumption;
+            if surplus > 0 {
+                distribute_surplus_to_buffers(network, surplus * delta);
+            }
+        <% } %>
+
+        update_pole_connections();
+    }
+
+    micro distribute_surplus_to_buffers(network: PowerNetwork, surplus: f32) {
+        let remaining = surplus;
+        <% loop (power,) in query_consumers { %>
+            if power.network_id != network.network_id {
+                continue;
+            }
+            if power.max_buffer > 0 && power.buffer < power.max_buffer {
+                let charge = min(remaining, power.max_buffer - power.buffer);
+                power.buffer += charge;
+                remaining -= charge;
+            }
+        <% } %>
+    }
+
+    micro update_pole_connections() {
+        <% loop (pole, pos) in query_poles { %>
+            pole.connected_poles = [];
+            <% loop (other_pole, other_pos) in query_poles { %>
+                if pole.network_id != other_pole.network_id {
+                    continue;
+                }
+                if pole == other_pole {
+                    continue;
+                }
+                let dx = pos.x - other_pos.x;
+                let dy = pos.y - other_pos.y;
+                let distance = sqrt((dx * dx + dy * dy) as f32);
+                if distance <= pole.wire_reach {
+                    pole.connected_poles.push(other_pole.network_id);
+                }
+            <% } %>
+        <% } %>
+    }
+}
+
+system LogisticSystem {
+    query_roboports = Query.all(Roboport, GridPosition);
+    query_robots = Query.all(LogisticRobot, GridPosition);
+    query_requesters = Query.all(LogisticChest, GridPosition) where LogisticChest.chest_type == CHEST_REQUESTER;
+    query_providers = Query.all(LogisticChest, GridPosition) where LogisticChest.chest_type == CHEST_PROVIDER;
+
+    on_update(delta: f32) {
+        process_logistic_requests();
+        update_robots(delta);
+    }
+
+    micro process_logistic_requests() {
+        <% loop (chest, pos) in query_requesters { %>
+            if chest.request_id == ITEM_NONE {
+                continue;
+            }
+            if chest.request_count <= 0 {
+                continue;
+            }
+
+            let current_count = count_item_in_chest(chest, chest.request_id);
+            let needed = chest.request_count - current_count;
+            if needed <= 0 {
+                continue;
+            }
+
+            <% loop (roboport, rport_pos) in query_roboports { %>
+                let dx = pos.x - rport_pos.x;
+                let dy = pos.y - rport_pos.y;
+                let dist = sqrt((dx * dx + dy * dy) as f32);
+                if dist > roboport.logistic_range {
+                    continue;
+                }
+                if roboport.active_robots >= roboport.robot_capacity {
+                    continue;
+                }
+
+                let provider = find_provider_for_item(chest.request_id);
+                if provider.is_valid {
+                    dispatch_robot(roboport, rport_pos, provider, pos, chest.request_id, 1);
+                    break;
+                }
+            <% } %>
+        <% } %>
+    }
+
+    micro find_provider_for_item(item_id: i32) -> LogisticChest {
+        <% loop (chest, _) in query_providers { %>
+            if chest.slot_0_id == item_id && chest.slot_0_count > 0 {
+                return chest;
+            }
+            if chest.slot_1_id == item_id && chest.slot_1_count > 0 {
+                return chest;
+            }
+            if chest.slot_2_id == item_id && chest.slot_2_count > 0 {
+                return chest;
+            }
+            if chest.slot_3_id == item_id && chest.slot_3_count > 0 {
+                return chest;
+            }
+        <% } %>
+        return LogisticChest { chest_type: 0 };
+    }
+
+    micro dispatch_robot(roboport: Roboport, roboport_pos: GridPosition, provider: LogisticChest, target_pos: GridPosition, item_id: i32, count: i32) {
+        let robot = create_entity();
+        robot.add(LogisticRobot {
+            carried_item_id: ITEM_NONE,
+            carried_count: 0,
+            target_x: target_pos.x,
+            target_y: target_pos.y,
+            origin_x: roboport_pos.x,
+            origin_y: roboport_pos.y,
+            speed: 3.0,
+            state: ROBOT_TO_PROVIDER
+        });
+        robot.add(GridPosition { x: roboport_pos.x, y: roboport_pos.y });
+        roboport.active_robots += 1;
+    }
+
+    micro update_robots(delta: f32) {
+        let robots_to_destroy: [Entity] = [];
+
+        <% loop (robot, pos) in query_robots { %>
+            if robot.state == ROBOT_TO_PROVIDER {
+                let provider = find_provider_for_item(robot.carried_item_id);
+                if !provider.is_valid {
+                    robot.state = ROBOT_RETURNING;
+                    continue;
+                }
+                let provider_pos = get_entity(provider).get<GridPosition>();
+                let dx = provider_pos.x - pos.x;
+                let dy = provider_pos.y - pos.y;
+                let dist = sqrt((dx * dx + dy * dy) as f32);
+                if dist < 0.5 {
+                    pickup_from_provider(robot, provider);
+                    robot.state = ROBOT_TO_REQUESTER;
+                }
+                else {
+                    let move_speed = robot.speed * delta;
+                    pos.x += round(dx / dist * move_speed);
+                    pos.y += round(dy / dist * move_speed);
+                }
+            }
+            else if robot.state == ROBOT_TO_REQUESTER {
+                let dx = robot.target_x - pos.x;
+                let dy = robot.target_y - pos.y;
+                let dist = sqrt((dx * dx + dy * dy) as f32);
+                if dist < 0.5 {
+                    deliver_to_requester(robot);
+                    robot.state = ROBOT_RETURNING;
+                }
+                else {
+                    let move_speed = robot.speed * delta;
+                    pos.x += round(dx / dist * move_speed);
+                    pos.y += round(dy / dist * move_speed);
+                }
+            }
+            else if robot.state == ROBOT_RETURNING {
+                let dx = robot.origin_x - pos.x;
+                let dy = robot.origin_y - pos.y;
+                let dist = sqrt((dx * dx + dy * dy) as f32);
+                if dist < 0.5 {
+                    robots_to_destroy.push(get_entity(robot));
+                }
+                else {
+                    let move_speed = robot.speed * delta;
+                    pos.x += round(dx / dist * move_speed);
+                    pos.y += round(dy / dist * move_speed);
+                }
+            }
+        <% } %>
+
+        loop entity in robots_to_destroy {
+            destroy_entity(entity);
+        }
+    }
+
+    micro pickup_from_provider(robot: LogisticRobot, provider: LogisticChest) {
+        if provider.slot_0_count > 0 {
+            robot.carried_item_id = provider.slot_0_id;
+            robot.carried_count = 1;
+            provider.slot_0_count -= 1;
+            if provider.slot_0_count == 0 {
+                provider.slot_0_id = ITEM_NONE;
+            }
+        }
+    }
+
+    micro deliver_to_requester(robot: LogisticRobot) {
+        let requester = find_requester_at(robot.target_x, robot.target_y);
+        if requester.is_valid {
+            if try_insert_item_into_chest(requester, robot.carried_item_id) {
+                robot.carried_item_id = ITEM_NONE;
+                robot.carried_count = 0;
+            }
+        }
+    }
+
+    micro count_item_in_chest(chest: LogisticChest, item_id: i32) -> i32 {
+        let count = 0;
+        if chest.slot_0_id == item_id { count += chest.slot_0_count; }
+        if chest.slot_1_id == item_id { count += chest.slot_1_count; }
+        if chest.slot_2_id == item_id { count += chest.slot_2_count; }
+        if chest.slot_3_id == item_id { count += chest.slot_3_count; }
+        return count;
+    }
+}
+
+system BlueprintSystem {
+    query_blueprints = Query.all(BlueprintData, GridPosition);
+    query_player = Query.all(PlayerTag, GridPosition, Inventory);
+
+    on_update(delta: f32) {
+        if input.is_action_just_pressed("blueprint_copy") {
+            copy_selection();
+        }
+        if input.is_action_just_pressed("blueprint_paste") {
+            paste_selection();
+        }
+        if input.is_action_just_pressed("blueprint_rotate") {
+            rotate_blueprint();
+        }
+    }
+
+    micro copy_selection() {
+        <% loop (_, pos, inventory) in query_player { %>
+            let blueprint = create_entity();
+            blueprint.add(BlueprintData { name: "新建蓝图", entities: [], is_active: true });
+            blueprint.add(GridPosition { x: pos.x, y: pos.y });
+
+            let copy_radius = 5;
+            let min_x = pos.x - copy_radius;
+            let min_y = pos.y - copy_radius;
+
+            <% loop (machine, mpos) in Query.all(Machine, GridPosition) { %>
+                if abs(mpos.x - pos.x) <= copy_radius && abs(mpos.y - pos.y) <= copy_radius {
+                    let bp_entity = BlueprintEntity {
+                        entity_type: machine.machine_type,
+                        offset_x: mpos.x - min_x,
+                        offset_y: mpos.y - min_y,
+                        direction: 0,
+                        recipe_id: machine.recipe_id
+                    };
+                    let bp_data = blueprint.get<BlueprintData>();
+                    bp_data.entities.push(bp_entity);
+                }
+            <% } %>
+
+            <% loop (belt, bpos) in Query.all(Belt, GridPosition) { %>
+                if abs(bpos.x - pos.x) <= copy_radius && abs(bpos.y - pos.y) <= copy_radius {
+                    let bp_entity = BlueprintEntity {
+                        entity_type: ENTITY_BELT,
+                        offset_x: bpos.x - min_x,
+                        offset_y: bpos.y - min_y,
+                        direction: belt.direction,
+                        recipe_id: RECIPE_NONE
+                    };
+                    let bp_data = blueprint.get<BlueprintData>();
+                    bp_data.entities.push(bp_entity);
+                }
+            <% } %>
+
+            console::log($"蓝图已复制：{blueprint.get<BlueprintData>().entities.length()} 个实体");
+        <% } %>
+    }
+
+    micro paste_selection() {
+        <% loop (bp_data, bp_pos) in query_blueprints { %>
+            if !bp_data.is_active {
+                continue;
+            }
+            <% loop (_, player_pos, inventory) in query_player { %>
+                let base_x = player_pos.x;
+                let base_y = player_pos.y;
+
+                loop i in range(0, bp_data.entities.length()) {
+                    let bp_entity = bp_data.entities.get(i);
+                    let target_x = base_x + bp_entity.offset_x;
+                    let target_y = base_y + bp_entity.offset_y;
+
+                    if !can_place_at(target_x, target_y) {
+                        continue;
+                    }
+
+                    let required_item = get_entity_build_item(bp_entity.entity_type);
+                    if !has_item_in_inventory(inventory, required_item, 1) {
+                        continue;
+                    }
+
+                    place_blueprint_entity(bp_entity, target_x, target_y);
+                    remove_item_from_inventory(inventory, required_item, 1);
+                }
+
+                console::log($"蓝图已粘贴：{bp_data.name}");
+            <% } %>
+        <% } %>
+    }
+
+    micro rotate_blueprint() {
+        <% loop (bp_data, _) in query_blueprints { %>
+            if !bp_data.is_active {
+                continue;
+            }
+            loop i in range(0, bp_data.entities.length()) {
+                let entity = bp_data.entities.get(i);
+                let old_x = entity.offset_x;
+                let old_y = entity.offset_y;
+                entity.offset_x = -old_y;
+                entity.offset_y = old_x;
+                entity.direction = rotate_direction(entity.direction);
+            }
+            console::log("蓝图已旋转 90°");
+        <% } %>
+    }
+
+    micro place_blueprint_entity(bp_entity: BlueprintEntity, x: i32, y: i32) {
+        let entity = create_entity();
+        entity.add(GridPosition { x: x, y: y });
+
+        if bp_entity.entity_type == ENTITY_BELT {
+            entity.add(Belt { direction: bp_entity.direction, speed: 1.0,
+                              item_0_id: ITEM_NONE, item_0_progress: 0.0,
+                              item_1_id: ITEM_NONE, item_1_progress: 0.0,
+                              item_2_id: ITEM_NONE, item_2_progress: 0.0,
+                              item_3_id: ITEM_NONE, item_3_progress: 0.0 });
+        }
+        else if bp_entity.entity_type == ENTITY_INSERTER {
+            entity.add(Inserter { direction: bp_entity.direction, arm_angle: 0.0,
+                                  target_angle: 180.0, swing_speed: 120.0,
+                                  held_item_id: ITEM_NONE,
+                                  source_offset_x: 0, source_offset_y: -1,
+                                  dest_offset_x: 0, dest_offset_y: 1,
+                                  state: INSERTER_IDLE });
+        }
+        else if bp_entity.entity_type == ENTITY_ASSEMBLER {
+            entity.add(Machine { machine_type: MACHINE_ASSEMBLER, recipe_id: bp_entity.recipe_id,
+                                 progress: 0.0,
+                                 input_0_id: ITEM_NONE, input_0_count: 0,
+                                 input_1_id: ITEM_NONE, input_1_count: 0,
+                                 input_2_id: ITEM_NONE, input_2_count: 0,
+                                 output_0_id: ITEM_NONE, output_0_count: 0,
+                                 output_1_id: ITEM_NONE, output_1_count: 0 });
+            entity.add(Power { consumption: 75.0, production: 0.0, buffer: 0.0, max_buffer: 100.0, network_id: POWER_NETWORK_NONE });
+        }
+        else if bp_entity.entity_type == ENTITY_FURNACE {
+            entity.add(Machine { machine_type: MACHINE_FURNACE, recipe_id: RECIPE_SMELTING,
+                                 progress: 0.0,
+                                 input_0_id: ITEM_NONE, input_0_count: 0,
+                                 input_1_id: ITEM_NONE, input_1_count: 0,
+                                 input_2_id: ITEM_NONE, input_2_count: 0,
+                                 output_0_id: ITEM_NONE, output_0_count: 0,
+                                 output_1_id: ITEM_NONE, output_1_count: 0 });
+        }
+    }
+
+    micro rotate_direction(dir: i32) -> i32 {
+        if dir == DIR_NORTH { return DIR_EAST; }
+        if dir == DIR_EAST { return DIR_SOUTH; }
+        if dir == DIR_SOUTH { return DIR_WEST; }
+        if dir == DIR_WEST { return DIR_NORTH; }
+        return dir;
+    }
+
+    micro can_place_at(x: i32, y: i32) -> bool {
+        let existing = find_entity_at(x, y);
+        return !existing.is_valid;
+    }
+
+    micro get_entity_build_item(entity_type: i32) -> i32 {
+        if entity_type == ENTITY_BELT { return ITEM_TRANSPORT_BELT; }
+        if entity_type == ENTITY_INSERTER { return ITEM_INSERTER; }
+        if entity_type == ENTITY_ASSEMBLER { return ITEM_ASSEMBLING_MACHINE; }
+        if entity_type == ENTITY_FURNACE { return ITEM_FURNACE; }
+        if entity_type == ENTITY_POWER_POLE { return ITEM_POWER_POLE; }
+        return ITEM_NONE;
+    }
+
+    micro has_item_in_inventory(inventory: Inventory, item_id: i32, count: i32) -> bool {
+        let found = 0;
+        loop i in range(0, inventory.slots) {
+            if inventory.item_ids[i] == item_id {
+                found += inventory.item_counts[i];
+                if found >= count {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    micro remove_item_from_inventory(inventory: Inventory, item_id: i32, count: i32) {
+        let remaining = count;
+        loop i in range(0, inventory.slots) {
+            if inventory.item_ids[i] == item_id {
+                let remove = min(inventory.item_counts[i], remaining);
+                inventory.item_counts[i] -= remove;
+                remaining -= remove;
+                if inventory.item_counts[i] == 0 {
+                    inventory.item_ids[i] = ITEM_NONE;
+                }
+                if remaining == 0 {
+                    return;
+                }
+            }
+        }
+    }
+}
+
+system ResourceSystem {
+    query_resources = Query.all(ResourceDeposit, GridPosition);
+    query_player = Query.all(PlayerTag, GridPosition);
+
+    on_update(delta: f32) {
+        if input.is_action_just_pressed("mine_resource") {
+            <% loop (_, pos) in query_player { %>
+                try_mine_resource(pos);
+            <% } %>
+        }
+    }
+
+    micro try_mine_resource(player_pos: GridPosition) {
+        let target = raycast_tile(player_pos, 5.0);
+        if !target.is_valid {
+            return;
+        }
+
+        <% loop (resource, pos) in query_resources { %>
+            if pos.x == target.x && pos.y == target.y {
+                let inventory = player.get<Inventory>();
+                add_item_to_inventory(inventory, resource.resource_type, 1);
+                resource.amount -= 1;
+                if resource.amount <= 0 {
+                    destroy_entity(get_entity(resource));
+                    console::log($"矿脉已耗尽：({pos.x}, {pos.y})");
+                }
+                return;
+            }
+        <% } %>
+    }
+}
+
+system PlayerSystem {
+    query_player = Query.all(PlayerTag, GridPosition, Inventory);
+
+    on_update(delta: f32) {
+        <% loop (_, pos, inventory) in query_player { %>
+            handle_movement(pos, delta);
+            handle_building(pos, inventory);
+            handle_inventory_selection(inventory);
+        <% } %>
+    }
+
+    micro handle_movement(pos: GridPosition, delta: f32) {
+        let move_speed = 6.0;
+        let dx = 0.0;
+        let dy = 0.0;
+
+        if input.is_action_pressed("move_up") { dy = -1.0; }
+        if input.is_action_pressed("move_down") { dy = 1.0; }
+        if input.is_action_pressed("move_left") { dx = -1.0; }
+        if input.is_action_pressed("move_right") { dx = 1.0; }
+
+        if dx != 0.0 && dy != 0.0 {
+            dx *= 0.707;
+            dy *= 0.707;
+        }
+
+        pos.x += round(dx * move_speed * delta);
+        pos.y += round(dy * move_speed * delta);
+    }
+
+    micro handle_building(pos: GridPosition, inventory: Inventory) {
+        if input.is_action_just_pressed("place_building") {
+            let held_item = inventory.item_ids[inventory.selected_slot];
+            if held_item == ITEM_NONE {
+                return;
+            }
+
+            let target_x = pos.x + get_facing_offset_x();
+            let target_y = pos.y + get_facing_offset_y();
+
+            if !can_place_at(target_x, target_y) {
+                return;
+            }
+
+            if try_place_building(held_item, target_x, target_y) {
+                remove_item_from_inventory(inventory, held_item, 1);
+            }
+        }
+
+        if input.is_action_just_pressed("rotate_building") {
+            rotate_facing_direction();
+        }
+    }
+
+    micro try_place_building(item_id: i32, x: i32, y: i32) -> bool {
+        let entity = create_entity();
+        entity.add(GridPosition { x: x, y: y });
+
+        if item_id == ITEM_TRANSPORT_BELT {
+            entity.add(Belt { direction: get_facing_direction(), speed: 1.0,
+                              item_0_id: ITEM_NONE, item_0_progress: 0.0,
+                              item_1_id: ITEM_NONE, item_1_progress: 0.0,
+                              item_2_id: ITEM_NONE, item_2_progress: 0.0,
+                              item_3_id: ITEM_NONE, item_3_progress: 0.0 });
+            return true;
+        }
+        if item_id == ITEM_INSERTER {
+            entity.add(Inserter { direction: get_facing_direction(), arm_angle: 0.0,
+                                  target_angle: 180.0, swing_speed: 120.0,
+                                  held_item_id: ITEM_NONE,
+                                  source_offset_x: 0, source_offset_y: -1,
+                                  dest_offset_x: 0, dest_offset_y: 1,
+                                  state: INSERTER_IDLE });
+            return true;
+        }
+        if item_id == ITEM_ASSEMBLING_MACHINE {
+            entity.add(Machine { machine_type: MACHINE_ASSEMBLER, recipe_id: RECIPE_NONE,
+                                 progress: 0.0,
+                                 input_0_id: ITEM_NONE, input_0_count: 0,
+                                 input_1_id: ITEM_NONE, input_1_count: 0,
+                                 input_2_id: ITEM_NONE, input_2_count: 0,
+                                 output_0_id: ITEM_NONE, output_0_count: 0,
+                                 output_1_id: ITEM_NONE, output_1_count: 0 });
+            entity.add(Power { consumption: 75.0, production: 0.0, buffer: 0.0, max_buffer: 100.0, network_id: POWER_NETWORK_NONE });
+            return true;
+        }
+        if item_id == ITEM_FURNACE {
+            entity.add(Machine { machine_type: MACHINE_FURNACE, recipe_id: RECIPE_SMELTING,
+                                 progress: 0.0,
+                                 input_0_id: ITEM_NONE, input_0_count: 0,
+                                 input_1_id: ITEM_NONE, input_1_count: 0,
+                                 input_2_id: ITEM_NONE, input_2_count: 0,
+                                 output_0_id: ITEM_NONE, output_0_count: 0,
+                                 output_1_id: ITEM_NONE, output_1_count: 0 });
+            return true;
+        }
+        if item_id == ITEM_BOILER {
+            entity.add(Machine { machine_type: MACHINE_BOILER, recipe_id: RECIPE_NONE,
+                                 progress: 0.0,
+                                 input_0_id: ITEM_NONE, input_0_count: 0,
+                                 input_1_id: ITEM_NONE, input_1_count: 0,
+                                 input_2_id: ITEM_NONE, input_2_count: 0,
+                                 output_0_id: ITEM_NONE, output_0_count: 0,
+                                 output_1_id: ITEM_NONE, output_1_count: 0 });
+            entity.add(Power { consumption: 0.0, production: 0.0, buffer: 0.0, max_buffer: 0.0, network_id: POWER_NETWORK_NONE });
+            return true;
+        }
+        if item_id == ITEM_STEAM_ENGINE {
+            entity.add(Machine { machine_type: MACHINE_STEAM_ENGINE, recipe_id: RECIPE_NONE,
+                                 progress: 0.0,
+                                 input_0_id: ITEM_NONE, input_0_count: 0,
+                                 input_1_id: ITEM_NONE, input_1_count: 0,
+                                 input_2_id: ITEM_NONE, input_2_count: 0,
+                                 output_0_id: ITEM_NONE, output_0_count: 0,
+                                 output_1_id: ITEM_NONE, output_1_count: 0 });
+            entity.add(Power { consumption: 0.0, production: 900.0, buffer: 0.0, max_buffer: 0.0, network_id: POWER_NETWORK_NONE });
+            return true;
+        }
+        if item_id == ITEM_POWER_POLE {
+            entity.add(PowerPole { network_id: POWER_NETWORK_NONE, wire_reach: 7.5, connected_poles: [] });
+            return true;
+        }
+        if item_id == ITEM_PROVIDER_CHEST {
+            entity.add(LogisticChest { chest_type: CHEST_PROVIDER,
+                                       slot_0_id: ITEM_NONE, slot_0_count: 0,
+                                       slot_1_id: ITEM_NONE, slot_1_count: 0,
+                                       slot_2_id: ITEM_NONE, slot_2_count: 0,
+                                       slot_3_id: ITEM_NONE, slot_3_count: 0,
+                                       request_id: ITEM_NONE, request_count: 0 });
+            return true;
+        }
+        if item_id == ITEM_REQUESTER_CHEST {
+            entity.add(LogisticChest { chest_type: CHEST_REQUESTER,
+                                       slot_0_id: ITEM_NONE, slot_0_count: 0,
+                                       slot_1_id: ITEM_NONE, slot_1_count: 0,
+                                       slot_2_id: ITEM_NONE, slot_2_count: 0,
+                                       slot_3_id: ITEM_NONE, slot_3_count: 0,
+                                       request_id: ITEM_NONE, request_count: 0 });
+            return true;
+        }
+        if item_id == ITEM_ROBOPORT {
+            entity.add(Roboport { logistic_range: 25.0, construction_range: 30.0,
+                                  robot_capacity: 10, active_robots: 0,
+                                  stored_robots: 5, charging_slots: 4 });
+            return true;
+        }
+
+        destroy_entity(entity);
+        return false;
+    }
+
+    micro handle_inventory_selection(inventory: Inventory) {
+        let slot = -1;
+        if input.is_key_just_pressed("1") { slot = 0; }
+        else if input.is_key_just_pressed("2") { slot = 1; }
+        else if input.is_key_just_pressed("3") { slot = 2; }
+        else if input.is_key_just_pressed("4") { slot = 3; }
+        else if input.is_key_just_pressed("5") { slot = 4; }
+        else if input.is_key_just_pressed("6") { slot = 5; }
+        else if input.is_key_just_pressed("7") { slot = 6; }
+        else if input.is_key_just_pressed("8") { slot = 7; }
+        else if input.is_key_just_pressed("9") { slot = 8; }
+        else if input.is_key_just_pressed("0") { slot = 9; }
+
+        if slot >= 0 && slot < inventory.slots {
+            inventory.selected_slot = slot;
+        }
+    }
+}
+
+system WorldGenerationSystem {
+    on_load() {
+        let config = asset.load<gonObject>("config/world.gon");
+        let seed = config.get("seed").as_u64();
+        let width = config.get("world_size").get("width").as_int();
+        let height = config.get("world_size").get("height").as_int();
+
+        let tilemap_entity = create_entity();
+        tilemap_entity.add(TileMapData { width: width, height: height, seed: seed });
+
+        generate_terrain(seed, width, height);
+        generate_resources(seed, width, height, config);
+
+        let spawn_x = width / 2;
+        let spawn_y = height / 2;
+        create_player(spawn_x, spawn_y);
+        create_starter_resources(spawn_x, spawn_y);
+
+        let stats = create_entity();
+        stats.add(WorldStats { total_power_production: 0.0, total_power_consumption: 0.0, item_production: 0, play_time: 0.0 });
+
+        let network = create_entity();
+        network.add(PowerNetwork { network_id: 0, total_production: 0.0, total_consumption: 0.0, total_buffer: 0.0, satisfaction: 1.0 });
+
+        console::log($"Factorio 世界生成完成 - 种子: {seed}, 尺寸: {width}x{height}");
+    }
+
+    micro generate_terrain(seed: u64, width: i32, height: i32) {
+        loop x in range(0, width) {
+            loop y in range(0, height) {
+                let water_val = noise.fractal_2d(seed ^ 0xBBBBBBBB, x * 0.03, y * 0.03, 4);
+                if water_val > 0.62 {
+                    tilemap.set_tile(x, y, TILE_WATER);
+                }
+                else {
+                    let terrain_val = noise.fractal_2d(seed ^ 0xCCCCCCCC, x * 0.01, y * 0.01, 3);
+                    if terrain_val < -0.3 {
+                        tilemap.set_tile(x, y, TILE_SAND);
+                    }
+                    else if terrain_val > 0.4 {
+                        tilemap.set_tile(x, y, TILE_DESERT);
+                    }
+                    else {
+                        tilemap.set_tile(x, y, TILE_GRASS);
+                    }
+                }
+            }
+        }
+    }
+
+    micro generate_resources(seed: u64, width: i32, height: i32, config: gonObject) {
+        let resources = config.get("resources");
+        loop i in range(0, resources.length()) {
+            let res_config = resources.get(i);
+            let res_seed = res_config.get("noise_seed").as_u64();
+            let frequency = res_config.get("frequency").as_f32();
+            let richness_base = res_config.get("richness_base").as_int();
+            let cluster_radius = res_config.get("cluster_radius").as_int();
+
+            loop x in range(cluster_radius, width - cluster_radius) {
+                loop y in range(cluster_radius, height - cluster_radius) {
+                    if tilemap.get_tile(x, y) == TILE_WATER {
+                        continue;
+                    }
+                    let val = noise.fractal_2d(seed ^ res_seed, x * frequency, y * frequency, 3);
+                    if val > 0.5 {
+                        let amount = richness_base + round(noise.fractal_2d(seed ^ (res_seed + 1), x * 0.05, y * 0.05, 2) * richness_base * 0.5);
+                        create_resource_patch(x, y, i, amount, cluster_radius, seed, res_seed);
+                    }
+                }
+            }
+        }
+    }
+
+    micro create_resource_patch(center_x: i32, center_y: i32, resource_type: i32, amount: i32, radius: i32, seed: u64, res_seed: u64) {
+        loop dx in range(-radius, radius + 1) {
+            loop dy in range(-radius, radius + 1) {
+                let dist = sqrt((dx * dx + dy * dy) as f32);
+                if dist > radius as f32 {
+                    continue;
+                }
+                let x = center_x + dx;
+                let y = center_y + dy;
+                if tilemap.get_tile(x, y) == TILE_WATER {
+                    continue;
+                }
+                if find_resource_at(x, y).is_valid {
+                    continue;
+                }
+                let patch_amount = max(amount / ((radius * 2 + 1) * (radius * 2 + 1)), 50);
+                let deposit = create_entity();
+                deposit.add(GridPosition { x: x, y: y });
+                deposit.add(ResourceDeposit { resource_type: resource_type, amount: patch_amount, initial_amount: patch_amount });
+            }
+        }
+    }
+
+    micro create_player(spawn_x: i32, spawn_y: i32) {
+        let player = create_entity();
+        player.add(PlayerTag { player_id: 0 });
+        player.add(GridPosition { x: spawn_x, y: spawn_y });
+        player.add(Inventory { slots: 80, selected_slot: 0 });
+        player.add(CameraFollow { offset_x: 0.0, offset_y: -8.0, smoothing: 0.08 });
+
+        let inventory = player.get<Inventory>();
+        inventory.item_ids[0] = ITEM_TRANSPORT_BELT;
+        inventory.item_counts[0] = 50;
+        inventory.item_ids[1] = ITEM_INSERTER;
+        inventory.item_counts[1] = 20;
+        inventory.item_ids[2] = ITEM_FURNACE;
+        inventory.item_counts[2] = 5;
+        inventory.item_ids[3] = ITEM_POWER_POLE;
+        inventory.item_counts[3] = 20;
+        inventory.item_ids[4] = ITEM_BOILER;
+        inventory.item_counts[4] = 2;
+        inventory.item_ids[5] = ITEM_STEAM_ENGINE;
+        inventory.item_counts[5] = 2;
+    }
+
+    micro create_starter_resources(spawn_x: i32, spawn_y: i32) {
+        let iron_deposit = create_entity();
+        iron_deposit.add(GridPosition { x: spawn_x + 8, y: spawn_y });
+        iron_deposit.add(ResourceDeposit { resource_type: RESOURCE_IRON, amount: 500, initial_amount: 500 });
+
+        let copper_deposit = create_entity();
+        copper_deposit.add(GridPosition { x: spawn_x - 8, y: spawn_y });
+        copper_deposit.add(ResourceDeposit { resource_type: RESOURCE_COPPER, amount: 500, initial_amount: 500 });
+
+        let coal_deposit = create_entity();
+        coal_deposit.add(GridPosition { x: spawn_x, y: spawn_y + 8 });
+        coal_deposit.add(ResourceDeposit { resource_type: RESOURCE_COAL, amount: 800, initial_amount: 800 });
+
+        let stone_deposit = create_entity();
+        stone_deposit.add(GridPosition { x: spawn_x, y: spawn_y - 8 });
+        stone_deposit.add(ResourceDeposit { resource_type: RESOURCE_STONE, amount: 600, initial_amount: 600 });
+    }
+}

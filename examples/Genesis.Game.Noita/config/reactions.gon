@@ -1,0 +1,106 @@
+ReactionTable {
+    reactions: [
+        ReactionEntry {
+            name: "水灭火",
+            reactant_a: "Water",
+            reactant_b: "Fire",
+            product_a: "Steam",
+            product_b: "None",
+            energy: 0.0,
+            probability: 1.0
+        },
+        ReactionEntry {
+            name: "水冷却岩浆",
+            reactant_a: "Water",
+            reactant_b: "Lava",
+            product_a: "Steam",
+            product_b: "Stone",
+            energy: 5.0,
+            probability: 0.8
+        },
+        ReactionEntry {
+            name: "油遇火燃烧",
+            reactant_a: "Oil",
+            reactant_b: "Fire",
+            product_a: "Fire",
+            product_b: "Fire",
+            energy: 2.0,
+            probability: 0.9
+        },
+        ReactionEntry {
+            name: "酸腐蚀固体",
+            reactant_a: "Acid",
+            reactant_b: "AnySolid",
+            product_a: "Acid",
+            product_b: "None",
+            energy: 0.5,
+            probability: 0.4
+        },
+        ReactionEntry {
+            name: "岩浆点燃可燃物",
+            reactant_a: "Lava",
+            reactant_b: "Flammable",
+            product_a: "Lava",
+            product_b: "Fire",
+            energy: 1.0,
+            probability: 0.7
+        },
+        ReactionEntry {
+            name: "岩浆熔化固体",
+            reactant_a: "Lava",
+            reactant_b: "Meltable",
+            product_a: "Lava",
+            product_b: "Lava",
+            energy: 3.0,
+            probability: 0.2
+        },
+        ReactionEntry {
+            name: "火蔓延到可燃物",
+            reactant_a: "Fire",
+            reactant_b: "Flammable",
+            product_a: "Fire",
+            product_b: "Fire",
+            energy: 0.5,
+            probability: 0.3
+        },
+        ReactionEntry {
+            name: "火融化冰",
+            reactant_a: "Fire",
+            reactant_b: "Ice",
+            product_a: "None",
+            product_b: "Water",
+            energy: 0.0,
+            probability: 0.8
+        },
+        ReactionEntry {
+            name: "岩浆融化冰",
+            reactant_a: "Lava",
+            reactant_b: "Ice",
+            product_a: "Stone",
+            product_b: "Steam",
+            energy: 2.0,
+            probability: 0.9
+        },
+        ReactionEntry {
+            name: "酸腐蚀金属",
+            reactant_a: "Acid",
+            reactant_b: "Gold",
+            product_a: "None",
+            product_b: "None",
+            energy: 1.0,
+            probability: 0.15
+        }
+    ],
+    tags: {
+        Flammable: ["Oil", "Dirt"],
+        Meltable: ["Sand", "Dirt", "Ice", "Gold"],
+        AnySolid: ["Sand", "Dirt", "Stone", "Ice", "Gold"]
+    },
+    energy_thresholds: {
+        small_explosion: 2.0,
+        medium_explosion: 5.0,
+        large_explosion: 10.0,
+        explosion_radius_multiplier: 2.0,
+        explosion_force_multiplier: 10.0
+    }
+}

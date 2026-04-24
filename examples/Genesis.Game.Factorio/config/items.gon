@@ -1,0 +1,26 @@
+ItemTable {
+    items: [
+        ItemEntry { id: 0, name: "铁矿", stack_size: 50, type: "resource", color: { r: 0.55, g: 0.35, b: 0.25 } },
+        ItemEntry { id: 1, name: "铜矿", stack_size: 50, type: "resource", color: { r: 0.72, g: 0.45, b: 0.20 } },
+        ItemEntry { id: 2, name: "煤矿", stack_size: 50, type: "resource", color: { r: 0.25, g: 0.25, b: 0.25 } },
+        ItemEntry { id: 3, name: "石矿", stack_size: 50, type: "resource", color: { r: 0.65, g: 0.65, b: 0.65 } },
+        ItemEntry { id: 4, name: "原油", stack_size: 50, type: "resource", color: { r: 0.15, g: 0.10, b: 0.05 } },
+        ItemEntry { id: 10, name: "铁板", stack_size: 100, type: "intermediate", color: { r: 0.70, g: 0.70, b: 0.75 } },
+        ItemEntry { id: 11, name: "铜板", stack_size: 100, type: "intermediate", color: { r: 0.85, g: 0.55, b: 0.25 } },
+        ItemEntry { id: 12, name: "石砖", stack_size: 100, type: "intermediate", color: { r: 0.55, g: 0.50, b: 0.45 } },
+        ItemEntry { id: 13, name: "铁齿轮", stack_size: 100, type: "intermediate", color: { r: 0.60, g: 0.60, b: 0.65 } },
+        ItemEntry { id: 14, name: "铜缆", stack_size: 200, type: "intermediate", color: { r: 0.90, g: 0.60, b: 0.20 } },
+        ItemEntry { id: 15, name: "电子电路", stack_size: 200, type: "intermediate", color: { r: 0.20, g: 0.70, b: 0.20 } },
+        ItemEntry { id: 20, name: "传送带", stack_size: 50, type: "building", color: { r: 0.80, g: 0.75, b: 0.30 } },
+        ItemEntry { id: 21, name: "插入器", stack_size: 50, type: "building", color: { r: 0.90, g: 0.60, b: 0.20 } },
+        ItemEntry { id: 22, name: "组装机", stack_size: 10, type: "building", color: { r: 0.40, g: 0.60, b: 0.80 } },
+        ItemEntry { id: 23, name: "熔炉", stack_size: 10, type: "building", color: { r: 0.70, g: 0.30, b: 0.20 } },
+        ItemEntry { id: 24, name: "锅炉", stack_size: 10, type: "building", color: { r: 0.50, g: 0.50, b: 0.50 } },
+        ItemEntry { id: 25, name: "蒸汽机", stack_size: 10, type: "building", color: { r: 0.60, g: 0.65, b: 0.70 } },
+        ItemEntry { id: 26, name: "电线杆", stack_size: 50, type: "building", color: { r: 0.55, g: 0.45, b: 0.30 } },
+        ItemEntry { id: 27, name: "物流机器人", stack_size: 50, type: "building", color: { r: 0.70, g: 0.80, b: 0.90 } },
+        ItemEntry { id: 28, name: "物流中心", stack_size: 10, type: "building", color: { r: 0.50, g: 0.70, b: 0.90 } },
+        ItemEntry { id: 29, name: "请求箱", stack_size: 50, type: "building", color: { r: 0.80, g: 0.50, b: 0.50 } },
+        ItemEntry { id: 30, name: "供应箱", stack_size: 50, type: "building", color: { r: 0.50, g: 0.80, b: 0.50 } }
+    ]
+}

@@ -1,0 +1,111 @@
+scene GameMain {
+    let player: Entity;
+    let world_seed: u64;
+    let daytime_entity: Entity;
+
+    on_load() {
+        let config = asset.load<gonObject>("config/world.gon");
+        world_seed = config.get("seed").as_u64();
+
+        daytime_entity = create_entity();
+        daytime_entity.add(DayTime { time_of_day: 0.25, day_duration: 600.0, day_count: 1 });
+
+        generate_world(world_seed);
+
+        console::log("Noita 像素物理沙盒已加载");
+        console::log("操作: WASD 移动, 鼠标瞄准, 左键施法, 右键挖掘");
+        console::log("快捷键: 1=倒水, 2=倒油, 3=倒酸, 4=倒岩浆, 5=放沙, 6=引爆");
+    }
+
+    on_update(delta: f32) {
+        handle_input(delta);
+        update_camera();
+        check_player_environment();
+    }
+
+    micro generate_world(seed: u64) {
+        console::log($"Noita 世界生成 - 种子: {seed}");
+    }
+
+    micro handle_input(delta: f32) {
+        if !player.is_valid {
+            return;
+        }
+
+        if input.is_key_just_pressed("r") {
+            let health = player.get<Health>();
+            if health.current <= 0 {
+                respawn_player();
+            }
+        }
+    }
+
+    micro update_camera() {
+        if !player.is_valid {
+            return;
+        }
+        let pos = player.get<PixelPosition>();
+        let camera_follow = player.get<CameraFollow>();
+    }
+
+    micro check_player_environment() {
+        if !player.is_valid {
+            return;
+        }
+        let pos = player.get<PixelPosition>();
+        let health = player.get<Health>();
+
+        let pixel = pixelgrid.get_pixel(pos.x, pos.y);
+        if pixel == MATERIAL_FIRE {
+            player.add(Damage { value: 2, source: DAMAGE_FIRE });
+        }
+        else if pixel == MATERIAL_ACID {
+            player.add(Damage { value: 3, source: DAMAGE_ACID });
+        }
+        else if pixel == MATERIAL_LAVA {
+            player.add(Damage { value: 5, source: DAMAGE_LAVA });
+        }
+
+        let below = pixelgrid.get_pixel(pos.x, pos.y + 1);
+        if below == MATERIAL_WATER {
+            let mana = player.get<ManaPool>();
+            mana.regen_rate = 15.0;
+        }
+        else {
+            let mana = player.get<ManaPool>();
+            mana.regen_rate = 5.0;
+        }
+    }
+
+    micro respawn_player() {
+        let config = asset.load<gonObject>("config/world.gon");
+        let width = config.get("world_size").get("width").as_int();
+        let spawn_x = width / 2;
+        let spawn_y = find_spawn_point(spawn_x);
+
+        let pos = player.get<PixelPosition>();
+        pos.x = spawn_x;
+        pos.y = spawn_y;
+
+        let health = player.get<Health>();
+        health.current = health.max;
+
+        let mana = player.get<ManaPool>();
+        mana.current = mana.max;
+
+        console::log("玩家已重生！");
+    }
+
+    micro find_spawn_point(spawn_x: i32) -> i32 {
+        let config = asset.load<gonObject>("config/world.gon");
+        let height = config.get("world_size").get("height").as_int();
+        loop y in range(0, height) {
+            if pixelgrid.get_pixel(spawn_x, y) != MATERIAL_NONE {
+                if y > 0 && pixelgrid.get_pixel(spawn_x, y - 1) == MATERIAL_NONE {
+                    return y - 2;
+                }
+            }
+        }
+        return height / 4;
+    }
+}

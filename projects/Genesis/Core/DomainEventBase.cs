@@ -1,4 +1,4 @@
-using Gnosis.ECS.Entity;
+using Gnosis.Core.Entity;
 
 namespace Genesis.Core;
 

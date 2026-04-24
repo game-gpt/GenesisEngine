@@ -1,0 +1,153 @@
+component PixelPosition {
+    x: i32;
+    y: i32;
+}
+
+component Material {
+    material_id: i32;
+    density: f32;
+    viscosity: f32 = 0.0;
+    is_liquid: bool = false;
+    is_gas: bool = false;
+    is_solid: bool = true;
+    is_powder: bool = false;
+    flammability: f32 = 0.0;
+    corrosion: f32 = 0.0;
+    temperature: f32 = 20.0;
+    lifetime: f32 = -1.0;
+}
+
+component PixelVelocity {
+    vx: f32 = 0.0;
+    vy: f32 = 0.0;
+}
+
+component PixelGrid {
+    width: i32;
+    height: i32;
+    seed: u64;
+}
+
+component PixelUpdated {
+    frame: u64 = 0;
+}
+
+component FluidCell {
+    pressure: f32 = 0.0;
+    flow_rate: f32 = 0.0;
+    direction: i32 = 0;
+    dissolved_material: i32 = MATERIAL_NONE;
+}
+
+component ReactionZone {
+    radius: f32 = 1.0;
+    catalyst_id: i32 = MATERIAL_NONE;
+    reaction_rate: f32 = 1.0;
+    active: bool = true;
+}
+
+component Burning {
+    burn_timer: f32 = 0.0;
+    burn_duration: f32 = 2.0;
+    spread_chance: f32 = 0.3;
+    smoke_material: i32 = MATERIAL_SMOKE;
+}
+
+component Corroding {
+    corrode_timer: f32 = 0.0;
+    corrode_rate: f32 = 1.0;
+    residue_material: i32 = MATERIAL_NONE;
+}
+
+component Explosion {
+    center_x: i32;
+    center_y: i32;
+    radius: f32;
+    force: f32;
+    damage: f32;
+    timer: f32 = 0.0;
+    expanding: bool = true;
+    current_radius: f32 = 0.0;
+    expansion_speed: f32 = 50.0;
+}
+
+component PressureWave {
+    center_x: i32;
+    center_y: i32;
+    radius: f32;
+    force: f32;
+    speed: f32 = 100.0;
+    current_radius: f32 = 0.0;
+    decay: f32 = 0.95;
+}
+
+component Wand {
+    capacity: u32 = 5;
+    spell_count: u32 = 0;
+    shuffle: bool = false;
+    cast_delay: f32 = 0.1;
+    recharge_time: f32 = 0.5;
+    spread: f32 = 0.0;
+    current_slot: u32 = 0;
+    recharge_timer: f32 = 0.0;
+}
+
+component Spell {
+    spell_id: i32;
+    mana_cost: f32;
+    cooldown: f32;
+    charges: i32 = -1;
+    damage: f32 = 10.0;
+    speed: f32 = 200.0;
+    lifetime: f32 = 2.0;
+    radius: f32 = 1.0;
+    spell_type: i32 = SPELL_TYPE_PROJECTILE;
+    element: i32 = ELEMENT_NONE;
+    bounces: i32 = 0;
+    piercing: bool = false;
+}
+
+component Projectile {
+    vx: f32;
+    vy: f32;
+    lifetime: f32;
+    damage: f32;
+    radius: f32;
+    spell_type: i32;
+    element: i32;
+    bounces: i32 = 0;
+    piercing: bool = false;
+    trail_material: i32 = MATERIAL_NONE;
+}
+
+component ManaPool {
+    current: f32 = 100.0;
+    max: f32 = 100.0;
+    regen_rate: f32 = 5.0;
+}
+
+component PlayerTag {
+    player_id: i32;
+}
+
+component CameraFollow {
+    offset_x: f32 = 0.0;
+    offset_y: f32 = -5.0;
+    smoothing: f32 = 0.1;
+}
+
+component Health {
+    current: i32 = 100;
+    max: i32 = 100;
+}
+
+component Damage {
+    value: i32;
+    source: i32;
+}
+
+component DayTime {
+    time_of_day: f32 = 0.25;
+    day_duration: f32 = 600.0;
+    day_count: i32 = 1;
+}

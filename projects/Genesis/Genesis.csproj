@@ -24,8 +24,16 @@
     <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.ECS\Gnosis.ECS.csproj" />
     <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Core\Gnosis.Core.csproj" />
     <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Graphic\Gnosis.Graphic.csproj" />
+    <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Physics\Gnosis.Physics.csproj" />
+    <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Audio\Gnosis.Audio.csproj" />
+    <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.AI\Gnosis.AI.csproj" />
+    <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Navigation\Gnosis.Navigation.csproj" />
     <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Database\Gnosis.Database.csproj" />
-    <ProjectReference Include="..\..\..\SolidDB\projects\SolidDB\SolidDB.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="Persistence\SolidHistoryStore.cs" />
+    <Compile Remove="Persistence\IRepository.cs" />
   </ItemGroup>
 
   <ItemGroup>

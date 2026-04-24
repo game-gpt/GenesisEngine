@@ -1,0 +1,150 @@
+component GridPosition {
+    x: i32;
+    y: i32;
+}
+
+component PlayerTag {
+    player_id: i32;
+}
+
+component CameraFollow {
+    offset_x: f32 = 0.0;
+    offset_y: f32 = -8.0;
+    smoothing: f32 = 0.08;
+}
+
+component Inventory {
+    slots: i32 = 80;
+    selected_slot: i32 = 0;
+}
+
+component Belt {
+    direction: i32;
+    speed: f32 = 1.0;
+    item_0_id: i32 = ITEM_NONE;
+    item_0_progress: f32 = 0.0;
+    item_1_id: i32 = ITEM_NONE;
+    item_1_progress: f32 = 0.0;
+    item_2_id: i32 = ITEM_NONE;
+    item_2_progress: f32 = 0.0;
+    item_3_id: i32 = ITEM_NONE;
+    item_3_progress: f32 = 0.0;
+}
+
+component Machine {
+    machine_type: i32;
+    recipe_id: i32 = RECIPE_NONE;
+    progress: f32 = 0.0;
+    input_0_id: i32 = ITEM_NONE;
+    input_0_count: i32 = 0;
+    input_1_id: i32 = ITEM_NONE;
+    input_1_count: i32 = 0;
+    input_2_id: i32 = ITEM_NONE;
+    input_2_count: i32 = 0;
+    output_0_id: i32 = ITEM_NONE;
+    output_0_count: i32 = 0;
+    output_1_id: i32 = ITEM_NONE;
+    output_1_count: i32 = 0;
+}
+
+component Inserter {
+    direction: i32;
+    arm_angle: f32 = 0.0;
+    target_angle: f32 = 180.0;
+    swing_speed: f32 = 120.0;
+    held_item_id: i32 = ITEM_NONE;
+    source_offset_x: i32;
+    source_offset_y: i32;
+    dest_offset_x: i32;
+    dest_offset_y: i32;
+    state: i32 = INSERTER_IDLE;
+}
+
+component Power {
+    consumption: f32;
+    production: f32 = 0.0;
+    buffer: f32 = 0.0;
+    max_buffer: f32 = 1000.0;
+    network_id: i32 = POWER_NETWORK_NONE;
+}
+
+component PowerPole {
+    network_id: i32 = POWER_NETWORK_NONE;
+    wire_reach: f32 = 7.5;
+    connected_poles: [i32] = [];
+}
+
+component PowerNetwork {
+    network_id: i32;
+    total_production: f32 = 0.0;
+    total_consumption: f32 = 0.0;
+    total_buffer: f32 = 0.0;
+    satisfaction: f32 = 1.0;
+}
+
+component ResourceDeposit {
+    resource_type: i32;
+    amount: i32;
+    initial_amount: i32;
+}
+
+component LogisticChest {
+    chest_type: i32;
+    slot_0_id: i32 = ITEM_NONE;
+    slot_0_count: i32 = 0;
+    slot_1_id: i32 = ITEM_NONE;
+    slot_1_count: i32 = 0;
+    slot_2_id: i32 = ITEM_NONE;
+    slot_2_count: i32 = 0;
+    slot_3_id: i32 = ITEM_NONE;
+    slot_3_count: i32 = 0;
+    request_id: i32 = ITEM_NONE;
+    request_count: i32 = 0;
+}
+
+component LogisticRobot {
+    carried_item_id: i32 = ITEM_NONE;
+    carried_count: i32 = 0;
+    target_x: i32;
+    target_y: i32;
+    origin_x: i32;
+    origin_y: i32;
+    speed: f32 = 3.0;
+    state: i32 = ROBOT_IDLE;
+}
+
+component Roboport {
+    logistic_range: f32 = 25.0;
+    construction_range: f32 = 30.0;
+    robot_capacity: i32 = 10;
+    active_robots: i32 = 0;
+    stored_robots: i32 = 0;
+    charging_slots: i32 = 4;
+}
+
+component BlueprintData {
+    name: string;
+    entities: [BlueprintEntity] = [];
+    is_active: bool = false;
+}
+
+component BlueprintEntity {
+    entity_type: i32;
+    offset_x: i32;
+    offset_y: i32;
+    direction: i32;
+    recipe_id: i32 = RECIPE_NONE;
+}
+
+component TileMapData {
+    width: i32;
+    height: i32;
+    seed: u64;
+}
+
+component WorldStats {
+    total_power_production: f32 = 0.0;
+    total_power_consumption: f32 = 0.0;
+    item_production: i32 = 0;
+    play_time: f32 = 0.0;
+}

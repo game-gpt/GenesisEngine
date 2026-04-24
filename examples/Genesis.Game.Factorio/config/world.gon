@@ -1,0 +1,83 @@
+WorldConfig {
+    world_size: {
+        width: 256,
+        height: 256
+    },
+    seed: 42,
+    tile_size: 32,
+    resources: [
+        ResourceConfig {
+            id: 0,
+            name: "铁矿",
+            noise_seed: 0xAAAA0001,
+            frequency: 0.015,
+            richness_base: 500,
+            richness_multiplier: 1.5,
+            min_distance: 8,
+            cluster_radius: 4
+        },
+        ResourceConfig {
+            id: 1,
+            name: "铜矿",
+            noise_seed: 0xAAAA0002,
+            frequency: 0.015,
+            richness_base: 500,
+            richness_multiplier: 1.4,
+            min_distance: 10,
+            cluster_radius: 4
+        },
+        ResourceConfig {
+            id: 2,
+            name: "煤矿",
+            noise_seed: 0xAAAA0003,
+            frequency: 0.02,
+            richness_base: 800,
+            richness_multiplier: 1.3,
+            min_distance: 6,
+            cluster_radius: 5
+        },
+        ResourceConfig {
+            id: 3,
+            name: "石矿",
+            noise_seed: 0xAAAA0004,
+            frequency: 0.018,
+            richness_base: 600,
+            richness_multiplier: 1.2,
+            min_distance: 6,
+            cluster_radius: 4
+        },
+        ResourceConfig {
+            id: 4,
+            name: "油井",
+            noise_seed: 0xAAAA0005,
+            frequency: 0.008,
+            richness_base: 300,
+            richness_multiplier: 2.0,
+            min_distance: 30,
+            cluster_radius: 2
+        }
+    ],
+    terrain: {
+        grass_weight: 0.6,
+        sand_weight: 0.15,
+        desert_weight: 0.15,
+        water_weight: 0.1,
+        water_noise_scale: 0.03,
+        water_threshold: 0.62
+    },
+    starting_area: {
+        radius: 20,
+        guaranteed_resources: true,
+        iron_patches: 2,
+        copper_patches: 2,
+        coal_patches: 1,
+        stone_patches: 1
+    },
+    spacetime: {
+        tree_type: "quadtree",
+        l0_range: 1,
+        l1_range: 3,
+        l2_collapse_threshold: 0.8,
+        l1_merge_threshold: 0.1
+    }
+}
