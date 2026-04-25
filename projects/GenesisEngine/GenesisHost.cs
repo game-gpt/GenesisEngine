@@ -3,7 +3,15 @@ using Genesis.Integration.Audio;
 using Genesis.Integration.Navigation;
 using Genesis.Integration.Physics;
 using Genesis.Integration.Rendering;
+using Genesis.Runtime;
 using Gnosis.ECS.World;
+using Gnosis.Graphic.Pipeline;
+using Gnosis.Graphic.RHI;
+using Gnosis.Graphic.Sprite2D;
+using Gnosis.Graphic.Texture;
+using Gnosis.Graphic.Window;
+using Gnosis.Input.Device;
+using Gnosis.Input.Simulate;
 
 namespace GenesisHost;
 
@@ -16,6 +24,7 @@ public class GenesisHost : IDisposable
     private bool _isRunning;
     private bool _disposed;
     private DateTime _lastFrameTime;
+    private ulong _frameIndex;
 
     #endregion
 
@@ -35,6 +44,23 @@ public class GenesisHost : IDisposable
     private GenesisPhysicsSystem? _physics3D;
     private GenesisAudioSystem? _audio3D;
     private GenesisNavigationSystem? _navigation3D;
+
+    #endregion
+
+    #region 窗口与渲染
+
+    private IWindow? _window;
+    private ForwardRenderer? _renderer;
+    private Camera2D? _camera2D;
+    private Sprite2DRenderPass? _sprite2DPass;
+    private TextureLoader? _textureLoader;
+    private InputSystem? _inputSystem;
+
+    #endregion
+
+    #region 脚本运行时
+
+    private ScriptRuntime? _scriptRuntime;
 
     #endregion
 
@@ -61,6 +87,16 @@ public class GenesisHost : IDisposable
     public GenesisAudioSystem Audio3D => _audio3D ?? throw new InvalidOperationException("引擎未初始化");
 
     public GenesisNavigationSystem Navigation3D => _navigation3D ?? throw new InvalidOperationException("引擎未初始化");
+
+    #endregion
+
+    #region 属性 - 窗口与渲染
+
+    public IWindow? Window => _window;
+    public ForwardRenderer? Renderer => _renderer;
+    public Camera2D? Camera2D => _camera2D;
+    public InputSystem? InputSystem => _inputSystem;
+    public ScriptRuntime? ScriptRuntime => _scriptRuntime;
 
     #endregion
 
@@ -99,6 +135,83 @@ public class GenesisHost : IDisposable
         Console.WriteLine("[Genesis]   - 3D 寻路: Gnosis.Navigation NavMesh + A*");
     }
 
+    public void InitializeWithWindow(uint width = 1280, uint height = 720, string title = "Gnosis Engine")
+    {
+        Console.WriteLine($"[Genesis] 引擎初始化（窗口模式）- 世界种子: {_worldSeed}");
+
+        _world = new World();
+        _inputSystem = new InputSystem();
+
+        Initialize2DSystems();
+
+        var options = new WindowOptions
+        {
+            Title = title,
+            Width = width,
+            Height = height,
+            VSync = true,
+            Resizable = true
+        };
+
+        _window = SilkNetWindow.Create(options);
+
+        if (_window is SilkNetWindow silkWindow)
+        {
+            var keyboard = (Keyboard)_inputSystem.Keyboard!;
+            var mouse = (Mouse)_inputSystem.Mouse!;
+            silkWindow.SetInputDevices(keyboard, mouse);
+        }
+
+        _window.OnClosing += (_, _) => _isRunning = false;
+
+        _camera2D = new Camera2D
+        {
+            ViewportSize = new System.Numerics.Vector2(width, height)
+        };
+
+        var device = DeviceFactory.Create(GraphicsBackend.Vulkan);
+        _renderer = new ForwardRenderer(device);
+        _renderer.Initialize(_window.WindowHandle, width, height);
+
+        _textureLoader = new TextureLoader(device);
+
+        if (_graphic2D?.SpriteBatch is not null)
+        {
+            _sprite2DPass = new Sprite2DRenderPass(_graphic2D.SpriteBatch, _camera2D);
+            _renderer.AddRenderPass(_sprite2DPass);
+        }
+
+        _scriptRuntime = new ScriptRuntime();
+        _scriptRuntime.Initialize(_world);
+
+        _isRunning = true;
+        _lastFrameTime = DateTime.UtcNow;
+
+        Console.WriteLine($"[Genesis] 窗口模式初始化完成 - {width}x{height}");
+    }
+
+    public void LoadGameScript(string scriptPath)
+    {
+        if (_scriptRuntime is null)
+        {
+            throw new InvalidOperationException("请先调用 InitializeWithWindow()");
+        }
+
+        if (Directory.Exists(scriptPath))
+        {
+            _scriptRuntime.LoadScriptDirectory(scriptPath);
+        }
+        else if (File.Exists(scriptPath))
+        {
+            var source = File.ReadAllText(scriptPath);
+            _scriptRuntime.LoadScriptSource(source, scriptPath);
+        }
+        else
+        {
+            Console.WriteLine($"[Genesis] 脚本路径不存在: {scriptPath}");
+        }
+    }
+
     public void Initialize3DRendering(nint windowHandle, uint width, uint height)
     {
         if (_render3D is null || _world is null)
@@ -117,7 +230,70 @@ public class GenesisHost : IDisposable
             throw new InvalidOperationException("引擎未初始化，请先调用 Initialize()");
         }
 
-        Console.WriteLine("[Genesis] 引擎主循环启动");
+        if (_window is not null)
+        {
+            RunWithWindow();
+        }
+        else
+        {
+            RunHeadless();
+        }
+    }
+
+    public void Shutdown()
+    {
+        _isRunning = false;
+        Console.WriteLine("[Genesis] 引擎关闭");
+    }
+
+    #endregion
+
+    #region 私有方法 - 游戏循环
+
+    private void RunWithWindow()
+    {
+        Console.WriteLine("[Genesis] 窗口模式主循环启动");
+
+        _scriptRuntime?.Run();
+
+        while (_isRunning && !_window!.IsClosing)
+        {
+            var now = DateTime.UtcNow;
+            var delta = (float)(now - _lastFrameTime).TotalSeconds;
+            _lastFrameTime = now;
+
+            if (delta > 0.1f)
+            {
+                delta = 0.1f;
+            }
+
+            _window.PollEvents();
+            _inputSystem?.Update();
+
+            Update(delta);
+
+            if (_renderer is not null && !_window.IsMinimized)
+            {
+                var context = new RenderContext
+                {
+                    View = _camera2D ?? new Gnosis.Graphic.Sprite2D.Camera2D(),
+                    Device = _renderer.Device,
+                    DeltaTime = delta,
+                    FrameIndex = _frameIndex++,
+                    Width = _window.Width,
+                    Height = _window.Height
+                };
+
+                _renderer.Render(context);
+            }
+        }
+
+        Console.WriteLine("[Genesis] 窗口模式主循环退出");
+    }
+
+    private void RunHeadless()
+    {
+        Console.WriteLine("[Genesis] 无头模式主循环启动");
 
         while (_isRunning)
         {
@@ -133,13 +309,7 @@ public class GenesisHost : IDisposable
             Update(delta);
         }
 
-        Console.WriteLine("[Genesis] 引擎主循环退出");
-    }
-
-    public void Shutdown()
-    {
-        _isRunning = false;
-        Console.WriteLine("[Genesis] 引擎关闭");
+        Console.WriteLine("[Genesis] 无头模式主循环退出");
     }
 
     #endregion
@@ -194,7 +364,14 @@ public class GenesisHost : IDisposable
         _navigation2D?.Update(delta);
         _audio2D?.Update(delta);
 
-        _world?.Update(delta);
+        if (_scriptRuntime is not null && _scriptRuntime.IsInitialized)
+        {
+            _scriptRuntime.Tick(delta);
+        }
+        else
+        {
+            _world?.Update(delta);
+        }
 
         _render3D?.Update(delta);
     }
@@ -209,6 +386,10 @@ public class GenesisHost : IDisposable
         {
             return;
         }
+
+        _scriptRuntime?.Shutdown();
+        _renderer?.Shutdown();
+        _window?.Dispose();
 
         _render3D?.Shutdown();
         _navigation3D?.Shutdown();
