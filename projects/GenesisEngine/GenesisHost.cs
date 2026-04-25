@@ -13,6 +13,7 @@ using Gnosis.Graphic.Texture;
 using Gnosis.Graphic.Window;
 using Gnosis.Input.Device;
 using Gnosis.Input.Simulate;
+using SilkGL = Silk.NET.OpenGL;
 
 namespace GenesisEngine;
 
@@ -27,11 +28,11 @@ public class GenesisHost : IDisposable
     private DateTime _lastFrameTime;
     private ulong _frameIndex;
     private GraphicsBackend _activeBackend;
-    private OpenGLDevice? _glDevice;
+    private SilkGL.GL? _gl;
 
     #endregion
 
-    #region 2D 子系统集成（M3 泰拉瑞亚）
+    #region 2D 子系统集成
 
     private Graphic2DIntegration? _graphic2D;
     private Physics2DIntegration? _physics2D;
@@ -41,7 +42,7 @@ public class GenesisHost : IDisposable
 
     #endregion
 
-    #region 3D 子系统集成（M4 我的世界）
+    #region 3D 子系统集成
 
     private GenesisRenderSystem? _render3D;
     private GenesisPhysicsSystem? _physics3D;
@@ -127,15 +128,6 @@ public class GenesisHost : IDisposable
         _lastFrameTime = DateTime.UtcNow;
 
         Console.WriteLine("[Genesis] 所有子系统初始化完成");
-        Console.WriteLine("[Genesis]   - 2D 渲染: Gnosis.Graphic 2D");
-        Console.WriteLine("[Genesis]   - 2D 物理: Gnosis.Physics 2D");
-        Console.WriteLine("[Genesis]   - 2D 音频: Gnosis.Audio");
-        Console.WriteLine("[Genesis]   - 2D AI:   Gnosis.AI 行为树");
-        Console.WriteLine("[Genesis]   - 2D 导航: Gnosis.Navigation");
-        Console.WriteLine("[Genesis]   - 3D 渲染: Gnosis.Graphic ForwardRenderer + VoxelRenderer");
-        Console.WriteLine("[Genesis]   - 3D 物理: Gnosis.Physics 3D 刚体/碰撞");
-        Console.WriteLine("[Genesis]   - 3D 音频: Gnosis.Audio 3D 空间化");
-        Console.WriteLine("[Genesis]   - 3D 寻路: Gnosis.Navigation NavMesh + A*");
     }
 
     public void InitializeWithWindow(uint width = 1280, uint height = 720, string title = "Gnosis Engine", GraphicsBackend backend = GraphicsBackend.Vulkan)
@@ -240,29 +232,6 @@ public class GenesisHost : IDisposable
 
     #endregion
 
-    #region 私有方法 - 渲染
-
-    private void InitializeGraphicsBackend()
-    {
-        if (_activeBackend == GraphicsBackend.OpenGL)
-        {
-            var glDevice = new OpenGLDevice();
-            glDevice.Initialize(NativeGetProcAddress);
-            _glDevice = glDevice;
-
-            Initialize2DSystems(_activeBackend, glDevice);
-
-            Console.WriteLine("[Genesis] OpenGL 设备初始化完成 - 函数指针已加载");
-        }
-        else
-        {
-            var device = DeviceFactory.Create(_activeBackend);
-            Initialize2DSystems(_activeBackend, device);
-        }
-    }
-
-    #endregion
-
     #region 私有方法 - 游戏循环
 
     private void RunWithWindow()
@@ -272,6 +241,12 @@ public class GenesisHost : IDisposable
         _scriptRuntime?.Run();
 
         _window.PollEvents();
+
+        if (_window.GlContext is SilkGL.GL gl)
+        {
+            _gl = gl;
+            Console.WriteLine("[Genesis] Silk.NET OpenGL 上下文已获取");
+        }
 
         InitializeGraphicsBackend();
 
@@ -288,10 +263,30 @@ public class GenesisHost : IDisposable
 
             Update(delta);
 
+            if (!_window.IsMinimized && _gl is not null)
+            {
+                RenderFrame();
+            }
+
             _frameIndex++;
         }
 
         Console.WriteLine("[Genesis] 窗口模式主循环退出");
+    }
+
+    private void RenderFrame()
+    {
+        _window?.MakeCurrent();
+
+        var t = (float)(_frameIndex * 0.016);
+        var r = (float)(0.53 + 0.1 * Math.Sin(t * 0.6));
+        var g = (float)(0.81 + 0.1 * Math.Sin(t * 0.4));
+        var b = (float)(0.92 + 0.05 * Math.Sin(t * 0.8));
+
+        _gl.ClearColor(r, g, b, 1.0f);
+        _gl.Clear((uint)(SilkGL.ClearBufferMask.ColorBufferBit | SilkGL.ClearBufferMask.DepthBufferBit));
+
+        _window?.SwapBuffers();
     }
 
     private void RunHeadless()
@@ -313,6 +308,28 @@ public class GenesisHost : IDisposable
         }
 
         Console.WriteLine("[Genesis] 无头模式主循环退出");
+    }
+
+    #endregion
+
+    #region 私有方法 - 渲染
+
+    private void InitializeGraphicsBackend()
+    {
+        if (_activeBackend == GraphicsBackend.OpenGL)
+        {
+            var glDevice = new OpenGLDevice();
+            glDevice.Initialize(NativeGetProcAddress);
+
+            Initialize2DSystems(_activeBackend, glDevice);
+
+            Console.WriteLine("[Genesis] OpenGL 设备初始化完成 - 函数指针已加载");
+        }
+        else
+        {
+            var device = DeviceFactory.Create(_activeBackend);
+            Initialize2DSystems(_activeBackend, device);
+        }
     }
 
     #endregion
@@ -423,7 +440,6 @@ public class GenesisHost : IDisposable
 
     private void Update(float delta)
     {
-        _physics2D?.Update(delta);
         _ai2D?.Update(delta);
         _navigation2D?.Update(delta);
         _audio2D?.Update(delta);
