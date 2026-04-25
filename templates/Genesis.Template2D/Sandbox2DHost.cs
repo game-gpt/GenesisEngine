@@ -7,7 +7,7 @@ public sealed class Sandbox2DHost : IDisposable
     #region 字段
 
     private readonly ulong _worldSeed;
-    private World? _world;
+    private Gnosis.ECS.World.World? _world;
     private bool _isRunning;
     private bool _disposed;
     private DateTime _lastFrameTime;
@@ -29,7 +29,7 @@ public sealed class Sandbox2DHost : IDisposable
     {
         Console.WriteLine($"[Genesis 2D] 初始化 - 世界种子: {_worldSeed}");
 
-        _world = new World();
+        _world = new Gnosis.ECS.World.World();
         _isRunning = true;
         _lastFrameTime = DateTime.UtcNow;
 

@@ -17,7 +17,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Genesis\Genesis.csproj" />
-    <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Toolchain\Gnosis.Toolchain.csproj" />
     <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Toolchain.AssetPipeline\Gnosis.Toolchain.AssetPipeline.csproj" />
     <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Toolchain.Cooker\Gnosis.Toolchain.Cooker.csproj" />
     <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Asset\Gnosis.Asset.csproj" />

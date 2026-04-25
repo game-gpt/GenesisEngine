@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net11.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RootNamespace>Genesis.Game.Terraria</RootNamespace>
+    <PackageId>Genesis.Game.Terraria.App</PackageId>
+    <Version>0.0.1</Version>
+    <Authors>Genesis Engine Team</Authors>
+    <Description>小小泰拉瑞亚 - 基于 Genesis 引擎的 2D 沙盒游戏 demo</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Genesis\Genesis.csproj" />
+    <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.ECS\Gnosis.ECS.csproj" />
+    <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Core\Gnosis.Core.csproj" />
+    <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Input\Gnosis.Input.csproj" />
+  </ItemGroup>
+</Project>

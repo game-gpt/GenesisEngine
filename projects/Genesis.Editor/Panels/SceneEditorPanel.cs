@@ -6,18 +6,21 @@ using Gnosis.Widget.Render;
 
 namespace Genesis.Editor.Panels;
 
-public sealed class SceneEditorPanel : VBox
+public sealed class SceneEditorPanel
 {
     #region 字段
 
     private readonly SceneGraph _sceneGraph;
     private readonly SceneStreamer _sceneStreamer;
     private readonly SceneTransitionController _transitionController;
+    private readonly FlexLayout _root;
     private ISceneNode? _selectedSceneNode;
 
     #endregion
 
     #region 属性
+
+    public FlexLayout Root => _root;
 
     public SceneGraph SceneGraph => _sceneGraph;
 
@@ -47,10 +50,13 @@ public sealed class SceneEditorPanel : VBox
         _sceneStreamer = new SceneStreamer();
         _transitionController = new SceneTransitionController();
 
-        Background = new WidgetColor(0.15f, 0.15f, 0.17f);
-        Width = 220;
-        Padding = new EdgeInsets(10, 10, 10, 10);
-        CrossAxisAlignment = CrossAxisAlignment.Stretch;
+        _root = new FlexLayout
+        {
+            Direction = FlexDirection.Column,
+            Width = 220,
+            CrossAxisAlignment = CrossAxisAlignment.Stretch
+        };
+        _root.Margin = new EdgeInsets(10, 10, 10, 10);
 
         BuildPanel();
     }
@@ -94,10 +100,10 @@ public sealed class SceneEditorPanel : VBox
 
     private void BuildPanel()
     {
-        Children.Clear();
+        _root.ClearChildren();
 
-        AddChild(new TextWidget("Scene Hierarchy") { FontSize = 14, Foreground = new WidgetColor(0.9f, 0.9f, 0.9f) });
-        AddChild(new SeparatorWidget { Margin = new EdgeInsets(5, 0, 5, 0) });
+        _root.AddChild(new TextWidget("Scene Hierarchy") { FontSize = 14, Foreground = new Color(0.9f, 0.9f, 0.9f) });
+        _root.AddChild(new SeparatorWidget { Margin = new EdgeInsets(5, 0, 5, 0) });
 
         BuildNodeTree(_sceneGraph.Root, 0);
     }
@@ -114,12 +120,12 @@ public sealed class SceneEditorPanel : VBox
 
         var isSelected = node == _selectedSceneNode;
         var color = isSelected
-            ? new WidgetColor(0.3f, 0.6f, 0.9f)
-            : new WidgetColor(0.7f, 0.7f, 0.7f);
+            ? new Color(0.3f, 0.6f, 0.9f)
+            : new Color(0.7f, 0.7f, 0.7f);
 
         var text = $"{indent}{icon} {node.Name}";
 
-        AddChild(new TextWidget(text) { FontSize = 11, Foreground = color, Margin = new EdgeInsets(3, 0, 0, 0) });
+        _root.AddChild(new TextWidget(text) { FontSize = 11, Foreground = color, Margin = new EdgeInsets(3, 0, 0, 0) });
 
         foreach (var child in node.Children)
         {

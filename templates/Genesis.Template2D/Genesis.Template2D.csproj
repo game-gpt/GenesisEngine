@@ -13,7 +13,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\Genesis\Genesis.csproj" />
+    <ProjectReference Include="..\..\projects\Genesis\Genesis.csproj" />
+    <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.ECS\Gnosis.ECS.csproj" />
+    <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Core\Gnosis.Core.csproj" />
   </ItemGroup>
 
 </Project>

@@ -4,7 +4,7 @@ using Gnosis.Widget.Render;
 
 namespace Genesis.Editor.Panels;
 
-public sealed class GenesisConsolePanel : VBox
+public sealed class GenesisConsolePanel
 {
     #region 日志条目
 
@@ -28,10 +28,13 @@ public sealed class GenesisConsolePanel : VBox
 
     private readonly List<LogEntry> _entries = [];
     private readonly List<TextWidget> _entryWidgets = [];
+    private readonly FlexLayout _root;
 
     #endregion
 
     #region 属性
+
+    public FlexLayout Root => _root;
 
     public int MaxEntries { get; set; } = 1000;
 
@@ -43,13 +46,16 @@ public sealed class GenesisConsolePanel : VBox
 
     public GenesisConsolePanel()
     {
-        Background = new WidgetColor(0.12f, 0.12f, 0.14f);
-        Height = 150;
-        Padding = new EdgeInsets(10, 10, 10, 10);
-        CrossAxisAlignment = CrossAxisAlignment.Stretch;
+        _root = new FlexLayout
+        {
+            Direction = FlexDirection.Column,
+            Height = 150,
+            CrossAxisAlignment = CrossAxisAlignment.Stretch
+        };
+        _root.Margin = new EdgeInsets(10, 10, 10, 10);
 
-        AddChild(new TextWidget("Console") { FontSize = 14, Foreground = new WidgetColor(0.9f, 0.9f, 0.9f) });
-        AddChild(new SeparatorWidget { Margin = new EdgeInsets(5, 0, 5, 0) });
+        _root.AddChild(new TextWidget("Console") { FontSize = 14, Foreground = new Color(0.9f, 0.9f, 0.9f) });
+        _root.AddChild(new SeparatorWidget { Margin = new EdgeInsets(5, 0, 5, 0) });
     }
 
     #endregion
@@ -94,15 +100,15 @@ public sealed class GenesisConsolePanel : VBox
         if (_entryWidgets.Count >= VisibleLines && _entryWidgets.Count > 0)
         {
             var oldest = _entryWidgets[0];
-            Children.Remove(oldest);
+            _root.RemoveChild(oldest);
             _entryWidgets.RemoveAt(0);
         }
 
         var color = level switch
         {
-            LogLevel.Warning => new WidgetColor(0.9f, 0.75f, 0.20f),
-            LogLevel.Error => new WidgetColor(0.9f, 0.30f, 0.30f),
-            _ => new WidgetColor(0.4f, 0.8f, 0.4f)
+            LogLevel.Warning => new Color(0.9f, 0.75f, 0.20f),
+            LogLevel.Error => new Color(0.9f, 0.30f, 0.30f),
+            _ => new Color(0.4f, 0.8f, 0.4f)
         };
 
         var prefix = level switch
@@ -113,7 +119,7 @@ public sealed class GenesisConsolePanel : VBox
         };
 
         var widget = new TextWidget($"{prefix}{message}") { FontSize = 11, Foreground = color, Margin = new EdgeInsets(3, 0, 0, 0) };
-        AddChild(widget);
+        _root.AddChild(widget);
         _entryWidgets.Add(widget);
     }
 

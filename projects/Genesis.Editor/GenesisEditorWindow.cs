@@ -45,7 +45,7 @@ public sealed class GenesisEditorWindow : System.Windows.Window
     #region 引擎字段
 
     private readonly ulong _worldSeed;
-    private World? _world;
+    private Gnosis.ECS.World.World? _world;
     private SpacetimeTree? _spacetimeTree;
 
     #endregion
@@ -110,7 +110,7 @@ public sealed class GenesisEditorWindow : System.Windows.Window
 
     private void InitializeEngine()
     {
-        _world = new World();
+        _world = new Gnosis.ECS.World.World();
         _spacetimeTree = new SpacetimeTree();
 
         _consolePanel?.LogInfo($"[Genesis] 引擎初始化 - 世界种子: {_worldSeed}");
@@ -135,10 +135,10 @@ public sealed class GenesisEditorWindow : System.Windows.Window
         var body = new Dock();
 
         _spacetimeTreePanel = new SpacetimeTreePanel(_spacetimeTree);
-        body.DockWidget(_spacetimeTreePanel, DockPosition.Left);
+        body.DockWidget(_spacetimeTreePanel.Root, DockPosition.Left);
 
         _causalInspectorPanel = new CausalInspectorPanel();
-        body.DockWidget(_causalInspectorPanel, DockPosition.Right);
+        body.DockWidget(_causalInspectorPanel.Root, DockPosition.Right);
 
         var center = BuildCenter();
         body.DockWidget(center, DockPosition.Fill);
@@ -186,7 +186,7 @@ public sealed class GenesisEditorWindow : System.Windows.Window
         var center = new Dock();
 
         _worldSettingsPanel = new WorldSettingsPanel(_worldSeed);
-        center.DockWidget(_worldSettingsPanel, DockPosition.Top);
+        center.DockWidget(_worldSettingsPanel.Root, DockPosition.Top);
 
         var viewport = new RectWidget
         {
@@ -196,7 +196,7 @@ public sealed class GenesisEditorWindow : System.Windows.Window
         center.DockWidget(viewport, DockPosition.Fill);
 
         _consolePanel = new GenesisConsolePanel();
-        center.DockWidget(_consolePanel, DockPosition.Bottom);
+        center.DockWidget(_consolePanel.Root, DockPosition.Bottom);
 
         return center;
     }

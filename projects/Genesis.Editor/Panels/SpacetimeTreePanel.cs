@@ -6,11 +6,12 @@ using Gnosis.Widget.Render;
 
 namespace Genesis.Editor.Panels;
 
-public sealed class SpacetimeTreePanel : VBox
+public sealed class SpacetimeTreePanel
 {
     #region 字段
 
     private readonly SpacetimeTree? _spacetimeTree;
+    private readonly FlexLayout _root;
     private readonly List<TextWidget> _nodeWidgets = [];
 
     #endregion
@@ -18,6 +19,8 @@ public sealed class SpacetimeTreePanel : VBox
     #region 属性
 
     public ISpacetimeNode? SelectedNode { get; private set; }
+
+    public FlexLayout Root => _root;
 
     #endregion
 
@@ -27,13 +30,16 @@ public sealed class SpacetimeTreePanel : VBox
     {
         _spacetimeTree = spacetimeTree;
 
-        Background = new WidgetColor(0.15f, 0.15f, 0.17f);
-        Width = 220;
-        Padding = new EdgeInsets(10, 10, 10, 10);
-        CrossAxisAlignment = CrossAxisAlignment.Stretch;
+        _root = new FlexLayout
+        {
+            Direction = FlexDirection.Column,
+            Width = 220,
+            CrossAxisAlignment = CrossAxisAlignment.Stretch
+        };
+        _root.Margin = new EdgeInsets(10, 10, 10, 10);
 
-        AddChild(new TextWidget("Spacetime Tree") { FontSize = 14, Foreground = new WidgetColor(0.9f, 0.9f, 0.9f) });
-        AddChild(new SeparatorWidget { Margin = new EdgeInsets(5, 0, 5, 0) });
+        _root.AddChild(new TextWidget("Spacetime Tree") { FontSize = 14, Foreground = new Color(0.9f, 0.9f, 0.9f) });
+        _root.AddChild(new SeparatorWidget { Margin = new EdgeInsets(5, 0, 5, 0) });
 
         if (_spacetimeTree?.Root is not null)
         {
@@ -41,7 +47,7 @@ public sealed class SpacetimeTreePanel : VBox
         }
         else
         {
-            AddChild(new TextWidget("  (empty)") { FontSize = 11, Foreground = new WidgetColor(0.5f, 0.5f, 0.5f), Margin = new EdgeInsets(3, 0, 0, 0) });
+            _root.AddChild(new TextWidget("  (empty)") { FontSize = 11, Foreground = new Color(0.5f, 0.5f, 0.5f), Margin = new EdgeInsets(3, 0, 0, 0) });
         }
     }
 
@@ -58,7 +64,7 @@ public sealed class SpacetimeTreePanel : VBox
 
         foreach (var widget in _nodeWidgets)
         {
-            Children.Remove(widget);
+            _root.RemoveChild(widget);
         }
 
         _nodeWidgets.Clear();
@@ -84,12 +90,12 @@ public sealed class SpacetimeTreePanel : VBox
 
         var color = node.CollapseState switch
         {
-            CollapseState.Collapsed => new WidgetColor(0.4f, 0.8f, 0.4f),
-            _ => new WidgetColor(0.7f, 0.7f, 0.7f)
+            CollapseState.Collapsed => new Color(0.4f, 0.8f, 0.4f),
+            _ => new Color(0.7f, 0.7f, 0.7f)
         };
 
         var widget = new TextWidget(text) { FontSize = 11, Foreground = color, Margin = new EdgeInsets(3, 0, 0, 0) };
-        AddChild(widget);
+        _root.AddChild(widget);
         _nodeWidgets.Add(widget);
 
         foreach (var child in node.Children)

@@ -99,9 +99,9 @@ public sealed class GenesisBuildPipeline : IDisposable
                     cancellationToken
                 );
 
-                if (bundleResult.PackFilePath is not null)
+                if (bundleResult.FilePath is not null)
                 {
-                    outputBundles.Add(bundleResult.PackFilePath);
+                    outputBundles.Add(bundleResult.FilePath);
                 }
             }
         }
