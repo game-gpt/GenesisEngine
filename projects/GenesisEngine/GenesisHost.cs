@@ -13,7 +13,9 @@ using Gnosis.Graphic.Texture;
 using Gnosis.Graphic.Window;
 using Gnosis.Input.Device;
 using Gnosis.Input.Simulate;
-using SilkGL = Silk.NET.OpenGL;
+using Gnosis.Platform;
+using Gnosis.Platform.GL;
+using Gnosis.Platform.Win32;
 
 namespace GenesisEngine;
 
@@ -27,7 +29,7 @@ public class GenesisHost : IDisposable
     private bool _disposed;
     private DateTime _lastFrameTime;
     private ulong _frameIndex;
-    private SilkGL.GL? _gl;
+    private GLContext? _gl;
 
     #endregion
 
@@ -145,13 +147,17 @@ public class GenesisHost : IDisposable
             Resizable = true
         };
 
-        _window = SdlGameWindow.Create(options);
+        _window = PlatformWindowAdapter.Create(options);
 
-        if (_window is SdlGameWindow sdlWindow)
+        if (_window is PlatformWindowAdapter adapter)
         {
-            var keyboard = (Keyboard)_inputSystem.Keyboard!;
-            var mouse = (Mouse)_inputSystem.Mouse!;
-            sdlWindow.SetInputDevices(keyboard, mouse);
+            var platformWindow = adapter.GetPlatformWindow();
+            if (platformWindow is Win32Window win32Window)
+            {
+                var keyboard = (Keyboard)_inputSystem.Keyboard!;
+                var mouse = (Mouse)_inputSystem.Mouse!;
+                win32Window.SetInputDevices(keyboard, mouse);
+            }
         }
 
         _window.OnClosing += _ => _isRunning = false;
@@ -167,7 +173,7 @@ public class GenesisHost : IDisposable
         _isRunning = true;
         _lastFrameTime = DateTime.UtcNow;
 
-        Console.WriteLine($"[Genesis] 窗口模式初始化完成 - {width}x{height} - 后端: SDL2 + OpenGL");
+        Console.WriteLine($"[Genesis] 窗口模式初始化完成 - {width}x{height} - 自研平台层");
     }
 
     public void LoadGameScript(string scriptPath)
@@ -236,12 +242,13 @@ public class GenesisHost : IDisposable
 
         _scriptRuntime?.Run();
 
-        if (_window.GlContext is SilkGL.GL gl)
+        if (_window.GlContext is GLContext gl)
         {
             _gl = gl;
             Console.WriteLine("[Genesis] OpenGL 上下文已获取");
         }
 
+        _window.MakeCurrent();
         InitializeGraphicsBackend();
 
         while (_isRunning && !_window!.IsClosing)
@@ -278,7 +285,7 @@ public class GenesisHost : IDisposable
         var b = (float)(0.92 + 0.05 * Math.Sin(t * 0.8));
 
         _gl.ClearColor(r, g, b, 1.0f);
-        _gl.Clear((uint)(SilkGL.ClearBufferMask.ColorBufferBit | SilkGL.ClearBufferMask.DepthBufferBit));
+        _gl.Clear(GLContext.ColorBufferBit | GLContext.DepthBufferBit);
 
         _window?.SwapBuffers();
     }
@@ -310,14 +317,14 @@ public class GenesisHost : IDisposable
 
     private void InitializeGraphicsBackend()
     {
-        if (_window is SdlGameWindow sdlWindow)
+        if (_window is PlatformWindowAdapter adapter)
         {
             var glDevice = new OpenGLDevice();
-            glDevice.Initialize(sdlWindow.GetGLProcAddress);
+            glDevice.Initialize(adapter.GetProcAddress);
 
             Initialize2DSystems(GraphicsBackend.OpenGL, glDevice);
 
-            Console.WriteLine("[Genesis] OpenGL 设备初始化完成 - SDL2 函数指针已加载");
+            Console.WriteLine("[Genesis] OpenGL 设备初始化完成 - 自研平台层函数指针已加载");
         }
         else
         {
