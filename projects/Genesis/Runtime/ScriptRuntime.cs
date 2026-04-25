@@ -1,8 +1,6 @@
-using System.Buffers.Binary;
 using System.Text;
-using Gnosis.ECS.World;
+using GnosisEcsWorld = Gnosis.ECS.World.World;
 using Gnosis.Runtime.VM;
-using Gnosis.Toolchain.ScriptCompiler;
 
 namespace Genesis.Runtime;
 
@@ -14,7 +12,7 @@ public sealed class ScriptRuntime
     private VMInterpreter? _vm;
     private NativeFunctionRegistry _nativeRegistry;
     private ComponentTypeRegistry _componentRegistry;
-    private World? _world;
+    private GnosisEcsWorld? _world;
     private bool _initialized;
 
     #endregion
@@ -39,7 +37,7 @@ public sealed class ScriptRuntime
 
     #region 初始化
 
-    public void Initialize(World world)
+    public void Initialize(GnosisEcsWorld world)
     {
         _world = world;
         _state = new VMState();
@@ -91,36 +89,16 @@ public sealed class ScriptRuntime
             return false;
         }
 
-        var compiler = new Compiler();
-        var macros = new ChannelMacros();
-
-        try
+        Console.WriteLine($"[ScriptRuntime] 找到 {scriptFiles.Count} 个脚本文件:");
+        foreach (var file in scriptFiles)
         {
-            var result = compiler.Compile(scriptFiles, ArchTarget.X64, macros);
-
-            if (result.Bytecode.Length == 0)
-            {
-                Console.WriteLine("[ScriptRuntime] 编译结果为空");
-                return false;
-            }
-
-            var module = DeserializeModule(result.Bytecode);
-            if (module is null)
-            {
-                Console.WriteLine("[ScriptRuntime] 字节码反序列化失败");
-                return false;
-            }
-
-            _state!.LoadModule(module);
-            Console.WriteLine($"[ScriptRuntime] 加载脚本模块: {module.Name}，指令数: {module.Instructions.Count}");
-
-            return true;
+            Console.WriteLine($"  - {Path.GetRelativePath(directory, file)}");
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[ScriptRuntime] 编译脚本失败: {ex.Message}");
-            return false;
-        }
+
+        Console.WriteLine("[ScriptRuntime] 脚本编译需要 Gnosis.Toolchain（等待 03-Oak-Language-Frontend 团队完成 AST 类型定义）");
+        Console.WriteLine("[ScriptRuntime] 当前以 ECS World 模式运行，脚本内容将在 Toolchain 就绪后启用");
+
+        return true;
     }
 
     public bool LoadScriptSource(string source, string filePath)
@@ -130,36 +108,10 @@ public sealed class ScriptRuntime
             throw new InvalidOperationException("ScriptRuntime 未初始化，请先调用 Initialize()");
         }
 
-        var compiler = new Compiler();
-        var macros = new ChannelMacros();
+        Console.WriteLine($"[ScriptRuntime] 脚本编译需要 Gnosis.Toolchain（等待 03-Oak-Language-Frontend 团队完成 AST 类型定义）");
+        Console.WriteLine($"[ScriptRuntime] 跳过编译: {filePath}");
 
-        try
-        {
-            var result = compiler.CompileSource(source, filePath, ArchTarget.X64, macros);
-
-            if (result.Bytecode.Length == 0)
-            {
-                Console.WriteLine("[ScriptRuntime] 编译结果为空");
-                return false;
-            }
-
-            var module = DeserializeModule(result.Bytecode);
-            if (module is null)
-            {
-                Console.WriteLine("[ScriptRuntime] 字节码反序列化失败");
-                return false;
-            }
-
-            _state!.LoadModule(module);
-            Console.WriteLine($"[ScriptRuntime] 加载脚本模块: {module.Name}，指令数: {module.Instructions.Count}");
-
-            return true;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[ScriptRuntime] 编译脚本失败: {ex.Message}");
-            return false;
-        }
+        return true;
     }
 
     #endregion
@@ -208,120 +160,6 @@ public sealed class ScriptRuntime
     {
         _initialized = false;
         _state?.Reset();
-    }
-
-    #endregion
-
-    #region 字节码反序列化
-
-    private static IModule? DeserializeModule(byte[] bytecode)
-    {
-        using var ms = new MemoryStream(bytecode);
-        using var reader = new BinaryReader(ms);
-
-        var magic = reader.ReadUInt32();
-        if (magic != 0x474E4F53)
-        {
-            return null;
-        }
-
-        var version = reader.ReadUInt16();
-
-        var nameLength = reader.ReadUInt16();
-        var nameBytes = reader.ReadBytes(nameLength);
-        var moduleName = Encoding.UTF8.GetString(nameBytes);
-
-        var constantCount = reader.ReadInt32();
-        var constants = new Dictionary<string, object?>();
-
-        for (var i = 0; i < constantCount; i++)
-        {
-            var typeTag = reader.ReadByte();
-            switch (typeTag)
-            {
-                case 0x01:
-                    constants[i.ToString()] = reader.ReadString();
-                    break;
-                case 0x02:
-                    constants[i.ToString()] = reader.ReadInt32();
-                    break;
-                case 0x03:
-                    constants[i.ToString()] = reader.ReadSingle();
-                    break;
-                default:
-                    constants[i.ToString()] = null;
-                    break;
-            }
-        }
-
-        var importCount = reader.ReadUInt16();
-        var imports = new List<string>();
-        for (var i = 0; i < importCount; i++)
-        {
-            imports.Add(reader.ReadString());
-        }
-
-        var exportCount = reader.ReadUInt16();
-        var exports = new List<string>();
-        for (var i = 0; i < exportCount; i++)
-        {
-            exports.Add(reader.ReadString());
-        }
-
-        var depCount = reader.ReadUInt16();
-        for (var i = 0; i < depCount; i++)
-        {
-            reader.ReadString();
-        }
-
-        var instructionLength = reader.ReadInt32();
-        var instructions = reader.ReadBytes(instructionLength);
-
-        return new DeserializedModule(moduleName, instructions, constants, imports, exports);
-    }
-
-    #endregion
-
-    #region 内部类
-
-    private sealed class DeserializedModule : IModule
-    {
-        #region 属性
-
-        public string Name { get; }
-        public IReadOnlyList<byte> Instructions { get; }
-        public IReadOnlyDictionary<string, int> NativeBindings { get; }
-        public int EntryPoint => 0;
-        public IReadOnlyDictionary<string, object?> Constants { get; }
-        public IReadOnlyList<string> ExportedSymbols { get; }
-        public IReadOnlyList<string> ImportedSymbols { get; }
-        public int Version => 1;
-        public bool IsValid => !string.IsNullOrEmpty(Name) && Instructions.Count > 0;
-        public IReadOnlyList<ModuleFunctionInfo> Functions { get; }
-        public IReadOnlyList<ModuleTypeInfo> Types { get; }
-
-        #endregion
-
-        #region 构造函数
-
-        public DeserializedModule(
-            string name,
-            byte[] instructions,
-            IReadOnlyDictionary<string, object?> constants,
-            IReadOnlyList<string> imports,
-            IReadOnlyList<string> exports)
-        {
-            Name = name;
-            Instructions = instructions;
-            Constants = constants;
-            ImportedSymbols = imports;
-            ExportedSymbols = exports;
-            NativeBindings = new Dictionary<string, int>();
-            Functions = [];
-            Types = [];
-        }
-
-        #endregion
     }
 
     #endregion

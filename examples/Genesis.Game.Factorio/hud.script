@@ -1,0 +1,194 @@
+system HUDSystem {
+    query_player = Query.all(PlayerTag, GridPosition, Inventory);
+    query_stats = Query.all(WorldStats);
+    query_networks = Query.all(PowerNetwork);
+
+    on_update(delta: f32) {
+        render_hotbar();
+        render_stats_panel();
+        render_power_indicator();
+        render_cursor_info();
+        render_minimap();
+    }
+
+    micro render_hotbar() {
+        <% loop (_, _, inventory) in query_player { %>
+            let bar_x = screen.get_width() / 2 - 200;
+            let bar_y = screen.get_height() - 60;
+
+            renderer.draw_rect(bar_x - 4, bar_y - 4, 408, 52, Vec3 { x: 0.1, y: 0.1, z: 0.1 });
+
+            loop i in range(0, 10) {
+                let slot_x = bar_x + i * 40;
+                let slot_color = Vec3 { x: 0.2, y: 0.2, z: 0.2 };
+                if i == inventory.selected_slot {
+                    slot_color = Vec3 { x: 0.4, y: 0.4, z: 0.6 };
+                }
+                renderer.draw_rect(slot_x, bar_y, 36, 36, slot_color);
+
+                if i < inventory.slots && inventory.item_ids[i] != ITEM_NONE {
+                    let item_color = get_item_color(inventory.item_ids[i]);
+                    renderer.draw_rect(slot_x + 4, bar_y + 4, 28, 28, item_color);
+
+                    if inventory.item_counts[i] > 1 {
+                        renderer.draw_text(
+                            slot_x + 20, bar_y + 24,
+                            $"{inventory.item_counts[i]}",
+                            Vec3 { x: 1.0, y: 1.0, z: 1.0 });
+                    }
+                }
+
+                renderer.draw_text(
+                    slot_x + 14, bar_y + 36,
+                    $"{(i + 1) % 10}",
+                    Vec3 { x: 0.5, y: 0.5, z: 0.5 });
+            }
+        <% } %>
+    }
+
+    micro render_stats_panel() {
+        <% loop (stats,) in query_stats { %>
+            let panel_x = 10;
+            let panel_y = 10;
+
+            renderer.draw_rect(panel_x, panel_y, 200, 80, Vec3 { x: 0.0, y: 0.0, z: 0.0 });
+
+            let minutes = (stats.play_time / 60.0) as i32;
+            let seconds = (stats.play_time % 60.0) as i32;
+            renderer.draw_text(panel_x + 8, panel_y + 8,
+                $"游戏时间: {minutes}:{seconds:02}",
+                Vec3 { x: 0.9, y: 0.9, z: 0.9 });
+
+            renderer.draw_text(panel_x + 8, panel_y + 24,
+                $"生产物品: {stats.item_production}",
+                Vec3 { x: 0.7, y: 0.9, z: 0.7 });
+
+            renderer.draw_text(panel_x + 8, panel_y + 40,
+                $"电力产出: {stats.total_power_production:.0} kW",
+                Vec3 { x: 0.9, y: 0.9, z: 0.5 });
+
+            renderer.draw_text(panel_x + 8, panel_y + 56,
+                $"电力消耗: {stats.total_power_consumption:.0} kW",
+                Vec3 { x: 0.9, y: 0.7, z: 0.5 });
+        <% } %>
+    }
+
+    micro render_power_indicator() {
+        <% loop (network,) in query_networks { %>
+            let indicator_x = screen.get_width() - 210;
+            let indicator_y = 10;
+
+            renderer.draw_rect(indicator_x, indicator_y, 200, 30, Vec3 { x: 0.0, y: 0.0, z: 0.0 });
+
+            let bar_width = 180;
+            let fill_width = (network.satisfaction * bar_width as f32) as i32;
+
+            let bar_color = Vec3 { x: 0.2, y: 0.8, z: 0.2 };
+            if network.satisfaction < 0.5 {
+                bar_color = Vec3 { x: 0.8, y: 0.2, z: 0.2 };
+            }
+            else if network.satisfaction < 0.8 {
+                bar_color = Vec3 { x: 0.8, y: 0.8, z: 0.2 };
+            }
+
+            renderer.draw_rect(indicator_x + 10, indicator_y + 8, fill_width, 14, bar_color);
+            renderer.draw_rect(indicator_x + 10, indicator_y + 8, bar_width, 14, Vec3 { x: 0.3, y: 0.3, z: 0.3 });
+
+            renderer.draw_text(indicator_x + 70, indicator_y + 8,
+                $"电力 {network.satisfaction * 100:.0}%",
+                Vec3 { x: 1.0, y: 1.0, z: 1.0 });
+        <% } %>
+    }
+
+    micro render_cursor_info() {
+        <% loop (_, pos, inventory) in query_player { %>
+            let target_x = pos.x + get_facing_offset_x();
+            let target_y = pos.y + get_facing_offset_y();
+
+            let info_x = screen.get_width() / 2 - 100;
+            let info_y = screen.get_height() - 100;
+
+            let belt = find_belt_at(target_x, target_y);
+            if belt.speed > 0.0 {
+                renderer.draw_rect(info_x, info_y, 200, 20, Vec3 { x: 0.0, y: 0.0, z: 0.0 });
+                renderer.draw_text(info_x + 4, info_y + 4,
+                    "传送带",
+                    Vec3 { x: 0.8, y: 0.75, z: 0.3 });
+                return;
+            }
+
+            let machine = find_machine_at(target_x, target_y);
+            if machine.machine_type >= 0 {
+                renderer.draw_rect(info_x, info_y, 200, 40, Vec3 { x: 0.0, y: 0.0, z: 0.0 });
+                let machine_name = get_machine_name(machine.machine_type);
+                renderer.draw_text(info_x + 4, info_y + 4,
+                    machine_name,
+                    Vec3 { x: 0.9, y: 0.9, z: 0.9 });
+                if machine.recipe_id != RECIPE_NONE {
+                    let recipe = get_recipe(machine.recipe_id);
+                    let recipe_name = recipe.get("name").as_string();
+                    renderer.draw_text(info_x + 4, info_y + 20,
+                        $"配方: {recipe_name} ({machine.progress * 100:.0}%)",
+                        Vec3 { x: 0.7, y: 0.9, z: 0.7 });
+                }
+                else {
+                    renderer.draw_text(info_x + 4, info_y + 20,
+                        "按 E 设置配方",
+                        Vec3 { x: 0.5, y: 0.5, z: 0.5 });
+                }
+                return;
+            }
+
+            let resource = find_resource_at(target_x, target_y);
+            if resource.amount > 0 {
+                renderer.draw_rect(info_x, info_y, 200, 20, Vec3 { x: 0.0, y: 0.0, z: 0.0 });
+                let name = get_resource_type_name(resource.resource_type);
+                renderer.draw_text(info_x + 4, info_y + 4,
+                    $"{name} x{resource.amount}",
+                    Vec3 { x: 0.9, y: 0.8, z: 0.6 });
+                return;
+            }
+        <% } %>
+    }
+
+    micro render_minimap() {
+        let map_size = 120;
+        let map_x = screen.get_width() - map_size - 10;
+        let map_y = screen.get_height() - map_size - 70;
+
+        renderer.draw_rect(map_x, map_y, map_size, map_size, Vec3 { x: 0.0, y: 0.0, z: 0.1 });
+
+        let tilemap_data = Query.all(TileMapData);
+        <% loop (data,) in tilemap_data { %>
+            let scale_x = map_size as f32 / data.width as f32;
+            let scale_y = map_size as f32 / data.height as f32;
+
+            let resources = Query.all(ResourceDeposit, GridPosition);
+            <% loop (resource, pos) in resources { %>
+                let dot_color = get_resource_color(resource.resource_type);
+                let mx = (pos.x as f32 * scale_x) as i32 + map_x;
+                let my = (pos.y as f32 * scale_y) as i32 + map_y;
+                renderer.draw_rect(mx, my, 2, 2, dot_color);
+            <% } %>
+        <% } %>
+
+        <% loop (_, pos) in query_player { %>
+            let tilemap_data2 = Query.all(TileMapData);
+            <% loop (data2,) in tilemap_data2 { %>
+                let scale_x2 = map_size as f32 / data2.width as f32;
+                let scale_y2 = map_size as f32 / data2.height as f32;
+                let px = (pos.x as f32 * scale_x2) as i32 + map_x;
+                let py = (pos.y as f32 * scale_y2) as i32 + map_y;
+                renderer.draw_rect(px - 2, py - 2, 4, 4, Vec3 { x: 1.0, y: 1.0, z: 1.0 });
+            <% } %>
+        <% } %>
+    }
+
+    micro get_machine_name(machine_type: i32) -> string {
+        if machine_type == MACHINE_FURNACE { return "熔炉"; }
+        if machine_type == MACHINE_ASSEMBLER { return "组装机"; }
+        if machine_type == MACHINE_BOILER { return "锅炉"; }
+        if machine_type == MACHINE_STEAM_ENGINE { return "蒸汽机"; }
+        return "未知机器";
+    }
+}

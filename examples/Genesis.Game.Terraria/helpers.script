@@ -1,0 +1,210 @@
+struct Vec2 {
+    x: i32;
+    y: i32;
+}
+
+micro tile_to_item(tile_id: i32) -> i32 {
+    if tile_id == TILE_DIRT { return ITEM_DIRT; }
+    if tile_id == TILE_STONE { return ITEM_STONE; }
+    if tile_id == TILE_GRASS { return ITEM_DIRT; }
+    if tile_id == TILE_SAND { return ITEM_SAND; }
+    if tile_id == TILE_WOOD { return ITEM_WOOD; }
+    if tile_id == TILE_IRON_ORE { return ITEM_IRON_ORE; }
+    if tile_id == TILE_GOLD_ORE { return ITEM_GOLD_ORE; }
+    if tile_id == TILE_COPPER_ORE { return ITEM_COPPER_ORE; }
+    if tile_id == TILE_SNOW { return ITEM_SNOW; }
+    if tile_id == TILE_CLAY { return ITEM_CLAY; }
+    return ITEM_NONE;
+}
+
+micro item_to_tile(item_id: i32) -> i32 {
+    if item_id == ITEM_DIRT { return TILE_DIRT; }
+    if item_id == ITEM_STONE { return TILE_STONE; }
+    if item_id == ITEM_WOOD { return TILE_WOOD; }
+    if item_id == ITEM_SAND { return TILE_SAND; }
+    return TILE_AIR;
+}
+
+micro get_tile_name(tile_id: i32) -> string {
+    if tile_id == TILE_AIR { return "空气"; }
+    if tile_id == TILE_DIRT { return "泥土"; }
+    if tile_id == TILE_STONE { return "石头"; }
+    if tile_id == TILE_GRASS { return "草地"; }
+    if tile_id == TILE_SAND { return "沙子"; }
+    if tile_id == TILE_WATER { return "水"; }
+    if tile_id == TILE_WOOD { return "木头"; }
+    if tile_id == TILE_LEAF { return "树叶"; }
+    if tile_id == TILE_IRON_ORE { return "铁矿"; }
+    if tile_id == TILE_GOLD_ORE { return "金矿"; }
+    if tile_id == TILE_COPPER_ORE { return "铜矿"; }
+    if tile_id == TILE_SNOW { return "雪"; }
+    if tile_id == TILE_ICE { return "冰"; }
+    if tile_id == TILE_CLAY { return "粘土"; }
+    if tile_id == TILE_BOUNDARY { return "边界"; }
+    return "未知";
+}
+
+micro get_item_name(item_id: i32) -> string {
+    if item_id == ITEM_NONE { return "空"; }
+    if item_id == ITEM_DIRT { return "泥土"; }
+    if item_id == ITEM_STONE { return "石头"; }
+    if item_id == ITEM_WOOD { return "木头"; }
+    if item_id == ITEM_SAND { return "沙子"; }
+    if item_id == ITEM_IRON_ORE { return "铁矿石"; }
+    if item_id == ITEM_GOLD_ORE { return "金矿石"; }
+    if item_id == ITEM_COPPER_ORE { return "铜矿石"; }
+    if item_id == ITEM_COPPER_BAR { return "铜锭"; }
+    if item_id == ITEM_IRON_BAR { return "铁锭"; }
+    if item_id == ITEM_GOLD_BAR { return "金锭"; }
+    if item_id == ITEM_WOODEN_SWORD { return "木剑"; }
+    if item_id == ITEM_WOODEN_PICKAXE { return "木镐"; }
+    if item_id == ITEM_COPPER_SWORD { return "铜剑"; }
+    if item_id == ITEM_COPPER_PICKAXE { return "铜镐"; }
+    if item_id == ITEM_IRON_SWORD { return "铁剑"; }
+    if item_id == ITEM_IRON_PICKAXE { return "铁镐"; }
+    if item_id == ITEM_GEL { return "凝胶"; }
+    if item_id == ITEM_TORCH { return "火把"; }
+    if item_id == ITEM_HEALING_POTION { return "治疗药水"; }
+    return "未知";
+}
+
+micro get_enemy_name(enemy_type: i32) -> string {
+    if enemy_type == ENEMY_SLIME { return "史莱姆"; }
+    if enemy_type == ENEMY_ZOMBIE { return "僵尸"; }
+    if enemy_type == ENEMY_DEMON_EYE { return "恶魔眼"; }
+    return "未知敌人";
+}
+
+micro get_enemy_health(enemy_type: i32) -> i32 {
+    if enemy_type == ENEMY_SLIME { return SLIME_HEALTH; }
+    if enemy_type == ENEMY_ZOMBIE { return ZOMBIE_HEALTH; }
+    if enemy_type == ENEMY_DEMON_EYE { return DEMON_EYE_HEALTH; }
+    return 10;
+}
+
+micro get_enemy_damage(enemy_type: i32) -> i32 {
+    if enemy_type == ENEMY_SLIME { return SLIME_DAMAGE; }
+    if enemy_type == ENEMY_ZOMBIE { return ZOMBIE_DAMAGE; }
+    if enemy_type == ENEMY_DEMON_EYE { return DEMON_EYE_DAMAGE; }
+    return 5;
+}
+
+micro get_enemy_knockback(enemy_type: i32) -> f32 {
+    if enemy_type == ENEMY_SLIME { return SLIME_KNOCKBACK; }
+    if enemy_type == ENEMY_ZOMBIE { return ZOMBIE_KNOCKBACK; }
+    if enemy_type == ENEMY_DEMON_EYE { return DEMON_EYE_KNOCKBACK; }
+    return 0.5;
+}
+
+micro get_biome_name(biome_id: i32) -> string {
+    if biome_id == BIOME_FOREST { return "森林"; }
+    if biome_id == BIOME_DESERT { return "沙漠"; }
+    if biome_id == BIOME_CORRUPTION { return "腐蚀之地"; }
+    if biome_id == BIOME_CRIMSON { return "猩红之地"; }
+    if biome_id == BIOME_HALLOW { return "神圣之地"; }
+    if biome_id == BIOME_JUNGLE { return "丛林"; }
+    if biome_id == BIOME_TUNDRA { return "冻原"; }
+    if biome_id == BIOME_OCEAN { return "海洋"; }
+    return "未知";
+}
+
+micro get_npc_name(npc_type: i32) -> string {
+    if npc_type == NPC_MERCHANT { return "商人"; }
+    if npc_type == NPC_NURSE { return "护士"; }
+    if npc_type == NPC_ARMS_DEALER { return "军火商"; }
+    if npc_type == NPC_DEMOLITIONIST { return "爆破专家"; }
+    if npc_type == NPC_GUIDE { return "向导"; }
+    return "未知 NPC";
+}
+
+micro add_item_to_inventory(inventory: Inventory, item_id: i32, count: i32) {
+    let remaining = count;
+
+    loop i in range(0, inventory.slots) {
+        if inventory.item_ids[i] == item_id && inventory.item_counts[i] > 0 {
+            let can_add = 99 - inventory.item_counts[i];
+            if can_add > 0 {
+                let add = min(can_add, remaining);
+                inventory.item_counts[i] += add;
+                remaining -= add;
+                if remaining == 0 {
+                    return;
+                }
+            }
+        }
+    }
+
+    loop i in range(0, inventory.slots) {
+        if inventory.item_ids[i] == ITEM_NONE || inventory.item_counts[i] == 0 {
+            inventory.item_ids[i] = item_id;
+            let add = min(99, remaining);
+            inventory.item_counts[i] = add;
+            remaining -= add;
+            if remaining == 0 {
+                return;
+            }
+        }
+    }
+}
+
+micro remove_item_from_inventory(inventory: Inventory, item_id: i32, count: i32) {
+    let remaining = count;
+    loop i in range(0, inventory.slots) {
+        if inventory.item_ids[i] == item_id {
+            let remove = min(inventory.item_counts[i], remaining);
+            inventory.item_counts[i] -= remove;
+            remaining -= remove;
+            if inventory.item_counts[i] == 0 {
+                inventory.item_ids[i] = ITEM_NONE;
+            }
+            if remaining == 0 {
+                return;
+            }
+        }
+    }
+}
+
+micro get_tile_color(tile_id: i32) -> Vec3 {
+    let tiles = asset.load<gonArray>("config/tile_colors.gon");
+    let tile_list = tiles.get("tiles");
+    loop i in range(0, tile_list.length()) {
+        let tile = tile_list.get(i);
+        if tile.get("id").as_int() == tile_id {
+            return Vec3 {
+                x: tile.get("r").as_f32(),
+                y: tile.get("g").as_f32(),
+                z: tile.get("b").as_f32()
+            };
+        }
+    }
+    return Vec3 { x: 1.0, y: 0.0, z: 1.0 };
+}
+
+micro get_enemy_color(enemy_type: i32) -> Vec3 {
+    let tiles = asset.load<gonArray>("config/tile_colors.gon");
+    let enemy_list = tiles.get("enemies");
+    loop i in range(0, enemy_list.length()) {
+        let enemy = enemy_list.get(i);
+        if enemy.get("type").as_int() == enemy_type {
+            return Vec3 {
+                x: enemy.get("r").as_f32(),
+                y: enemy.get("g").as_f32(),
+                z: enemy.get("b").as_f32()
+            };
+        }
+    }
+    return Vec3 { x: 1.0, y: 0.0, z: 0.0 };
+}
+
+micro is_evil_biome(biome_id: i32) -> bool {
+    if biome_id == BIOME_CORRUPTION { return true; }
+    if biome_id == BIOME_CRIMSON { return true; }
+    return false;
+}
+
+micro is_hardmode_biome(biome_id: i32) -> bool {
+    if biome_id == BIOME_HALLOW { return true; }
+    if biome_id == BIOME_CORRUPTION { return true; }
+    if biome_id == BIOME_CRIMSON { return true; }
+    return false;
+}

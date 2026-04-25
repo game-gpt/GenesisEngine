@@ -24,13 +24,10 @@ public class InMemoryHistoryStore : IHistoryStore
     public Task<IEnumerable<ulong>> GetHistoryChainAsync(ulong startHash, int maxDepth)
     {
         var chain = new List<ulong>();
-        var current = startHash;
-        var depth = 0;
 
-        while (_store.ContainsKey(current) && depth < maxDepth)
+        if (maxDepth > 0 && _store.ContainsKey(startHash))
         {
-            chain.Add(current);
-            depth++;
+            chain.Add(startHash);
         }
 
         return Task.FromResult(chain.AsEnumerable());

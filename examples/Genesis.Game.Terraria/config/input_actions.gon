@@ -1,0 +1,16 @@
+InputActions {
+    actions: [
+        ActionEntry { name: "move_left", bindings: [{ key: "A" }, { key: "Left" }] },
+        ActionEntry { name: "move_right", bindings: [{ key: "D" }, { key: "Right" }] },
+        ActionEntry { name: "jump", bindings: [{ key: "Space" }] },
+        ActionEntry { name: "dig_left", bindings: [{ key: "Mouse0" }] },
+        ActionEntry { name: "dig_right", bindings: [{ key: "Mouse0" }] },
+        ActionEntry { name: "dig_up", bindings: [{ key: "Mouse0" }] },
+        ActionEntry { name: "dig_down", bindings: [{ key: "Mouse0" }] },
+        ActionEntry { name: "place_tile", bindings: [{ key: "Mouse1" }] },
+        ActionEntry { name: "attack", bindings: [{ key: "Mouse0" }] },
+        ActionEntry { name: "use_item", bindings: [{ key: "E" }] },
+        ActionEntry { name: "toggle_help", bindings: [{ key: "H" }] },
+        ActionEntry { name: "respawn", bindings: [{ key: "R" }] }
+    ]
+}

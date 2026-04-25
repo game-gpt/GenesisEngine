@@ -2,6 +2,8 @@ namespace Genesis.Core;
 
 public readonly record struct Position(double X, double Y, double Z)
 {
+    public static Position Zero { get; } = new(0, 0, 0);
+
     public double DistanceTo(Position other)
     {
         var dx = X - other.X;

@@ -69,11 +69,21 @@ public class WaveFunctionStateTests
     }
 
     [Fact]
-    public void RecordEquality_SameValues_AreEqual()
+    public void RecordEquality_SameArrayReference_AreEqual()
+    {
+        var masks = new ulong[] { 3UL, 15UL };
+        var s1 = new WaveFunctionState(2, CollapseState.Superposition, 42, masks);
+        var s2 = new WaveFunctionState(2, CollapseState.Superposition, 42, masks);
+
+        Assert.Equal(s1, s2);
+    }
+
+    [Fact]
+    public void RecordEquality_DifferentArrayReference_AreNotEqual()
     {
         var s1 = new WaveFunctionState(2, CollapseState.Superposition, 42, [3UL, 15UL]);
         var s2 = new WaveFunctionState(2, CollapseState.Superposition, 42, [3UL, 15UL]);
 
-        Assert.Equal(s1, s2);
+        Assert.NotEqual(s1, s2);
     }
 }

@@ -2,20 +2,32 @@ scene GameMain {
     let player: Entity;
     let world_seed: u64;
     let daytime_entity: Entity;
+    let camera_x: f32 = 0.0;
+    let camera_y: f32 = 0.0;
+    let show_help: bool = true;
+    let help_timer: f32 = 0.0;
 
     on_load() {
         let config = asset.load<gonObject>("config/world.gon");
         world_seed = config.get("seed").as_u64();
 
         daytime_entity = create_entity();
-        daytime_entity.add(DayTime { time_of_day: 0.25, day_duration: 600.0, day_count: 1 });
+        daytime_entity.add(DayTime { time_of_day: 0.25, day_duration: 1440.0, day_count: 1 });
 
         generate_world(world_seed);
+
+        console::log("=== Terraria Demo ===");
+        console::log("A/D: 左右移动 | 空格: 跳跃");
+        console::log("鼠标左键: 挖掘/攻击 | 鼠标右键: 放置方块");
+        console::log("E: 使用物品 | 1-9: 选择快捷栏 | R: 重生 | H: 帮助");
+        console::log($"Terraria 世界生成 - 种子: {world_seed}");
     }
 
     on_update(delta: f32) {
         handle_input(delta);
-        update_camera();
+        update_camera(delta);
+        update_daylight();
+        update_help_timer(delta);
     }
 
     micro generate_world(seed: u64) {
@@ -29,13 +41,75 @@ scene GameMain {
     }
 
     micro handle_input(delta: f32) {
+        if !player.is_valid {
+            return;
+        }
+
         let pos = player.get<TilePosition>();
         let vel = player.get<Velocity>();
         vel.vx = 0.0;
+
+        if input.is_action_just_pressed("toggle_help") {
+            show_help = !show_help;
+        }
+
+        if input.is_action_just_pressed("respawn") {
+            let health = player.get<Health>();
+            if health.current <= 0 {
+                health.current = health.max;
+                let spawn_x = 4200;
+                let spawn_y = find_surface_y(spawn_x);
+                pos.x = spawn_x;
+                pos.y = spawn_y;
+                vel.vx = 0.0;
+                vel.vy = 0.0;
+                console::log("你已重生！");
+            }
+        }
     }
 
-    micro update_camera() {
+    micro find_surface_y(x: i32) -> i32 {
+        loop y in range(0, 2400) {
+            if tilemap.is_solid(x, y) {
+                return y - 1;
+            }
+        }
+        return 400;
+    }
+
+    micro update_camera(delta: f32) {
+        if !player.is_valid {
+            return;
+        }
+
         let pos = player.get<TilePosition>();
         let camera_follow = player.get<CameraFollow>();
+
+        let target_x = pos.x as f32 + camera_follow.offset_x;
+        let target_y = pos.y as f32 + camera_follow.offset_y;
+
+        camera_x += (target_x - camera_x) * camera_follow.smoothing;
+        camera_y += (target_y - camera_y) * camera_follow.smoothing;
+
+        camera.set_position_2d(camera_x, camera_y);
+    }
+
+    micro update_daylight() {
+        if !daytime_entity.is_valid {
+            return;
+        }
+
+        let daytime = daytime_entity.get<DayTime>();
+        let ambient = 0.3 + 0.7 * max(0.0, cos((daytime.time_of_day - 0.25) * 6.2832));
+        camera.set_ambient_light(clamp(ambient, 0.3, 1.0));
+    }
+
+    micro update_help_timer(delta: f32) {
+        if show_help {
+            help_timer += delta;
+            if help_timer > 30.0 {
+                show_help = false;
+            }
+        }
     }
 }

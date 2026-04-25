@@ -1,0 +1,138 @@
+system VoxelRenderSystem {
+    query_player = Query.all(PlayerTag, BlockPosition);
+    query_mobs = Query.all(MobTag, BlockPosition);
+
+    on_update(delta: f32) {
+        render_voxel_world();
+        render_mobs();
+        render_player_crosshair();
+    }
+
+    micro render_voxel_world() {
+        <% loop (_, player_pos) in query_player { %>
+            let cam_x = camera.get_position_x();
+            let cam_y = camera.get_position_y();
+            let cam_z = camera.get_position_z();
+
+            let render_dist = 8;
+            let chunk_size = 16;
+
+            let start_cx = (cam_x as i32 / chunk_size) - render_dist;
+            let start_cz = (cam_z as i32 / chunk_size) - render_dist;
+            let end_cx = (cam_x as i32 / chunk_size) + render_dist;
+            let end_cz = (cam_z as i32 / chunk_size) + render_dist;
+
+            loop cx in range(start_cx, end_cx + 1) {
+                loop cz in range(start_cz, end_cz + 1) {
+                    render_chunk_faces(cx, cz, chunk_size, cam_x, cam_y, cam_z);
+                }
+            }
+
+            let target = raycast_block(player_pos, 5.0);
+            if target.is_valid {
+                render_block_highlight(target.x, target.y, target.z);
+            }
+        <% } %>
+    }
+
+    micro render_chunk_faces(cx: i32, cz: i32, chunk_size: i32, cam_x: f32, cam_y: f32, cam_z: f32) {
+        let base_x = cx * chunk_size;
+        let base_z = cz * chunk_size;
+
+        loop x in range(0, chunk_size) {
+            loop z in range(0, chunk_size) {
+                let world_x = base_x + x;
+                let world_z = base_z + z;
+
+                let dx = world_x as f32 - cam_x;
+                let dz = world_z as f32 - cam_z;
+                if dx * dx + dz * dz > 4096.0 {
+                    continue;
+                }
+
+                loop y in range(0, 128) {
+                    let block_id = world.get_block(world_x, y, world_z);
+                    if block_id == BLOCK_AIR || block_id == BLOCK_WATER {
+                        continue;
+                    }
+
+                    let is_surface = false;
+                    if y == 0 || world.get_block(world_x, y - 1, world_z) == BLOCK_AIR {
+                        is_surface = true;
+                    }
+                    if y == 127 || world.get_block(world_x, y + 1, world_z) == BLOCK_AIR {
+                        is_surface = true;
+                    }
+                    if world.get_block(world_x - 1, y, world_z) == BLOCK_AIR {
+                        is_surface = true;
+                    }
+                    if world.get_block(world_x + 1, y, world_z) == BLOCK_AIR {
+                        is_surface = true;
+                    }
+                    if world.get_block(world_x, y, world_z - 1) == BLOCK_AIR {
+                        is_surface = true;
+                    }
+                    if world.get_block(world_x, y, world_z + 1) == BLOCK_AIR {
+                        is_surface = true;
+                    }
+
+                    if is_surface {
+                        let color = get_block_color(block_id);
+                        let ao = calculate_ao(world_x, y, world_z);
+                        let final_color = Vec3 {
+                            x: color.x * ao,
+                            y: color.y * ao,
+                            z: color.z * ao
+                        };
+                        renderer.draw_voxel(world_x, y, world_z, final_color);
+                    }
+                }
+            }
+        }
+    }
+
+    micro calculate_ao(x: i32, y: i32, z: i32) -> f32 {
+        let neighbors = 0;
+        if world.is_solid(x + 1, y, z) { neighbors += 1; }
+        if world.is_solid(x - 1, y, z) { neighbors += 1; }
+        if world.is_solid(x, y + 1, z) { neighbors += 1; }
+        if world.is_solid(x, y - 1, z) { neighbors += 1; }
+        if world.is_solid(x, y, z + 1) { neighbors += 1; }
+        if world.is_solid(x, y, z - 1) { neighbors += 1; }
+
+        return 1.0 - neighbors as f32 * 0.08;
+    }
+
+    micro render_block_highlight(x: i32, y: i32, z: i32) {
+        let highlight_color = Vec3 { x: 0.0, y: 0.0, z: 0.0 };
+        renderer.draw_voxel_wireframe(x, y, z, highlight_color);
+    }
+
+    micro render_mobs() {
+        <% loop (mob_tag, pos) in query_mobs { %>
+            let mob_color = get_mob_color(mob_tag.mob_type);
+            renderer.draw_rect3d(pos.x, pos.y, pos.z, 0.6, 1.8, 0.6, mob_color);
+
+            if mob_tag.ai_state == AI_CHASE || mob_tag.ai_state == AI_ATTACK {
+                let eye_color = Vec3 { x: 1.0, y: 0.0, z: 0.0 };
+                renderer.draw_rect3d(pos.x - 0.1, pos.y + 1.4, pos.z - 0.3, 0.08, 0.08, 0.08, eye_color);
+                renderer.draw_rect3d(pos.x + 0.1, pos.y + 1.4, pos.z - 0.3, 0.08, 0.08, 0.08, eye_color);
+            }
+        <% } %>
+    }
+
+    micro render_player_crosshair() {
+        let cx = screen.get_width() / 2;
+        let cy = screen.get_height() / 2;
+        let crosshair_color = Vec3 { x: 1.0, y: 1.0, z: 1.0 };
+        renderer.draw_line(cx - 8, cy, cx + 8, cy, crosshair_color);
+        renderer.draw_line(cx, cy - 8, cx, cy + 8, crosshair_color);
+    }
+
+    micro get_mob_color(mob_type: i32) -> Vec3 {
+        if mob_type == MOB_ZOMBIE { return Vec3 { x: 0.35, y: 0.65, z: 0.30 }; }
+        if mob_type == MOB_SKELETON { return Vec3 { x: 0.85, y: 0.85, z: 0.80 }; }
+        if mob_type == MOB_CREEPER { return Vec3 { x: 0.30, y: 0.60, z: 0.25 }; }
+        return Vec3 { x: 0.5, y: 0.5, z: 0.5 };
+    }
+}

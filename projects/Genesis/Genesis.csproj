@@ -21,22 +21,22 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.ECS\Gnosis.ECS.csproj" />
-    <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Core\Gnosis.Core.csproj" />
-    <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Graphic\Gnosis.Graphic.csproj" />
-    <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Physics\Gnosis.Physics.csproj" />
-    <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Audio\Gnosis.Audio.csproj" />
-    <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.AI\Gnosis.AI.csproj" />
-    <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Navigation\Gnosis.Navigation.csproj" />
-    <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Database\Gnosis.Database.csproj" />
-    <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Runtime\Gnosis.Runtime.csproj" />
-    <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Toolchain\Gnosis.Toolchain.csproj" />
-    <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Input\Gnosis.Input.csproj" />
-  </ItemGroup>
+        <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.ECS\Gnosis.ECS.csproj" />
+        <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Core\Gnosis.Core.csproj" />
+        <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Graphic\Gnosis.Graphic.csproj" />
+        <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Physics\Gnosis.Physics.csproj" />
+        <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Audio\Gnosis.Audio.csproj" />
+        <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.AI\Gnosis.AI.csproj" />
+        <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Navigation\Gnosis.Navigation.csproj" />
+        <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Database\Gnosis.Database.csproj" />
+        <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Runtime\Gnosis.Runtime.csproj" />
+        <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Input\Gnosis.Input.csproj" />
+    </ItemGroup>
 
   <ItemGroup>
     <Compile Remove="Persistence\SolidHistoryStore.cs" />
     <Compile Remove="Persistence\IRepository.cs" />
+    <Compile Remove="tests\**" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,0 +1,239 @@
+system PixelRenderSystem {
+    query_player = Query.all(PlayerTag, PixelPosition, Health, ManaPool);
+    query_projectiles = Query.all(Projectile, PixelPosition);
+    query_explosions = Query.all(Explosion);
+    query_pressure_waves = Query.all(PressureWave);
+
+    on_update(delta: f32) {
+        render_pixel_world();
+        render_fluids();
+        render_projectiles();
+        render_explosions();
+        render_pressure_waves();
+        render_player();
+    }
+
+    micro render_pixel_world() {
+        let grid_data = Query.all(PixelGrid);
+        <% loop (grid,) in grid_data { %>
+            let cam_x = camera.get_position_x() as i32;
+            let cam_y = camera.get_position_y() as i32;
+            let screen_w = screen.get_width() as i32;
+            let screen_h = screen.get_height() as i32;
+
+            let start_x = max(0, cam_x - screen_w / 2 - 1);
+            let start_y = max(0, cam_y - screen_h / 2 - 1);
+            let end_x = min(grid.width, cam_x + screen_w / 2 + 2);
+            let end_y = min(grid.height, cam_y + screen_h / 2 + 2);
+
+            loop x in range(start_x, end_x) {
+                loop y in range(start_y, end_y) {
+                    let material_id = pixel_grid.get_material(x, y);
+                    if material_id == MATERIAL_NONE || material_id == MATERIAL_BOUNDARY {
+                        continue;
+                    }
+
+                    let color = get_material_render_color(material_id, x, y);
+                    renderer.draw_pixel(x, y, color);
+                }
+            }
+        <% } %>
+    }
+
+    micro render_fluids() {
+        let grid_data = Query.all(PixelGrid);
+        <% loop (grid,) in grid_data { %>
+            let cam_x = camera.get_position_x() as i32;
+            let cam_y = camera.get_position_y() as i32;
+            let screen_w = screen.get_width() as i32;
+            let screen_h = screen.get_height() as i32;
+
+            let start_x = max(0, cam_x - screen_w / 2 - 1);
+            let start_y = max(0, cam_y - screen_h / 2 - 1);
+            let end_x = min(grid.width, cam_x + screen_w / 2 + 2);
+            let end_y = min(grid.height, cam_y + screen_h / 2 + 2);
+
+            loop x in range(start_x, end_x) {
+                loop y in range(start_y, end_y) {
+                    let material_id = pixel_grid.get_material(x, y);
+                    if !is_material_liquid(material_id) && material_id != MATERIAL_FIRE {
+                        continue;
+                    }
+
+                    let base_color = get_material_color(material_id);
+                    let fluid_color = apply_fluid_effects(material_id, base_color, x, y);
+                    renderer.draw_pixel(x, y, fluid_color);
+                }
+            }
+        <% } %>
+    }
+
+    micro render_projectiles() {
+        <% loop (proj, pos) in query_projectiles { %>
+            let proj_color = get_element_color(proj.element);
+            let glow_color = Vec3 {
+                x: proj_color.x * 0.5,
+                y: proj_color.y * 0.5,
+                z: proj_color.z * 0.5
+            };
+
+            let size = max(2, proj.radius as i32 * 2);
+            renderer.draw_rect(pos.x - size / 2, pos.y - size / 2, size, size, proj_color);
+
+            renderer.draw_rect(pos.x - size, pos.y - size, size * 2, size * 2, glow_color);
+
+            if proj.trail_material != MATERIAL_NONE {
+                let trail_color = get_material_color(proj.trail_material);
+                renderer.draw_pixel(pos.x - proj.vx as i32, pos.y - proj.vy as i32, trail_color);
+            }
+        <% } %>
+    }
+
+    micro render_explosions() {
+        <% loop (exp) in query_explosions { %>
+            if !exp.expanding { continue; }
+
+            let ratio = exp.current_radius / exp.radius;
+            let alpha = 1.0 - ratio;
+
+            let core_color = Vec3 {
+                x: 1.0 * alpha,
+                y: 0.8 * alpha,
+                z: 0.2 * alpha
+            };
+            let r = exp.current_radius as i32;
+            renderer.draw_circle_filled(exp.center_x, exp.center_y, r, core_color);
+
+            let edge_color = Vec3 {
+                x: 0.8 * alpha,
+                y: 0.3 * alpha,
+                z: 0.1 * alpha
+            };
+            renderer.draw_circle_outline(exp.center_x, exp.center_y, r + 2, edge_color);
+        <% } %>
+    }
+
+    micro render_pressure_waves() {
+        <% loop (wave) in query_pressure_waves { %>
+            let alpha = wave.decay;
+            let wave_color = Vec3 {
+                x: 0.5 * alpha,
+                y: 0.5 * alpha,
+                z: 0.6 * alpha
+            };
+            let r = wave.current_radius as i32;
+            renderer.draw_circle_outline(wave.center_x, wave.center_y, r, wave_color);
+        <% } %>
+    }
+
+    micro render_player() {
+        <% loop (_, pos, health, mana) in query_player { %>
+            let body_color = Vec3 { x: 0.90, y: 0.75, z: 0.55 };
+            renderer.draw_rect(pos.x - 3, pos.y - 8, 6, 8, body_color);
+
+            let robe_color = Vec3 { x: 0.25, y: 0.20, z: 0.45 };
+            renderer.draw_rect(pos.x - 4, pos.y, 8, 10, robe_color);
+
+            let hat_color = Vec3 { x: 0.20, y: 0.15, z: 0.40 };
+            renderer.draw_rect(pos.x - 5, pos.y - 12, 10, 5, hat_color);
+            renderer.draw_rect(pos.x - 3, pos.y - 14, 6, 3, hat_color);
+
+            if health.current < health.max {
+                let bar_width = 20;
+                let health_ratio = health.current as f32 / health.max as f32;
+                let bar_color = Vec3 { x: 0.8, y: 0.2, z: 0.2 };
+                renderer.draw_rect(pos.x - bar_width / 2, pos.y - 18, bar_width, 2, Vec3 { x: 0.3, y: 0.1, z: 0.1 });
+                renderer.draw_rect(pos.x - bar_width / 2, pos.y - 18, (health_ratio * bar_width as f32) as i32, 2, bar_color);
+            }
+
+            if mana.current < mana.max {
+                let bar_width = 20;
+                let mana_ratio = mana.current / mana.max;
+                let bar_color = Vec3 { x: 0.2, y: 0.4, z: 0.9 };
+                renderer.draw_rect(pos.x - bar_width / 2, pos.y - 21, bar_width, 2, Vec3 { x: 0.1, y: 0.1, z: 0.3 });
+                renderer.draw_rect(pos.x - bar_width / 2, pos.y - 21, (mana_ratio * bar_width as f32) as i32, 2, bar_color);
+            }
+        <% } %>
+    }
+
+    micro get_material_render_color(material_id: i32, x: i32, y: i32) -> Vec3 {
+        let base = get_material_color(material_id);
+
+        if material_id == MATERIAL_SAND {
+            let variation = ((x * 7 + y * 13) % 20) as f32 / 100.0;
+            return Vec3 { x: base.x + variation, y: base.y + variation * 0.5, z: base.z };
+        }
+        if material_id == MATERIAL_DIRT {
+            let variation = ((x * 11 + y * 3) % 15) as f32 / 100.0;
+            return Vec3 { x: base.x + variation, y: base.y + variation * 0.3, z: base.z };
+        }
+        if material_id == MATERIAL_STONE {
+            let variation = ((x * 5 + y * 9) % 10) as f32 / 100.0;
+            return Vec3 { x: base.x + variation, y: base.y + variation, z: base.z + variation };
+        }
+        if material_id == MATERIAL_GOLD {
+            let shimmer = sin(x as f32 * 0.5 + y as f32 * 0.3) * 0.1 + 0.1;
+            return Vec3 { x: base.x + shimmer, y: base.y + shimmer, z: base.z };
+        }
+        if material_id == MATERIAL_ICE {
+            let reflection = sin(x as f32 * 0.8 + y as f32 * 0.6) * 0.15;
+            return Vec3 { x: base.x + reflection, y: base.y + reflection, z: base.z + reflection * 0.5 };
+        }
+
+        return base;
+    }
+
+    micro apply_fluid_effects(material_id: i32, base_color: Vec3, x: i32, y: i32) -> Vec3 {
+        if material_id == MATERIAL_WATER {
+            let depth = get_fluid_depth(x, y);
+            let depth_factor = 1.0 - min(1.0, depth as f32 * 0.1);
+            let ripple = sin(x as f32 * 0.3 + y as f32 * 0.5 + time.elapsed() * 2.0) * 0.05;
+            return Vec3 {
+                x: base.x * depth_factor + ripple,
+                y: base.y * depth_factor + ripple,
+                z: base.z * depth_factor + ripple
+            };
+        }
+        if material_id == MATERIAL_LAVA {
+            let pulse = sin(time.elapsed() * 3.0 + x as f32 * 0.2) * 0.15;
+            return Vec3 { x: base.x + pulse, y: base.y + pulse * 0.3, z: base.z };
+        }
+        if material_id == MATERIAL_ACID {
+            let bubble = sin(x as f32 * 1.5 + y as f32 * 2.0 + time.elapsed() * 4.0) * 0.08;
+            return Vec3 { x: base.x, y: base.y + bubble, z: base.z + bubble };
+        }
+        if material_id == MATERIAL_OIL {
+            let sheen = sin(x as f32 * 0.5 + y as f32 * 0.3 + time.elapsed()) * 0.1;
+            return Vec3 { x: base.x + sheen * 0.3, y: base.y + sheen * 0.5, z: base.z + sheen };
+        }
+        if material_id == MATERIAL_FIRE {
+            let flicker = sin(x as f32 * 2.0 + y as f32 * 3.0 + time.elapsed() * 8.0) * 0.2;
+            return Vec3 { x: base.x + flicker, y: base.y + flicker * 0.5, z: base.z };
+        }
+        return base_color;
+    }
+
+    micro get_element_color(element: i32) -> Vec3 {
+        if element == ELEMENT_FIRE { return Vec3 { x: 1.0, y: 0.5, z: 0.1 }; }
+        if element == ELEMENT_WATER { return Vec3 { x: 0.3, y: 0.5, z: 1.0 }; }
+        if element == ELEMENT_ACID { return Vec3 { x: 0.3, y: 1.0, z: 0.2 }; }
+        if element == ELEMENT_ICE { return Vec3 { x: 0.6, y: 0.8, z: 1.0 }; }
+        if element == ELEMENT_LAVA { return Vec3 { x: 1.0, y: 0.3, z: 0.0 }; }
+        if element == ELEMENT_OIL { return Vec3 { x: 0.4, y: 0.3, z: 0.2 }; }
+        return Vec3 { x: 1.0, y: 1.0, z: 1.0 };
+    }
+
+    micro get_fluid_depth(x: i32, y: i32) -> i32 {
+        let depth = 0;
+        loop dy in range(0, 10) {
+            let mat = pixel_grid.get_material(x, y + dy);
+            if mat == MATERIAL_WATER || mat == MATERIAL_OIL || mat == MATERIAL_ACID || mat == MATERIAL_LAVA {
+                depth += 1;
+            }
+            else {
+                break;
+            }
+        }
+        return depth;
+    }
+}

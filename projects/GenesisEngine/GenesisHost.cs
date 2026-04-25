@@ -7,13 +7,14 @@ using Genesis.Runtime;
 using Gnosis.ECS.World;
 using Gnosis.Graphic.Pipeline;
 using Gnosis.Graphic.RHI;
+using Gnosis.Graphic.RHI.OpenGL;
 using Gnosis.Graphic.Sprite2D;
 using Gnosis.Graphic.Texture;
 using Gnosis.Graphic.Window;
 using Gnosis.Input.Device;
 using Gnosis.Input.Simulate;
 
-namespace GenesisHost;
+namespace GenesisEngine;
 
 public class GenesisHost : IDisposable
 {
@@ -25,6 +26,8 @@ public class GenesisHost : IDisposable
     private bool _disposed;
     private DateTime _lastFrameTime;
     private ulong _frameIndex;
+    private GraphicsBackend _activeBackend;
+    private OpenGLDevice? _glDevice;
 
     #endregion
 
@@ -135,14 +138,15 @@ public class GenesisHost : IDisposable
         Console.WriteLine("[Genesis]   - 3D 寻路: Gnosis.Navigation NavMesh + A*");
     }
 
-    public void InitializeWithWindow(uint width = 1280, uint height = 720, string title = "Gnosis Engine")
+    public void InitializeWithWindow(uint width = 1280, uint height = 720, string title = "Gnosis Engine", GraphicsBackend backend = GraphicsBackend.Vulkan)
     {
         Console.WriteLine($"[Genesis] 引擎初始化（窗口模式）- 世界种子: {_worldSeed}");
 
         _world = new World();
         _inputSystem = new InputSystem();
 
-        Initialize2DSystems();
+        var actualBackend = DetermineBackend(backend);
+        _activeBackend = actualBackend;
 
         var options = new WindowOptions
         {
@@ -162,24 +166,12 @@ public class GenesisHost : IDisposable
             silkWindow.SetInputDevices(keyboard, mouse);
         }
 
-        _window.OnClosing += (_, _) => _isRunning = false;
+        _window.OnClosing += _ => _isRunning = false;
 
         _camera2D = new Camera2D
         {
             ViewportSize = new System.Numerics.Vector2(width, height)
         };
-
-        var device = DeviceFactory.Create(GraphicsBackend.Vulkan);
-        _renderer = new ForwardRenderer(device);
-        _renderer.Initialize(_window.WindowHandle, width, height);
-
-        _textureLoader = new TextureLoader(device);
-
-        if (_graphic2D?.SpriteBatch is not null)
-        {
-            _sprite2DPass = new Sprite2DRenderPass(_graphic2D.SpriteBatch, _camera2D);
-            _renderer.AddRenderPass(_sprite2DPass);
-        }
 
         _scriptRuntime = new ScriptRuntime();
         _scriptRuntime.Initialize(_world);
@@ -187,7 +179,7 @@ public class GenesisHost : IDisposable
         _isRunning = true;
         _lastFrameTime = DateTime.UtcNow;
 
-        Console.WriteLine($"[Genesis] 窗口模式初始化完成 - {width}x{height}");
+        Console.WriteLine($"[Genesis] 窗口模式初始化完成 - {width}x{height} - 后端: {actualBackend}");
     }
 
     public void LoadGameScript(string scriptPath)
@@ -248,6 +240,29 @@ public class GenesisHost : IDisposable
 
     #endregion
 
+    #region 私有方法 - 渲染
+
+    private void InitializeGraphicsBackend()
+    {
+        if (_activeBackend == GraphicsBackend.OpenGL)
+        {
+            var glDevice = new OpenGLDevice();
+            glDevice.Initialize(NativeGetProcAddress);
+            _glDevice = glDevice;
+
+            Initialize2DSystems(_activeBackend, glDevice);
+
+            Console.WriteLine("[Genesis] OpenGL 设备初始化完成 - 函数指针已加载");
+        }
+        else
+        {
+            var device = DeviceFactory.Create(_activeBackend);
+            Initialize2DSystems(_activeBackend, device);
+        }
+    }
+
+    #endregion
+
     #region 私有方法 - 游戏循环
 
     private void RunWithWindow()
@@ -256,36 +271,24 @@ public class GenesisHost : IDisposable
 
         _scriptRuntime?.Run();
 
+        _window.PollEvents();
+
+        InitializeGraphicsBackend();
+
         while (_isRunning && !_window!.IsClosing)
         {
+            _window.PollEvents();
+
+            _inputSystem?.Update();
+
             var now = DateTime.UtcNow;
             var delta = (float)(now - _lastFrameTime).TotalSeconds;
             _lastFrameTime = now;
-
-            if (delta > 0.1f)
-            {
-                delta = 0.1f;
-            }
-
-            _window.PollEvents();
-            _inputSystem?.Update();
+            if (delta > 0.1f) delta = 0.1f;
 
             Update(delta);
 
-            if (_renderer is not null && !_window.IsMinimized)
-            {
-                var context = new RenderContext
-                {
-                    View = _camera2D ?? new Gnosis.Graphic.Sprite2D.Camera2D(),
-                    Device = _renderer.Device,
-                    DeltaTime = delta,
-                    FrameIndex = _frameIndex++,
-                    Width = _window.Width,
-                    Height = _window.Height
-                };
-
-                _renderer.Render(context);
-            }
+            _frameIndex++;
         }
 
         Console.WriteLine("[Genesis] 窗口模式主循环退出");
@@ -316,7 +319,60 @@ public class GenesisHost : IDisposable
 
     #region 私有方法 - 初始化
 
-    private void Initialize2DSystems()
+    private static GraphicsBackend DetermineBackend(GraphicsBackend preferred)
+    {
+        if (preferred == GraphicsBackend.OpenGL || preferred == GraphicsBackend.Software)
+        {
+            return preferred;
+        }
+
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                var module = System.Runtime.InteropServices.NativeLibrary.TryLoad("vulkan-1.dll", out _);
+                if (!module)
+                {
+                    Console.WriteLine("[Genesis] Vulkan 运行时不可用，回退到 OpenGL");
+                    return GraphicsBackend.OpenGL;
+                }
+            }
+
+            return preferred;
+        }
+        catch
+        {
+            Console.WriteLine("[Genesis] 后端检测失败，回退到 OpenGL");
+            return GraphicsBackend.OpenGL;
+        }
+    }
+
+    private static nint NativeGetProcAddress(string name)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            var ptr = WglGetProcAddressNative(name);
+            if (ptr != 0)
+            {
+                return ptr;
+            }
+        }
+
+        try
+        {
+            var lib = System.Runtime.InteropServices.NativeLibrary.Load("opengl32.dll");
+            return System.Runtime.InteropServices.NativeLibrary.GetExport(lib, name);
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    [System.Runtime.InteropServices.DllImport("opengl32.dll", EntryPoint = "wglGetProcAddress")]
+    private static extern nint WglGetProcAddressNative(string name);
+
+    private void Initialize2DSystems(GraphicsBackend backend = default, IDevice? device = null)
     {
         _graphic2D = new Graphic2DIntegration();
         _physics2D = new Physics2DIntegration();
@@ -324,7 +380,15 @@ public class GenesisHost : IDisposable
         _ai2D = new AIIntegration();
         _navigation2D = new NavigationIntegration();
 
-        _graphic2D.Initialize();
+        if (device is not null && device is OpenGLDevice glDevice)
+        {
+            _graphic2D.InitializeWithDevice(glDevice);
+        }
+        else
+        {
+            _graphic2D.Initialize(backend);
+        }
+
         _physics2D.Initialize();
         _audio2D.Initialize();
         _ai2D.Initialize();

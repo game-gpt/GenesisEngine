@@ -1,0 +1,87 @@
+let TILE_AIR: i32 = 0;
+let TILE_DIRT: i32 = 1;
+let TILE_STONE: i32 = 2;
+let TILE_GRASS: i32 = 3;
+let TILE_SAND: i32 = 4;
+let TILE_WATER: i32 = 5;
+let TILE_WOOD: i32 = 6;
+let TILE_LEAF: i32 = 7;
+let TILE_IRON_ORE: i32 = 8;
+let TILE_GOLD_ORE: i32 = 9;
+let TILE_COPPER_ORE: i32 = 10;
+let TILE_SNOW: i32 = 11;
+let TILE_ICE: i32 = 12;
+let TILE_CLAY: i32 = 13;
+let TILE_BOUNDARY: i32 = 99;
+
+let ITEM_NONE: i32 = -1;
+let ITEM_DIRT: i32 = 0;
+let ITEM_STONE: i32 = 1;
+let ITEM_WOOD: i32 = 2;
+let ITEM_SAND: i32 = 3;
+let ITEM_IRON_ORE: i32 = 4;
+let ITEM_GOLD_ORE: i32 = 5;
+let ITEM_COPPER_ORE: i32 = 6;
+let ITEM_SNOW: i32 = 7;
+let ITEM_CLAY: i32 = 8;
+let ITEM_COPPER_BAR: i32 = 10;
+let ITEM_IRON_BAR: i32 = 11;
+let ITEM_GOLD_BAR: i32 = 12;
+let ITEM_WOODEN_SWORD: i32 = 20;
+let ITEM_WOODEN_PICKAXE: i32 = 21;
+let ITEM_COPPER_SWORD: i32 = 22;
+let ITEM_COPPER_PICKAXE: i32 = 23;
+let ITEM_IRON_SWORD: i32 = 24;
+let ITEM_IRON_PICKAXE: i32 = 25;
+let ITEM_GEL: i32 = 30;
+let ITEM_TORCH: i32 = 31;
+let ITEM_HEALING_POTION: i32 = 32;
+
+let ENEMY_SLIME: i32 = 0;
+let ENEMY_ZOMBIE: i32 = 1;
+let ENEMY_DEMON_EYE: i32 = 2;
+
+let AI_IDLE: i32 = 0;
+let AI_WANDER: i32 = 1;
+let AI_CHASE: i32 = 2;
+let AI_ATTACK: i32 = 3;
+
+let BIOME_FOREST: i32 = 0;
+let BIOME_DESERT: i32 = 1;
+let BIOME_CORRUPTION: i32 = 2;
+let BIOME_CRIMSON: i32 = 3;
+let BIOME_HALLOW: i32 = 4;
+let BIOME_JUNGLE: i32 = 5;
+let BIOME_TUNDRA: i32 = 6;
+let BIOME_OCEAN: i32 = 7;
+
+let NPC_MERCHANT: i32 = 0;
+let NPC_NURSE: i32 = 1;
+let NPC_ARMS_DEALER: i32 = 2;
+let NPC_DEMOLITIONIST: i32 = 3;
+let NPC_GUIDE: i32 = 4;
+
+let PLAYER_MOVE_SPEED: f32 = 4.5;
+let PLAYER_JUMP_SPEED: f32 = 7.0;
+let GRAVITY: f32 = 25.0;
+let TERMINAL_VELOCITY: f32 = -20.0;
+let DIG_RANGE: i32 = 4;
+let ATTACK_RANGE: i32 = 3;
+
+let CORRUPTION_SPREAD_RATE: f32 = 0.03;
+let CRIMSON_SPREAD_RATE: f32 = 0.03;
+let HALLOW_SPREAD_RATE: f32 = 0.02;
+
+let SLIME_HEALTH: i32 = 14;
+let ZOMBIE_HEALTH: i32 = 35;
+let DEMON_EYE_HEALTH: i32 = 30;
+
+let SLIME_DAMAGE: i32 = 6;
+let ZOMBIE_DAMAGE: i32 = 14;
+let DEMON_EYE_DAMAGE: i32 = 18;
+
+let SLIME_KNOCKBACK: f32 = 0.8;
+let ZOMBIE_KNOCKBACK: f32 = 0.4;
+let DEMON_EYE_KNOCKBACK: f32 = 0.6;
+
+let DAY_DURATION: f32 = 1440.0;

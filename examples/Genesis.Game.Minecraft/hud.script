@@ -1,0 +1,193 @@
+system MinecraftHUDSystem {
+    query_player = Query.all(PlayerTag, Health, Hunger, Inventory);
+    query_daytime = Query.all(DayTime);
+
+    on_update(delta: f32) {
+        render_hotbar();
+        render_health_bar();
+        render_hunger_bar();
+        render_daytime_indicator();
+        render_block_info();
+        render_debug_info();
+    }
+
+    micro render_hotbar() {
+        <% loop (_, _, _, inventory) in query_player { %>
+            let bar_x = screen.get_width() / 2 - 180;
+            let bar_y = screen.get_height() - 50;
+
+            renderer.draw_rect(bar_x - 2, bar_y - 2, 364, 44, Vec3 { x: 0.0, y: 0.0, z: 0.0 });
+
+            loop i in range(0, 9) {
+                let slot_x = bar_x + i * 40;
+                let slot_color = Vec3 { x: 0.15, y: 0.15, z: 0.15 };
+                if i == inventory.selected_slot {
+                    slot_color = Vec3 { x: 0.35, y: 0.35, z: 0.45 };
+                }
+                renderer.draw_rect(slot_x, bar_y, 36, 36, slot_color);
+
+                if i < inventory.slots && inventory.item_ids[i] != ITEM_NONE {
+                    let item_color = get_item_display_color(inventory.item_ids[i]);
+                    renderer.draw_rect(slot_x + 6, bar_y + 6, 24, 24, item_color);
+
+                    if inventory.item_counts[i] > 1 {
+                        renderer.draw_text(
+                            slot_x + 18, bar_y + 24,
+                            $"{inventory.item_counts[i]}",
+                            Vec3 { x: 1.0, y: 1.0, z: 1.0 });
+                    }
+                }
+            }
+        <% } %>
+    }
+
+    micro render_health_bar() {
+        <% loop (_, health, _, _) in query_player { %>
+            let bar_x = screen.get_width() / 2 - 180;
+            let bar_y = screen.get_height() - 70;
+
+            let hearts = health.max / 2;
+            loop i in range(0, hearts) {
+                let heart_x = bar_x + i * 18;
+                let heart_color = Vec3 { x: 0.2, y: 0.2, z: 0.2 };
+                renderer.draw_rect(heart_x, bar_y, 14, 14, heart_color);
+
+                let heart_fill = 0;
+                let hp_at_heart = health.current - i * 2;
+                if hp_at_heart >= 2 { heart_fill = 2; }
+                else if hp_at_heart >= 1 { heart_fill = 1; }
+
+                if heart_fill > 0 {
+                    let fill_color = Vec3 { x: 0.8, y: 0.1, z: 0.1 };
+                    if health.current <= 4 {
+                        fill_color = Vec3 { x: 0.9, y: 0.3, z: 0.1 };
+                    }
+                    if heart_fill == 2 {
+                        renderer.draw_rect(heart_x + 2, bar_y + 2, 10, 10, fill_color);
+                    }
+                    else {
+                        renderer.draw_rect(heart_x + 2, bar_y + 2, 5, 10, fill_color);
+                    }
+                }
+            }
+        <% } %>
+    }
+
+    micro render_hunger_bar() {
+        <% loop (_, _, hunger, _) in query_player { %>
+            let bar_x = screen.get_width() / 2 + 20;
+            let bar_y = screen.get_height() - 70;
+
+            let drumsticks = hunger.max as i32 / 2;
+            loop i in range(0, drumsticks) {
+                let stick_x = bar_x + i * 18;
+                let stick_color = Vec3 { x: 0.2, y: 0.2, z: 0.2 };
+                renderer.draw_rect(stick_x, bar_y, 14, 14, stick_color);
+
+                let hunger_at_stick = hunger.current - i as f32 * 2.0;
+                if hunger_at_stick >= 2.0 {
+                    let fill_color = Vec3 { x: 0.75, y: 0.55, z: 0.15 };
+                    renderer.draw_rect(stick_x + 2, bar_y + 2, 10, 10, fill_color);
+                }
+                else if hunger_at_stick >= 1.0 {
+                    let fill_color = Vec3 { x: 0.75, y: 0.55, z: 0.15 };
+                    renderer.draw_rect(stick_x + 2, bar_y + 2, 5, 10, fill_color);
+                }
+            }
+        <% } %>
+    }
+
+    micro render_daytime_indicator() {
+        <% loop (daytime,) in query_daytime { %>
+            let indicator_x = screen.get_width() - 60;
+            let indicator_y = 10;
+
+            let sun_moon_y = indicator_y + 20;
+            let is_day = daytime.time_of_day >= 0.25 && daytime.time_of_day < 0.75;
+
+            if is_day {
+                let sun_color = Vec3 { x: 1.0, y: 0.95, z: 0.5 };
+                renderer.draw_rect(indicator_x + 10, sun_moon_y - 8, 16, 16, sun_color);
+            }
+            else {
+                let moon_color = Vec3 { x: 0.8, y: 0.85, z: 0.95 };
+                renderer.draw_rect(indicator_x + 10, sun_moon_y - 8, 16, 16, moon_color);
+            }
+
+            renderer.draw_text(indicator_x, indicator_y,
+                $"第{daytime.day_count}天",
+                Vec3 { x: 0.9, y: 0.9, z: 0.9 });
+        <% } %>
+    }
+
+    micro render_block_info() {
+        <% loop (_, _, _, inventory) in query_player { %>
+            let held_item = inventory.item_ids[inventory.selected_slot];
+            if held_item != ITEM_NONE {
+                let info_x = screen.get_width() / 2 - 60;
+                let info_y = screen.get_height() - 90;
+
+                let item_name = get_item_name(held_item);
+                renderer.draw_rect(info_x, info_y, 120, 18, Vec3 { x: 0.0, y: 0.0, z: 0.0 });
+                renderer.draw_text(info_x + 4, info_y + 2,
+                    item_name,
+                    Vec3 { x: 1.0, y: 1.0, z: 1.0 });
+            }
+        <% } %>
+    }
+
+    micro render_debug_info() {
+        <% loop (_, player_pos, _, _) in Query.all(PlayerTag, BlockPosition, Velocity3D, Inventory) { %>
+            let debug_x = 10;
+            let debug_y = 10;
+
+            renderer.draw_rect(debug_x, debug_y, 180, 50, Vec3 { x: 0.0, y: 0.0, z: 0.0 });
+            renderer.draw_text(debug_x + 4, debug_y + 4,
+                $"X: {player_pos.x}  Y: {player_pos.y}  Z: {player_pos.z}",
+                Vec3 { x: 0.8, y: 0.8, z: 0.8 });
+
+            let biome = get_biome_at(player_pos.x, player_pos.z, world_seed);
+            let biome_name = get_biome_name(biome);
+            renderer.draw_text(debug_x + 4, debug_y + 20,
+                $"生物群系: {biome_name}",
+                Vec3 { x: 0.7, y: 0.9, z: 0.7 });
+
+            let facing = "北";
+            renderer.draw_text(debug_x + 4, debug_y + 36,
+                $"朝向: {facing}",
+                Vec3 { x: 0.7, y: 0.7, z: 0.9 });
+        <% } %>
+    }
+
+    micro get_item_display_color(item_id: i32) -> Vec3 {
+        if item_id == ITEM_WOOD { return Vec3 { x: 0.55, y: 0.35, z: 0.15 }; }
+        if item_id == ITEM_WOOD_PLANKS { return Vec3 { x: 0.70, y: 0.50, z: 0.25 }; }
+        if item_id == ITEM_STICK { return Vec3 { x: 0.60, y: 0.45, z: 0.20 }; }
+        if item_id == ITEM_COBBLESTONE { return Vec3 { x: 0.50, y: 0.50, z: 0.50 }; }
+        if item_id == ITEM_STONE { return Vec3 { x: 0.60, y: 0.60, z: 0.60 }; }
+        if item_id == ITEM_IRON_ORE { return Vec3 { x: 0.60, y: 0.55, z: 0.50 }; }
+        if item_id == ITEM_GOLD_ORE { return Vec3 { x: 0.70, y: 0.60, z: 0.20 }; }
+        if item_id == ITEM_DIAMOND { return Vec3 { x: 0.30, y: 0.80, z: 0.85 }; }
+        if item_id == ITEM_COAL { return Vec3 { x: 0.20, y: 0.20, z: 0.20 }; }
+        if item_id == ITEM_IRON_INGOT { return Vec3 { x: 0.75, y: 0.75, z: 0.80 }; }
+        if item_id == ITEM_GOLD_INGOT { return Vec3 { x: 0.90, y: 0.75, z: 0.20 }; }
+        if item_id == ITEM_WOODEN_PICKAXE { return Vec3 { x: 0.60, y: 0.45, z: 0.20 }; }
+        if item_id == ITEM_WOODEN_SWORD { return Vec3 { x: 0.60, y: 0.45, z: 0.20 }; }
+        if item_id == ITEM_WOODEN_AXE { return Vec3 { x: 0.60, y: 0.45, z: 0.20 }; }
+        if item_id == ITEM_STONE_PICKAXE { return Vec3 { x: 0.55, y: 0.55, z: 0.55 }; }
+        if item_id == ITEM_STONE_SWORD { return Vec3 { x: 0.55, y: 0.55, z: 0.55 }; }
+        if item_id == ITEM_STONE_AXE { return Vec3 { x: 0.55, y: 0.55, z: 0.55 }; }
+        if item_id == ITEM_IRON_PICKAXE { return Vec3 { x: 0.75, y: 0.75, z: 0.80 }; }
+        if item_id == ITEM_IRON_SWORD { return Vec3 { x: 0.75, y: 0.75, z: 0.80 }; }
+        if item_id == ITEM_IRON_AXE { return Vec3 { x: 0.75, y: 0.75, z: 0.80 }; }
+        if item_id == ITEM_DIAMOND_PICKAXE { return Vec3 { x: 0.30, y: 0.80, z: 0.85 }; }
+        if item_id == ITEM_DIAMOND_SWORD { return Vec3 { x: 0.30, y: 0.80, z: 0.85 }; }
+        if item_id == ITEM_FURNACE { return Vec3 { x: 0.55, y: 0.55, z: 0.55 }; }
+        if item_id == ITEM_CHEST { return Vec3 { x: 0.55, y: 0.40, z: 0.20 }; }
+        if item_id == ITEM_ROTTEN_FLESH { return Vec3 { x: 0.55, y: 0.30, z: 0.25 }; }
+        if item_id == ITEM_BONE { return Vec3 { x: 0.85, y: 0.85, z: 0.80 }; }
+        if item_id == ITEM_ARROW { return Vec3 { x: 0.60, y: 0.45, z: 0.20 }; }
+        if item_id == ITEM_GUNPOWDER { return Vec3 { x: 0.40, y: 0.40, z: 0.35 }; }
+        return Vec3 { x: 0.5, y: 0.5, z: 0.5 };
+    }
+}

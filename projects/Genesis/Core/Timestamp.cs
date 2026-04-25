@@ -6,6 +6,6 @@ public readonly record struct Timestamp(DateTime Value)
     public long UnixTimeMilliseconds => ((DateTimeOffset)Value).ToUnixTimeMilliseconds();
 
     public static Timestamp Now => new(DateTime.UtcNow);
-    public static Timestamp FromUnixTimeSeconds(long seconds) => new(DateTimeOffset.FromUnixTimeSeconds(seconds).DateTime);
-    public static Timestamp FromUnixTimeMilliseconds(long milliseconds) => new(DateTimeOffset.FromUnixTimeMilliseconds(milliseconds).DateTime);
+    public static Timestamp FromUnixTimeSeconds(long seconds) => new(DateTimeOffset.FromUnixTimeSeconds(seconds).UtcDateTime);
+    public static Timestamp FromUnixTimeMilliseconds(long milliseconds) => new(DateTimeOffset.FromUnixTimeMilliseconds(milliseconds).UtcDateTime);
 }

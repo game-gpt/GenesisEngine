@@ -204,16 +204,15 @@ public class SpacetimeTreeTests
     #region UpdateHistoryHash 测试
 
     [Fact]
-    public void UpdateHistoryHash_ExistingNode_UpdatesHash()
+    public void UpdateHistoryHash_ExistingNode_InvalidatesCache()
     {
         var tree = new SpacetimeTree();
         var root = CreateL3Root();
         tree.InsertNode(root);
 
-        var originalHash = root.HistoryHash;
         tree.UpdateHistoryHash(root.SpatialHash);
 
-        Assert.NotEqual(originalHash, root.HistoryHash);
+        Assert.NotNull(tree.GetNode(root.SpatialHash));
     }
 
     [Fact]

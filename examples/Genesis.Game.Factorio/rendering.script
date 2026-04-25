@@ -1,0 +1,250 @@
+system RenderSystem {
+    query_belts = Query.all(Belt, GridPosition);
+    query_inserters = Query.all(Inserter, GridPosition);
+    query_machines = Query.all(Machine, GridPosition);
+    query_resources = Query.all(ResourceDeposit, GridPosition);
+    query_chests = Query.all(LogisticChest, GridPosition);
+    query_poles = Query.all(PowerPole, GridPosition);
+    query_roboports = Query.all(Roboport, GridPosition);
+    query_robots = Query.all(LogisticRobot, GridPosition);
+    query_player = Query.all(PlayerTag, GridPosition);
+
+    on_update(delta: f32) {
+        render_tilemap();
+        render_resources();
+        render_belts();
+        render_machines();
+        render_inserters();
+        render_chests();
+        render_power_network();
+        render_logistic_network();
+        render_player();
+    }
+
+    micro render_tilemap() {
+        let tilemap_data = Query.all(TileMapData);
+        <% loop (data,) in tilemap_data { %>
+            let cam_x = camera.get_position_x();
+            let cam_y = camera.get_position_y();
+            let screen_w = screen.get_width();
+            let screen_h = screen.get_height();
+            let tile_size = 32;
+
+            let start_x = max(0, (cam_x - screen_w / 2) as i32 / tile_size - 1);
+            let start_y = max(0, (cam_y - screen_h / 2) as i32 / tile_size - 1);
+            let end_x = min(data.width, (cam_x + screen_w / 2) as i32 / tile_size + 2);
+            let end_y = min(data.height, (cam_y + screen_h / 2) as i32 / tile_size + 2);
+
+            loop x in range(start_x, end_x) {
+                loop y in range(start_y, end_y) {
+                    let tile = tilemap.get_tile(x, y);
+                    let color = get_tile_color(tile);
+                    renderer.draw_rect(x * tile_size, y * tile_size, tile_size, tile_size, color);
+                }
+            }
+        <% } %>
+    }
+
+    micro render_resources() {
+        <% loop (resource, pos) in query_resources { %>
+            let color = get_resource_color(resource.resource_type);
+            let fill_ratio = resource.amount as f32 / resource.initial_amount as f32;
+            let size = (16 + fill_ratio * 16) as i32;
+            let offset = (32 - size) / 2;
+            renderer.draw_rect(pos.x * 32 + offset, pos.y * 32 + offset, size, size, color);
+        <% } %>
+    }
+
+    micro render_belts() {
+        <% loop (belt, pos) in query_belts { %>
+            let base_color = Vec3 { x: 0.80, y: 0.75, z: 0.30 };
+            renderer.draw_rect(pos.x * 32 + 4, pos.y * 32 + 4, 24, 24, base_color);
+
+            let arrow_color = Vec3 { x: 0.60, y: 0.55, z: 0.20 };
+            draw_direction_arrow(pos.x * 32, pos.y * 32, belt.direction, arrow_color);
+
+            if belt.item_0_id != ITEM_NONE {
+                let item_color = get_item_color(belt.item_0_id);
+                let x = pos.x * 32 + 8 + (belt.item_0_progress * 16) as i32;
+                renderer.draw_rect(x, pos.y * 32 + 12, 8, 8, item_color);
+            }
+            if belt.item_1_id != ITEM_NONE {
+                let item_color = get_item_color(belt.item_1_id);
+                let x = pos.x * 32 + 8 + (belt.item_1_progress * 16) as i32;
+                renderer.draw_rect(x, pos.y * 32 + 12, 8, 8, item_color);
+            }
+            if belt.item_2_id != ITEM_NONE {
+                let item_color = get_item_color(belt.item_2_id);
+                let x = pos.x * 32 + 8 + (belt.item_2_progress * 16) as i32;
+                renderer.draw_rect(x, pos.y * 32 + 12, 8, 8, item_color);
+            }
+            if belt.item_3_id != ITEM_NONE {
+                let item_color = get_item_color(belt.item_3_id);
+                let x = pos.x * 32 + 8 + (belt.item_3_progress * 16) as i32;
+                renderer.draw_rect(x, pos.y * 32 + 12, 8, 8, item_color);
+            }
+        <% } %>
+    }
+
+    micro render_machines() {
+        <% loop (machine, pos) in query_machines { %>
+            let color = get_machine_color(machine.machine_type);
+            renderer.draw_rect(pos.x * 32, pos.y * 32, 32, 32, color);
+
+            if machine.progress > 0.0 {
+                let bar_color = Vec3 { x: 0.2, y: 0.8, z: 0.2 };
+                let bar_width = (machine.progress * 28) as i32;
+                renderer.draw_rect(pos.x * 32 + 2, pos.y * 32 + 28, bar_width, 3, bar_color);
+            }
+
+            if machine.recipe_id != RECIPE_NONE {
+                let recipe_indicator = Vec3 { x: 1.0, y: 1.0, z: 0.0 };
+                renderer.draw_rect(pos.x * 32 + 26, pos.y * 32 + 2, 4, 4, recipe_indicator);
+            }
+        <% } %>
+    }
+
+    micro render_inserters() {
+        <% loop (inserter, pos) in query_inserters { %>
+            let base_color = Vec3 { x: 0.90, y: 0.60, z: 0.20 };
+            renderer.draw_rect(pos.x * 32 + 12, pos.y * 32 + 12, 8, 8, base_color);
+
+            let arm_length = 12;
+            let angle_rad = inserter.arm_angle * 3.14159 / 180.0;
+            let arm_end_x = pos.x * 32 + 16 + (cos(angle_rad) * arm_length as f32) as i32;
+            let arm_end_y = pos.y * 32 + 16 + (sin(angle_rad) * arm_length as f32) as i32;
+            let arm_color = Vec3 { x: 0.70, y: 0.50, z: 0.15 };
+            renderer.draw_line(pos.x * 32 + 16, pos.y * 32 + 16, arm_end_x, arm_end_y, arm_color);
+
+            if inserter.held_item_id != ITEM_NONE {
+                let item_color = get_item_color(inserter.held_item_id);
+                renderer.draw_rect(arm_end_x - 3, arm_end_y - 3, 6, 6, item_color);
+            }
+        <% } %>
+    }
+
+    micro render_chests() {
+        <% loop (chest, pos) in query_chests { %>
+            let color = Vec3 { x: 0.50, y: 0.80, z: 0.50 };
+            if chest.chest_type == CHEST_REQUESTER {
+                color = Vec3 { x: 0.80, y: 0.50, z: 0.50 };
+            }
+            renderer.draw_rect(pos.x * 32 + 4, pos.y * 32 + 4, 24, 24, color);
+
+            let fill = count_item_in_chest(chest) as f32 / 400.0;
+            let fill_color = Vec3 { x: 0.3, y: 0.3, z: 0.3 };
+            let fill_height = (fill * 20) as i32;
+            renderer.draw_rect(pos.x * 32 + 6, pos.y * 32 + 26 - fill_height, 20, fill_height, fill_color);
+        <% } %>
+    }
+
+    micro render_power_network() {
+        <% loop (pole, pos) in query_poles { %>
+            let pole_color = Vec3 { x: 0.55, y: 0.45, z: 0.30 };
+            renderer.draw_rect(pos.x * 32 + 12, pos.y * 32 + 8, 8, 20, pole_color);
+            renderer.draw_rect(pos.x * 32 + 8, pos.y * 32 + 4, 16, 6, pole_color);
+
+            loop i in range(0, pole.connected_poles.length()) {
+                let other_id = pole.connected_poles.get(i);
+                let other_pole = find_pole_by_network(other_id);
+                if other_pole.is_valid {
+                    let other_pos = get_entity(other_pole).get<GridPosition>();
+                    let wire_color = Vec3 { x: 0.90, y: 0.85, z: 0.20 };
+                    renderer.draw_line(
+                        pos.x * 32 + 16, pos.y * 32 + 6,
+                        other_pos.x * 32 + 16, other_pos.y * 32 + 6,
+                        wire_color);
+                }
+            }
+        <% } %>
+    }
+
+    micro render_logistic_network() {
+        <% loop (roboport, pos) in query_roboports { %>
+            let roboport_color = Vec3 { x: 0.50, y: 0.70, z: 0.90 };
+            renderer.draw_rect(pos.x * 32, pos.y * 32, 32, 32, roboport_color);
+
+            let range_color = Vec3 { x: 0.30, y: 0.50, z: 0.70 };
+            renderer.draw_circle_outline(pos.x * 32 + 16, pos.y * 32 + 16, roboport.logistic_range as i32, range_color);
+        <% } %>
+
+        <% loop (robot, pos) in query_robots { %>
+            let robot_color = Vec3 { x: 0.70, y: 0.80, z: 0.90 };
+            renderer.draw_rect(pos.x * 32 + 10, pos.y * 32 + 10, 12, 12, robot_color);
+
+            if robot.carried_item_id != ITEM_NONE {
+                let item_color = get_item_color(robot.carried_item_id);
+                renderer.draw_rect(pos.x * 32 + 12, pos.y * 32 + 8, 8, 8, item_color);
+            }
+        <% } %>
+    }
+
+    micro render_player() {
+        <% loop (_, pos) in query_player { %>
+            let player_color = Vec3 { x: 0.20, y: 0.60, z: 0.90 };
+            renderer.draw_rect(pos.x * 32 + 4, pos.y * 32 + 4, 24, 24, player_color);
+
+            let facing_color = Vec3 { x: 1.0, y: 1.0, z: 1.0 };
+            let fx = pos.x * 32 + 16 + get_facing_offset_x() * 12;
+            let fy = pos.y * 32 + 16 + get_facing_offset_y() * 12;
+            renderer.draw_rect(fx - 2, fy - 2, 4, 4, facing_color);
+        <% } %>
+    }
+
+    micro draw_direction_arrow(x: i32, y: i32, direction: i32, color: Vec3) {
+        if direction == DIR_NORTH {
+            renderer.draw_line(x + 16, y + 8, x + 12, y + 16, color);
+            renderer.draw_line(x + 16, y + 8, x + 20, y + 16, color);
+        }
+        else if direction == DIR_SOUTH {
+            renderer.draw_line(x + 16, y + 24, x + 12, y + 16, color);
+            renderer.draw_line(x + 16, y + 24, x + 20, y + 16, color);
+        }
+        else if direction == DIR_EAST {
+            renderer.draw_line(x + 24, y + 16, x + 16, y + 12, color);
+            renderer.draw_line(x + 24, y + 16, x + 16, y + 20, color);
+        }
+        else if direction == DIR_WEST {
+            renderer.draw_line(x + 8, y + 16, x + 16, y + 12, color);
+            renderer.draw_line(x + 8, y + 16, x + 16, y + 20, color);
+        }
+    }
+
+    micro get_tile_color(tile: i32) -> Vec3 {
+        if tile == TILE_GRASS { return Vec3 { x: 0.30, y: 0.55, z: 0.20 }; }
+        if tile == TILE_SAND { return Vec3 { x: 0.80, y: 0.75, z: 0.50 }; }
+        if tile == TILE_DESERT { return Vec3 { x: 0.70, y: 0.60, z: 0.35 }; }
+        if tile == TILE_WATER { return Vec3 { x: 0.20, y: 0.40, z: 0.70 }; }
+        return Vec3 { x: 0.5, y: 0.5, z: 0.5 };
+    }
+
+    micro get_resource_color(resource_type: i32) -> Vec3 {
+        if resource_type == RESOURCE_IRON { return Vec3 { x: 0.55, y: 0.35, z: 0.25 }; }
+        if resource_type == RESOURCE_COPPER { return Vec3 { x: 0.72, y: 0.45, z: 0.20 }; }
+        if resource_type == RESOURCE_COAL { return Vec3 { x: 0.25, y: 0.25, z: 0.25 }; }
+        if resource_type == RESOURCE_STONE { return Vec3 { x: 0.65, y: 0.65, z: 0.65 }; }
+        if resource_type == RESOURCE_OIL { return Vec3 { x: 0.15, y: 0.10, z: 0.05 }; }
+        return Vec3 { x: 1.0, y: 0.0, z: 1.0 };
+    }
+
+    micro get_machine_color(machine_type: i32) -> Vec3 {
+        if machine_type == MACHINE_FURNACE { return Vec3 { x: 0.70, y: 0.30, z: 0.20 }; }
+        if machine_type == MACHINE_ASSEMBLER { return Vec3 { x: 0.40, y: 0.60, z: 0.80 }; }
+        if machine_type == MACHINE_BOILER { return Vec3 { x: 0.50, y: 0.50, z: 0.50 }; }
+        if machine_type == MACHINE_STEAM_ENGINE { return Vec3 { x: 0.60, y: 0.65, z: 0.70 }; }
+        return Vec3 { x: 0.5, y: 0.5, z: 0.5 };
+    }
+
+    micro find_pole_by_network(network_id: i32) -> PowerPole {
+        <% loop (pole, _) in query_poles { %>
+            if pole.network_id == network_id {
+                return pole;
+            }
+        <% } %>
+        return PowerPole { network_id: -1, wire_reach: 0.0, connected_poles: [] };
+    }
+
+    micro count_item_in_chest(chest: LogisticChest) -> i32 {
+        return chest.slot_0_count + chest.slot_1_count + chest.slot_2_count + chest.slot_3_count;
+    }
+}

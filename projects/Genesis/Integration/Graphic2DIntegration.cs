@@ -12,6 +12,7 @@ public sealed class Graphic2DIntegration : IDisposable
     private SpriteBatch? _spriteBatch;
     private Layer2DManager? _layerManager;
     private bool _disposed;
+    private bool _ownsDevice;
 
     #endregion
 
@@ -37,10 +38,21 @@ public sealed class Graphic2DIntegration : IDisposable
         }
 
         _device = DeviceFactory.Create(backend);
+        _ownsDevice = true;
         _spriteBatch = new SpriteBatch(_device);
         _layerManager = new Layer2DManager();
 
         Console.WriteLine($"[Genesis] 2D 渲染初始化完成 - 后端: {backend}");
+    }
+
+    public void InitializeWithDevice(IDevice device)
+    {
+        _device = device;
+        _ownsDevice = false;
+        _spriteBatch = new SpriteBatch(_device);
+        _layerManager = new Layer2DManager();
+
+        Console.WriteLine("[Genesis] 2D 渲染初始化完成 - 使用外部设备");
     }
 
     #endregion
@@ -106,7 +118,11 @@ public sealed class Graphic2DIntegration : IDisposable
         }
 
         _spriteBatch?.Dispose();
-        _device?.Dispose();
+
+        if (_ownsDevice)
+        {
+            _device?.Dispose();
+        }
 
         _disposed = true;
     }

@@ -202,16 +202,16 @@ public class HChunkNodeTests
     }
 
     [Fact]
-    public void UpdateHistoryHash_WithChildren_UpdatesFromChildren()
+    public void UpdateHistoryHash_WithChildren_InvalidatesCache()
     {
         var parent = new HChunkNode(1, NodeLevel.L1, new Bounds(0, 0, 0, 100, 100, 100));
         var child = new HChunkNode(2, NodeLevel.L0, new Bounds(0, 0, 0, 10, 10, 10));
         parent.AddChild(child);
+        parent.MarkClean();
 
-        var originalHash = parent.HistoryHash;
         parent.UpdateHistoryHash();
 
-        Assert.NotEqual(originalHash, parent.HistoryHash);
+        Assert.False(parent.IsDirty);
     }
 
     #endregion

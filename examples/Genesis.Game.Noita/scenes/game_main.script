@@ -2,6 +2,10 @@ scene GameMain {
     let player: Entity;
     let world_seed: u64;
     let daytime_entity: Entity;
+    let camera_x: f32 = 0.0;
+    let camera_y: f32 = 0.0;
+    let show_help: bool = true;
+    let help_timer: f32 = 0.0;
 
     on_load() {
         let config = asset.load<gonObject>("config/world.gon");
@@ -12,15 +16,18 @@ scene GameMain {
 
         generate_world(world_seed);
 
-        console::log("Noita 像素物理沙盒已加载");
-        console::log("操作: WASD 移动, 鼠标瞄准, 左键施法, 右键挖掘");
-        console::log("快捷键: 1=倒水, 2=倒油, 3=倒酸, 4=倒岩浆, 5=放沙, 6=引爆");
+        console::log("=== Noita Demo ===");
+        console::log("A/D: 左右移动 | 空格: 跳跃 | Shift: 飞行");
+        console::log("鼠标左键: 施法 | 鼠标右键: 挖掘 | 鼠标中键: 倾倒材料");
+        console::log("1-6: 切换法术 | G: 引爆 | R: 重生 | H: 帮助");
+        console::log($"Noita 世界生成 - 种子: {world_seed}");
     }
 
     on_update(delta: f32) {
         handle_input(delta);
-        update_camera();
+        update_camera(delta);
         check_player_environment();
+        update_help_timer(delta);
     }
 
     micro generate_world(seed: u64) {
@@ -32,20 +39,33 @@ scene GameMain {
             return;
         }
 
-        if input.is_key_just_pressed("r") {
+        if input.is_action_just_pressed("respawn") {
             let health = player.get<Health>();
             if health.current <= 0 {
                 respawn_player();
             }
         }
+
+        if input.is_action_just_pressed("toggle_help") {
+            show_help = !show_help;
+        }
     }
 
-    micro update_camera() {
+    micro update_camera(delta: f32) {
         if !player.is_valid {
             return;
         }
+
         let pos = player.get<PixelPosition>();
         let camera_follow = player.get<CameraFollow>();
+
+        let target_x = pos.x as f32 + camera_follow.offset_x;
+        let target_y = pos.y as f32 + camera_follow.offset_y;
+
+        camera_x += (target_x - camera_x) * camera_follow.smoothing;
+        camera_y += (target_y - camera_y) * camera_follow.smoothing;
+
+        camera.set_position_2d(camera_x, camera_y);
     }
 
     micro check_player_environment() {
@@ -69,11 +89,11 @@ scene GameMain {
         let below = pixelgrid.get_pixel(pos.x, pos.y + 1);
         if below == MATERIAL_WATER {
             let mana = player.get<ManaPool>();
-            mana.regen_rate = 15.0;
+            mana.regen_rate = MANA_WATER_REGEN;
         }
         else {
             let mana = player.get<ManaPool>();
-            mana.regen_rate = 5.0;
+            mana.regen_rate = MANA_REGEN_RATE;
         }
     }
 
@@ -107,5 +127,14 @@ scene GameMain {
             }
         }
         return height / 4;
+    }
+
+    micro update_help_timer(delta: f32) {
+        if show_help {
+            help_timer += delta;
+            if help_timer > 30.0 {
+                show_help = false;
+            }
+        }
     }
 }

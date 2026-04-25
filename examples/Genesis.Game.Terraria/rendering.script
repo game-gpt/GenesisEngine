@@ -1,0 +1,206 @@
+system TerrariaRenderSystem {
+    query_player = Query.all(PlayerTag, TilePosition);
+    query_enemies = Query.all(EnemyTag, TilePosition, Health);
+    query_npcs = Query.all(NpcTag, TilePosition);
+
+    on_update(delta: f32) {
+        render_tilemap();
+        render_enemies();
+        render_npcs();
+        render_player();
+        render_mining_cursor();
+    }
+
+    micro render_tilemap() {
+        let tilemap_data = Query.all(TileMapData);
+        <% loop (data,) in tilemap_data { %>
+            let cam_x = camera.get_position_x() as i32;
+            let cam_y = camera.get_position_y() as i32;
+            let screen_w = screen.get_width() as i32;
+            let screen_h = screen.get_height() as i32;
+            let tile_size = 16;
+
+            let start_x = max(0, cam_x / tile_size - screen_w / tile_size / 2 - 1);
+            let start_y = max(0, cam_y / tile_size - screen_h / tile_size / 2 - 1);
+            let end_x = min(data.width, cam_x / tile_size + screen_w / tile_size / 2 + 2);
+            let end_y = min(data.height, cam_y / tile_size + screen_h / tile_size / 2 + 2);
+
+            loop x in range(start_x, end_x) {
+                loop y in range(start_y, end_y) {
+                    let tile_id = tilemap.get_tile(x, y);
+                    if tile_id == TILE_AIR {
+                        continue;
+                    }
+
+                    let color = get_tile_render_color(tile_id, x, y);
+                    let screen_x = x * tile_size;
+                    let screen_y = y * tile_size;
+                    renderer.draw_rect(screen_x, screen_y, tile_size, tile_size, color);
+
+                    if tile_id == TILE_GRASS {
+                        let grass_top = Vec3 { x: 0.30, y: 0.65, z: 0.15 };
+                        renderer.draw_rect(screen_x, screen_y, tile_size, 3, grass_top);
+                    }
+
+                    if tile_id == TILE_WATER {
+                        let water_surface = tilemap.get_tile(x, y - 1) == TILE_AIR;
+                        if water_surface {
+                            let wave = sin(x as f32 * 0.5 + time.elapsed() * 2.0) * 0.05;
+                            let surface_color = Vec3 { x: 0.15 + wave, y: 0.35 + wave, z: 0.75 + wave };
+                            renderer.draw_rect(screen_x, screen_y, tile_size, 2, surface_color);
+                        }
+                    }
+                }
+            }
+        <% } %>
+    }
+
+    micro render_enemies() {
+        <% loop (enemy_tag, pos, health) in query_enemies { %>
+            let color = get_enemy_color(enemy_tag.enemy_type);
+            let screen_x = pos.x * 16;
+            let screen_y = pos.y * 16;
+
+            if enemy_tag.enemy_type == ENEMY_SLIME {
+                let squish = 1.0 + sin(time.elapsed() * 4.0) * 0.1;
+                let w = (14 * squish) as i32;
+                let h = (12 / squish) as i32;
+                renderer.draw_rect(screen_x + 1, screen_y + 4, w, h, color);
+
+                let eye_color = Vec3 { x: 1.0, y: 1.0, z: 1.0 };
+                renderer.draw_rect(screen_x + 4, screen_y + 6, 3, 3, eye_color);
+                renderer.draw_rect(screen_x + 9, screen_y + 6, 3, 3, eye_color);
+                let pupil_color = Vec3 { x: 0.0, y: 0.0, z: 0.0 };
+                renderer.draw_rect(screen_x + 5, screen_y + 7, 1, 1, pupil_color);
+                renderer.draw_rect(screen_x + 10, screen_y + 7, 1, 1, pupil_color);
+            }
+            else if enemy_tag.enemy_type == ENEMY_ZOMBIE {
+                let body_color = Vec3 { x: 0.25, y: 0.40, z: 0.20 };
+                renderer.draw_rect(screen_x + 2, screen_y + 2, 12, 12, body_color);
+                renderer.draw_rect(screen_x + 3, screen_y + 0, 10, 4, color);
+
+                let eye_color = Vec3 { x: 0.8, y: 0.0, z: 0.0 };
+                renderer.draw_rect(screen_x + 5, screen_y + 1, 2, 2, eye_color);
+                renderer.draw_rect(screen_x + 9, screen_y + 1, 2, 2, eye_color);
+
+                let arm_color = Vec3 { x: 0.30, y: 0.45, z: 0.25 };
+                if enemy_tag.ai_state == AI_ATTACK {
+                    renderer.draw_rect(screen_x + 14, screen_y + 4, 4, 3, arm_color);
+                }
+                else {
+                    renderer.draw_rect(screen_x - 2, screen_y + 4, 4, 3, arm_color);
+                }
+            }
+            else if enemy_tag.enemy_type == ENEMY_DEMON_EYE {
+                let bob_y = sin(time.elapsed() * 3.0) * 3.0;
+                let ey = screen_y + bob_y as i32;
+                renderer.draw_rect(screen_x + 2, ey + 2, 12, 10, color);
+
+                let pupil_color = Vec3 { x: 0.2, y: 0.0, z: 0.0 };
+                renderer.draw_rect(screen_x + 6, ey + 4, 4, 6, pupil_color);
+
+                let vein_color = Vec3 { x: 0.6, y: 0.1, z: 0.1 };
+                renderer.draw_line(screen_x + 3, ey + 3, screen_x + 6, ey + 5, vein_color);
+                renderer.draw_line(screen_x + 13, ey + 3, screen_x + 10, ey + 5, vein_color);
+            }
+
+            if health.current < health.max {
+                let bar_width = 16;
+                let ratio = health.current as f32 / health.max as f32;
+                let fill = (ratio * bar_width as f32) as i32;
+                renderer.draw_rect(screen_x, screen_y - 4, bar_width, 2, Vec3 { x: 0.3, y: 0.1, z: 0.1 });
+                renderer.draw_rect(screen_x, screen_y - 4, fill, 2, Vec3 { x: 0.8, y: 0.2, z: 0.1 });
+            }
+        <% } %>
+    }
+
+    micro render_npcs() {
+        <% loop (npc, pos) in query_npcs { %>
+            let color = get_npc_color(npc.npc_type);
+            let screen_x = pos.x * 16;
+            let screen_y = pos.y * 16;
+
+            renderer.draw_rect(screen_x + 3, screen_y + 0, 10, 6, color);
+            renderer.draw_rect(screen_x + 2, screen_y + 6, 12, 10, Vec3 { x: 0.6, y: 0.5, z: 0.3 });
+
+            let name = get_npc_name(npc.npc_type);
+            renderer.draw_text(screen_x - 8, screen_y - 10, name, Vec3 { x: 1.0, y: 1.0, z: 1.0 });
+        <% } %>
+    }
+
+    micro render_player() {
+        <% loop (_, pos) in query_player { %>
+            let screen_x = pos.x * 16;
+            let screen_y = pos.y * 16;
+
+            let hair_color = Vec3 { x: 0.50, y: 0.30, z: 0.15 };
+            renderer.draw_rect(screen_x + 3, screen_y + 0, 10, 5, hair_color);
+
+            let skin_color = Vec3 { x: 0.90, y: 0.75, z: 0.55 };
+            renderer.draw_rect(screen_x + 3, screen_y + 5, 10, 5, skin_color);
+
+            let shirt_color = Vec3 { x: 0.30, y: 0.45, z: 0.70 };
+            renderer.draw_rect(screen_x + 2, screen_y + 10, 12, 6, shirt_color);
+
+            let pants_color = Vec3 { x: 0.35, y: 0.30, z: 0.55 };
+            renderer.draw_rect(screen_x + 3, screen_y + 16, 5, 4, pants_color);
+            renderer.draw_rect(screen_x + 8, screen_y + 16, 5, 4, pants_color);
+
+            let eye_color = Vec3 { x: 0.2, y: 0.5, z: 0.8 };
+            renderer.draw_rect(screen_x + 5, screen_y + 6, 2, 2, eye_color);
+            renderer.draw_rect(screen_x + 9, screen_y + 6, 2, 2, eye_color);
+        <% } %>
+    }
+
+    micro render_mining_cursor() {
+        <% loop (_, pos) in query_player { %>
+            let target_x = pos.x;
+            let target_y = pos.y;
+
+            if input.is_action_pressed("mine_down") { target_y += 1; }
+            else if input.is_action_pressed("mine_up") { target_y -= 1; }
+            else if input.is_action_pressed("mine_left") { target_x -= 1; }
+            else if input.is_action_pressed("mine_right") { target_x += 1; }
+
+            let tile_id = tilemap.get_tile(target_x, target_y);
+            if tile_id != TILE_AIR && tile_id != TILE_BOUNDARY {
+                let cursor_color = Vec3 { x: 1.0, y: 1.0, z: 1.0 };
+                let pulse = sin(time.elapsed() * 6.0) * 0.3 + 0.7;
+                cursor_color = Vec3 { x: pulse, y: pulse, z: pulse };
+                renderer.draw_rect_outline(target_x * 16, target_y * 16, 16, 16, cursor_color);
+            }
+        <% } %>
+    }
+
+    micro get_tile_render_color(tile_id: i32, x: i32, y: i32) -> Vec3 {
+        let base = get_tile_color(tile_id);
+
+        if tile_id == TILE_STONE {
+            let variation = ((x * 7 + y * 13) % 10) as f32 / 100.0;
+            return Vec3 { x: base.x + variation, y: base.y + variation, z: base.z + variation };
+        }
+        if tile_id == TILE_DIRT {
+            let variation = ((x * 11 + y * 3) % 8) as f32 / 100.0;
+            return Vec3 { x: base.x + variation, y: base.y + variation * 0.5, z: base.z };
+        }
+        if tile_id == TILE_IRON_ORE {
+            let shimmer = ((x * 3 + y * 7) % 5) as f32 / 100.0;
+            return Vec3 { x: base.x + shimmer, y: base.y + shimmer, z: base.z + shimmer };
+        }
+        if tile_id == TILE_GOLD_ORE {
+            let shimmer = sin(x as f32 * 0.5 + y as f32 * 0.3) * 0.08;
+            return Vec3 { x: base.x + shimmer, y: base.y + shimmer, z: base.z };
+        }
+
+        return base;
+    }
+
+    micro get_npc_color(npc_type: i32) -> Vec3 {
+        if npc_type == NPC_MERCHANT { return Vec3 { x: 0.60, y: 0.40, z: 0.20 }; }
+        if npc_type == NPC_NURSE { return Vec3 { x: 0.90, y: 0.90, z: 0.95 }; }
+        if npc_type == NPC_ARMS_DEALER { return Vec3 { x: 0.30, y: 0.30, z: 0.30 }; }
+        if npc_type == NPC_DEMOLITIONIST { return Vec3 { x: 0.50, y: 0.30, z: 0.15 }; }
+        if npc_type == NPC_GUIDE { return Vec3 { x: 0.40, y: 0.55, z: 0.35 }; }
+        return Vec3 { x: 0.5, y: 0.5, z: 0.5 };
+    }
+}

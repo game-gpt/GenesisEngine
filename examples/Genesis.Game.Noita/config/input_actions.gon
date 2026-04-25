@@ -1,0 +1,20 @@
+InputActions {
+    actions: [
+        ActionEntry { name: "move_left", bindings: [{ key: "A" }, { key: "Left" }] },
+        ActionEntry { name: "move_right", bindings: [{ key: "D" }, { key: "Right" }] },
+        ActionEntry { name: "jump", bindings: [{ key: "Space" }] },
+        ActionEntry { name: "fly", bindings: [{ key: "Shift" }] },
+        ActionEntry { name: "cast_spell", bindings: [{ key: "Mouse0" }] },
+        ActionEntry { name: "dig", bindings: [{ key: "Mouse1" }] },
+        ActionEntry { name: "pour_material", bindings: [{ key: "Mouse2" }] },
+        ActionEntry { name: "detonate", bindings: [{ key: "G" }] },
+        ActionEntry { name: "select_spell_1", bindings: [{ key: "1" }] },
+        ActionEntry { name: "select_spell_2", bindings: [{ key: "2" }] },
+        ActionEntry { name: "select_spell_3", bindings: [{ key: "3" }] },
+        ActionEntry { name: "select_spell_4", bindings: [{ key: "4" }] },
+        ActionEntry { name: "select_spell_5", bindings: [{ key: "5" }] },
+        ActionEntry { name: "select_spell_6", bindings: [{ key: "6" }] },
+        ActionEntry { name: "toggle_help", bindings: [{ key: "H" }] },
+        ActionEntry { name: "respawn", bindings: [{ key: "R" }] }
+    ]
+}
