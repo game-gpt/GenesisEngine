@@ -9,6 +9,7 @@
   <Project Path="projects/Genesis/Genesis.csproj" />
   <Project Path="projects/Genesis/tests/Genesis.Tests/Genesis.Tests.csproj" />
   <Project Path="projects/Genesis/tests/Genesis.Toolchain.Tests/Genesis.Toolchain.Tests.csproj" />
+  <Project Path="projects/Genesis/tests/Genesis.Benchmarks/Genesis.Benchmarks.csproj" />
   <Project Path="projects/GenesisEngine/GenesisEngine.csproj" />
   <Project Path="templates/Genesis.Template2D/Genesis.Template2D.csproj" />
   <Project Path="templates/Genesis.Template3D/Genesis.Template3D.csproj" />

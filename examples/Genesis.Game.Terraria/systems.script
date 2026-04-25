@@ -318,9 +318,86 @@ system EnemyAISystem {
 }
 
 system InventorySystem {
-    query_players = Query.all(PlayerTag, Inventory);
+    query_players = Query.all(PlayerTag, Inventory, TilePosition, Health);
 
     on_update(delta: f32) {
+        <% loop (_, inventory, pos, health) in query_players { %>
+            if input.is_action_just_pressed("place_tile") {
+                try_place_tile(inventory, pos);
+            }
+
+            if input.is_action_just_pressed("use_item") {
+                try_use_item(inventory, health, pos);
+            }
+
+            if input.is_key_just_pressed("Q") {
+                drop_selected_item(inventory, pos);
+            }
+        <% } %>
+    }
+
+    micro try_place_tile(inventory: Inventory, pos: TilePosition) {
+        let item_id = inventory.item_ids[inventory.selected_slot];
+        if item_id == ITEM_NONE {
+            return;
+        }
+
+        let tile_id = item_to_tile(item_id);
+        if tile_id == TILE_AIR {
+            return;
+        }
+
+        let target_x = pos.x;
+        let target_y = pos.y - 1;
+
+        if input.is_action_pressed("move_left") { target_x = pos.x - 1; target_y = pos.y; }
+        else if input.is_action_pressed("move_right") { target_x = pos.x + 1; target_y = pos.y; }
+        else if input.is_action_pressed("jump") { target_y = pos.y - 1; }
+
+        if target_x < 0 || target_y < 0 {
+            return;
+        }
+        if tilemap.is_solid(target_x, target_y) {
+            return;
+        }
+
+        tilemap.set_tile(target_x, target_y, tile_id);
+        remove_item_from_inventory(inventory, item_id, 1);
+    }
+
+    micro try_use_item(inventory: Inventory, health: Health, pos: TilePosition) {
+        let item_id = inventory.item_ids[inventory.selected_slot];
+        if item_id == ITEM_NONE {
+            return;
+        }
+
+        if item_id == ITEM_HEALING_POTION {
+            if health.current < health.max {
+                health.current = min(health.current + 50, health.max);
+                remove_item_from_inventory(inventory, ITEM_HEALING_POTION, 1);
+                console::log("使用了治疗药水！恢复 50 生命值");
+            }
+            return;
+        }
+
+        if item_id == ITEM_TORCH {
+            let target_x = pos.x;
+            let target_y = pos.y - 1;
+            if !tilemap.is_solid(target_x, target_y) {
+                tilemap.set_tile(target_x, target_y, TILE_TORCH);
+                remove_item_from_inventory(inventory, ITEM_TORCH, 1);
+            }
+            return;
+        }
+    }
+
+    micro drop_selected_item(inventory: Inventory, pos: TilePosition) {
+        let item_id = inventory.item_ids[inventory.selected_slot];
+        if item_id == ITEM_NONE {
+            return;
+        }
+        remove_item_from_inventory(inventory, item_id, 1);
+        console::log($"丢弃了 {get_item_name(item_id)}");
     }
 }
 

@@ -27,7 +27,6 @@ public class GenesisHost : IDisposable
     private bool _disposed;
     private DateTime _lastFrameTime;
     private ulong _frameIndex;
-    private GraphicsBackend _activeBackend;
     private SilkGL.GL? _gl;
 
     #endregion
@@ -130,15 +129,12 @@ public class GenesisHost : IDisposable
         Console.WriteLine("[Genesis] 所有子系统初始化完成");
     }
 
-    public void InitializeWithWindow(uint width = 1280, uint height = 720, string title = "Gnosis Engine", GraphicsBackend backend = GraphicsBackend.Vulkan)
+    public void InitializeWithWindow(uint width = 1280, uint height = 720, string title = "Gnosis Engine", GraphicsBackend backend = GraphicsBackend.OpenGL)
     {
         Console.WriteLine($"[Genesis] 引擎初始化（窗口模式）- 世界种子: {_worldSeed}");
 
         _world = new World();
         _inputSystem = new InputSystem();
-
-        var actualBackend = DetermineBackend(backend);
-        _activeBackend = actualBackend;
 
         var options = new WindowOptions
         {
@@ -149,13 +145,13 @@ public class GenesisHost : IDisposable
             Resizable = true
         };
 
-        _window = SilkNetWindow.Create(options);
+        _window = SdlGameWindow.Create(options);
 
-        if (_window is SilkNetWindow silkWindow)
+        if (_window is SdlGameWindow sdlWindow)
         {
             var keyboard = (Keyboard)_inputSystem.Keyboard!;
             var mouse = (Mouse)_inputSystem.Mouse!;
-            silkWindow.SetInputDevices(keyboard, mouse);
+            sdlWindow.SetInputDevices(keyboard, mouse);
         }
 
         _window.OnClosing += _ => _isRunning = false;
@@ -171,7 +167,7 @@ public class GenesisHost : IDisposable
         _isRunning = true;
         _lastFrameTime = DateTime.UtcNow;
 
-        Console.WriteLine($"[Genesis] 窗口模式初始化完成 - {width}x{height} - 后端: {actualBackend}");
+        Console.WriteLine($"[Genesis] 窗口模式初始化完成 - {width}x{height} - 后端: SDL2 + OpenGL");
     }
 
     public void LoadGameScript(string scriptPath)
@@ -240,12 +236,10 @@ public class GenesisHost : IDisposable
 
         _scriptRuntime?.Run();
 
-        _window.PollEvents();
-
         if (_window.GlContext is SilkGL.GL gl)
         {
             _gl = gl;
-            Console.WriteLine("[Genesis] Silk.NET OpenGL 上下文已获取");
+            Console.WriteLine("[Genesis] OpenGL 上下文已获取");
         }
 
         InitializeGraphicsBackend();
@@ -316,78 +310,24 @@ public class GenesisHost : IDisposable
 
     private void InitializeGraphicsBackend()
     {
-        if (_activeBackend == GraphicsBackend.OpenGL)
+        if (_window is SdlGameWindow sdlWindow)
         {
             var glDevice = new OpenGLDevice();
-            glDevice.Initialize(NativeGetProcAddress);
+            glDevice.Initialize(sdlWindow.GetGLProcAddress);
 
-            Initialize2DSystems(_activeBackend, glDevice);
+            Initialize2DSystems(GraphicsBackend.OpenGL, glDevice);
 
-            Console.WriteLine("[Genesis] OpenGL 设备初始化完成 - 函数指针已加载");
+            Console.WriteLine("[Genesis] OpenGL 设备初始化完成 - SDL2 函数指针已加载");
         }
         else
         {
-            var device = DeviceFactory.Create(_activeBackend);
-            Initialize2DSystems(_activeBackend, device);
+            Initialize2DSystems(GraphicsBackend.OpenGL);
         }
     }
 
     #endregion
 
     #region 私有方法 - 初始化
-
-    private static GraphicsBackend DetermineBackend(GraphicsBackend preferred)
-    {
-        if (preferred == GraphicsBackend.OpenGL || preferred == GraphicsBackend.Software)
-        {
-            return preferred;
-        }
-
-        try
-        {
-            if (OperatingSystem.IsWindows())
-            {
-                var module = System.Runtime.InteropServices.NativeLibrary.TryLoad("vulkan-1.dll", out _);
-                if (!module)
-                {
-                    Console.WriteLine("[Genesis] Vulkan 运行时不可用，回退到 OpenGL");
-                    return GraphicsBackend.OpenGL;
-                }
-            }
-
-            return preferred;
-        }
-        catch
-        {
-            Console.WriteLine("[Genesis] 后端检测失败，回退到 OpenGL");
-            return GraphicsBackend.OpenGL;
-        }
-    }
-
-    private static nint NativeGetProcAddress(string name)
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            var ptr = WglGetProcAddressNative(name);
-            if (ptr != 0)
-            {
-                return ptr;
-            }
-        }
-
-        try
-        {
-            var lib = System.Runtime.InteropServices.NativeLibrary.Load("opengl32.dll");
-            return System.Runtime.InteropServices.NativeLibrary.GetExport(lib, name);
-        }
-        catch
-        {
-            return 0;
-        }
-    }
-
-    [System.Runtime.InteropServices.DllImport("opengl32.dll", EntryPoint = "wglGetProcAddress")]
-    private static extern nint WglGetProcAddressNative(string name);
 
     private void Initialize2DSystems(GraphicsBackend backend = default, IDevice? device = null)
     {

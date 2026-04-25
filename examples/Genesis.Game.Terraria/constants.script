@@ -12,6 +12,7 @@ let TILE_COPPER_ORE: i32 = 10;
 let TILE_SNOW: i32 = 11;
 let TILE_ICE: i32 = 12;
 let TILE_CLAY: i32 = 13;
+let TILE_TORCH: i32 = 14;
 let TILE_BOUNDARY: i32 = 99;
 
 let ITEM_NONE: i32 = -1;
