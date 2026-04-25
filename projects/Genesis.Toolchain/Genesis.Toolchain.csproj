@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RootNamespace>Genesis.Toolchain</RootNamespace>
+    <PackageId>Genesis.Toolchain</PackageId>
+    <Version>0.0.1</Version>
+    <Authors>Genesis Engine Team</Authors>
+    <Description>Genesis Toolchain - 基于 Gnosis.Toolchain 的构建管线与项目打包</Description>
+    <PackageTags>genesis;toolchain;build;pipeline;gnosis</PackageTags>
+    <RepositoryUrl>https://github.com/game-gpt/GenesisEngine</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Genesis\Genesis.csproj" />
+    <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Toolchain\Gnosis.Toolchain.csproj" />
+    <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Toolchain.AssetPipeline\Gnosis.Toolchain.AssetPipeline.csproj" />
+    <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Toolchain.Cooker\Gnosis.Toolchain.Cooker.csproj" />
+    <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Asset\Gnosis.Asset.csproj" />
+    <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Core\Gnosis.Core.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Genesis.Template3D</RootNamespace>
+    <PackageId>Genesis.Template3D</PackageId>
+    <Version>0.0.1</Version>
+    <Authors>Genesis Engine Team</Authors>
+    <Description>Genesis 3D 沙盒项目模板</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Genesis\Genesis.csproj" />
+  </ItemGroup>
+
+</Project>
