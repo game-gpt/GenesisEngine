@@ -3,18 +3,28 @@ scene GameMain {
     let world_seed: u64;
     let stats_entity: Entity;
     let power_network_entity: Entity;
+    let camera_x: f32 = 0.0;
+    let camera_y: f32 = 0.0;
+    let show_help: bool = true;
+    let help_timer: f32 = 0.0;
 
     on_load() {
         let config = asset.load<gonObject>("config/world.gon");
         world_seed = config.get("seed").as_u64();
 
+        console::log("=== Factorio Demo ===");
+        console::log("WASD: 移动 | R: 旋转朝向 | 鼠标左键: 放置建筑/采矿");
+        console::log("E: 设置配方 | Q: 设置请求 | F: 连接电力");
+        console::log("B: 复制蓝图 | V: 粘贴蓝图 | N: 旋转蓝图");
+        console::log("1-9/0: 选择快捷栏");
         console::log($"Factorio 世界初始化 - 种子: {world_seed}");
     }
 
     on_update(delta: f32) {
         update_stats(delta);
         handle_input(delta);
-        update_camera();
+        update_camera(delta);
+        update_help_timer(delta);
     }
 
     micro update_stats(delta: f32) {
@@ -31,31 +41,63 @@ scene GameMain {
     }
 
     micro handle_input(delta: f32) {
-        if player.is_valid {
-            let pos = player.get<GridPosition>();
+        if !player.is_valid {
+            return;
+        }
 
-            if input.is_action_just_pressed("set_recipe") {
-                let target_x = pos.x + get_facing_offset_x();
-                let target_y = pos.y + get_facing_offset_y();
-                let machine = find_machine_at(target_x, target_y);
-                if machine.is_valid {
-                    cycle_recipe(machine);
-                }
+        let pos = player.get<GridPosition>();
+
+        update_facing_from_movement();
+
+        if input.is_action_just_pressed("set_recipe") {
+            let target_x = pos.x + get_facing_offset_x();
+            let target_y = pos.y + get_facing_offset_y();
+            let machine = find_machine_at(target_x, target_y);
+            if machine.machine_type >= 0 {
+                cycle_recipe(machine);
             }
+        }
 
-            if input.is_action_just_pressed("set_request") {
-                let target_x = pos.x + get_facing_offset_x();
-                let target_y = pos.y + get_facing_offset_y();
-                let chest = find_chest_at(target_x, target_y);
-                if chest.is_valid && chest.chest_type == CHEST_REQUESTER {
-                    cycle_request(chest);
-                }
+        if input.is_action_just_pressed("set_request") {
+            let target_x = pos.x + get_facing_offset_x();
+            let target_y = pos.y + get_facing_offset_y();
+            let chest = find_chest_at(target_x, target_y);
+            if chest.chest_type == CHEST_REQUESTER {
+                cycle_request(chest);
             }
+        }
 
-            if input.is_action_just_pressed("connect_power") {
-                let target_x = pos.x + get_facing_offset_x();
-                let target_y = pos.y + get_facing_offset_y();
-                connect_to_power_network(target_x, target_y);
+        if input.is_action_just_pressed("connect_power") {
+            let target_x = pos.x + get_facing_offset_x();
+            let target_y = pos.y + get_facing_offset_y();
+            connect_to_power_network(target_x, target_y);
+        }
+
+        if input.is_action_just_pressed("toggle_help") {
+            show_help = !show_help;
+        }
+
+        if input.is_action_just_pressed("pick_up_building") {
+            try_pick_up_building(pos);
+        }
+    }
+
+    micro update_facing_from_movement() {
+        let dx = 0.0;
+        let dy = 0.0;
+        if input.is_action_pressed("move_up") { dy = -1.0; }
+        if input.is_action_pressed("move_down") { dy = 1.0; }
+        if input.is_action_pressed("move_left") { dx = -1.0; }
+        if input.is_action_pressed("move_right") { dx = 1.0; }
+
+        if dx != 0.0 || dy != 0.0 {
+            if abs(dx) > abs(dy) {
+                if dx > 0 { facing_direction = DIR_EAST; }
+                else { facing_direction = DIR_WEST; }
+            }
+            else {
+                if dy > 0 { facing_direction = DIR_SOUTH; }
+                else { facing_direction = DIR_NORTH; }
             }
         }
     }
@@ -115,7 +157,7 @@ scene GameMain {
         chest.request_id = valid_items.get(next_idx);
         chest.request_count = 10;
 
-        console::log($"请求物品已设置：{items.get(next_idx).get("name").as_string()} x{chest.request_count}");
+        console::log($"请求物品已设置：{get_item_name(chest.request_id)} x{chest.request_count}");
     }
 
     micro connect_to_power_network(x: i32, y: i32) {
@@ -137,10 +179,90 @@ scene GameMain {
         }
     }
 
-    micro update_camera() {
-        if player.is_valid {
-            let pos = player.get<GridPosition>();
-            let camera_follow = player.get<CameraFollow>();
+    micro try_pick_up_building(pos: GridPosition) {
+        let target_x = pos.x + get_facing_offset_x();
+        let target_y = pos.y + get_facing_offset_y();
+
+        let belt = find_belt_at(target_x, target_y);
+        if belt.speed > 0.0 {
+            let inventory = player.get<Inventory>();
+            add_item_to_inventory(inventory, ITEM_TRANSPORT_BELT, 1);
+            let entity = find_entity_at(target_x, target_y);
+            if entity.is_valid {
+                destroy_entity(entity);
+                console::log("已拾取传送带");
+            }
+            return;
+        }
+
+        let machine = find_machine_at(target_x, target_y);
+        if machine.machine_type >= 0 {
+            let inventory = player.get<Inventory>();
+            let item_id = machine_type_to_item(machine.machine_type);
+            if item_id != ITEM_NONE {
+                add_item_to_inventory(inventory, item_id, 1);
+                let entity = find_entity_at(target_x, target_y);
+                if entity.is_valid {
+                    destroy_entity(entity);
+                    console::log($"已拾取{get_item_name(item_id)}");
+                }
+            }
+            return;
+        }
+
+        let chest = find_chest_at(target_x, target_y);
+        if chest.chest_type >= 0 {
+            let inventory = player.get<Inventory>();
+            let item_id = chest_type_to_item(chest.chest_type);
+            if item_id != ITEM_NONE {
+                add_item_to_inventory(inventory, item_id, 1);
+                let entity = find_entity_at(target_x, target_y);
+                if entity.is_valid {
+                    destroy_entity(entity);
+                    console::log($"已拾取{get_item_name(item_id)}");
+                }
+            }
+            return;
+        }
+    }
+
+    micro machine_type_to_item(machine_type: i32) -> i32 {
+        if machine_type == MACHINE_FURNACE { return ITEM_FURNACE; }
+        if machine_type == MACHINE_ASSEMBLER { return ITEM_ASSEMBLING_MACHINE; }
+        if machine_type == MACHINE_BOILER { return ITEM_BOILER; }
+        if machine_type == MACHINE_STEAM_ENGINE { return ITEM_STEAM_ENGINE; }
+        return ITEM_NONE;
+    }
+
+    micro chest_type_to_item(chest_type: i32) -> i32 {
+        if chest_type == CHEST_PROVIDER { return ITEM_PROVIDER_CHEST; }
+        if chest_type == CHEST_REQUESTER { return ITEM_REQUESTER_CHEST; }
+        return ITEM_NONE;
+    }
+
+    micro update_camera(delta: f32) {
+        if !player.is_valid {
+            return;
+        }
+
+        let pos = player.get<GridPosition>();
+        let camera_follow = player.get<CameraFollow>();
+
+        let target_x = pos.x as f32 + camera_follow.offset_x;
+        let target_y = pos.y as f32 + camera_follow.offset_y;
+
+        camera_x += (target_x - camera_x) * camera_follow.smoothing;
+        camera_y += (target_y - camera_y) * camera_follow.smoothing;
+
+        camera.set_position_2d(camera_x, camera_y);
+    }
+
+    micro update_help_timer(delta: f32) {
+        if show_help {
+            help_timer += delta;
+            if help_timer > 30.0 {
+                show_help = false;
+            }
         }
     }
 }

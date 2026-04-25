@@ -1,0 +1,177 @@
+struct Vec2 {
+    x: i32;
+    y: i32;
+}
+
+struct Vec2f {
+    x: f32;
+    y: f32;
+}
+
+micro get_material_name(material_id: i32) -> string {
+    if material_id == MATERIAL_BOUNDARY { return "边界"; }
+    if material_id == MATERIAL_SAND { return "沙子"; }
+    if material_id == MATERIAL_DIRT { return "泥土"; }
+    if material_id == MATERIAL_STONE { return "石头"; }
+    if material_id == MATERIAL_WATER { return "水"; }
+    if material_id == MATERIAL_OIL { return "油"; }
+    if material_id == MATERIAL_FIRE { return "火"; }
+    if material_id == MATERIAL_ACID { return "酸"; }
+    if material_id == MATERIAL_LAVA { return "岩浆"; }
+    if material_id == MATERIAL_STEAM { return "蒸汽"; }
+    if material_id == MATERIAL_SMOKE { return "烟"; }
+    if material_id == MATERIAL_ICE { return "冰"; }
+    if material_id == MATERIAL_GOLD { return "金"; }
+    return "空";
+}
+
+micro get_material_color(material_id: i32) -> Vec3 {
+    let elements = asset.load<gonObject>("config/elements.gon");
+    let element_list = elements.get("elements");
+    loop i in range(0, element_list.length()) {
+        let element = element_list.get(i);
+        if element.get("id").as_int() == material_id {
+            let color = element.get("color");
+            return Vec3 {
+                x: color.get("r").as_f32(),
+                y: color.get("g").as_f32(),
+                z: color.get("b").as_f32()
+            };
+        }
+    }
+    return Vec3 { x: 0.0, y: 0.0, z: 0.0 };
+}
+
+micro get_spell_name(spell_id: i32) -> string {
+    if spell_id == SPELL_SPARK_BOLT { return "火花弹"; }
+    if spell_id == SPELL_BOMB { return "炸弹"; }
+    if spell_id == SPELL_WATER_SPRAY { return "水喷射"; }
+    if spell_id == SPELL_TELEPORT { return "传送"; }
+    return "空";
+}
+
+micro get_spell_mana_cost(spell_id: i32) -> f32 {
+    if spell_id == SPELL_SPARK_BOLT { return 10.0; }
+    if spell_id == SPELL_BOMB { return 25.0; }
+    if spell_id == SPELL_WATER_SPRAY { return 5.0; }
+    if spell_id == SPELL_TELEPORT { return 30.0; }
+    return 0.0;
+}
+
+micro get_spell_type(spell_id: i32) -> i32 {
+    if spell_id == SPELL_SPARK_BOLT { return SPELL_TYPE_PROJECTILE; }
+    if spell_id == SPELL_BOMB { return SPELL_TYPE_BOMB; }
+    if spell_id == SPELL_WATER_SPRAY { return SPELL_TYPE_SPRAY; }
+    if spell_id == SPELL_TELEPORT { return SPELL_TYPE_TELEPORT; }
+    return -1;
+}
+
+micro is_material_solid(material_id: i32) -> bool {
+    if material_id == MATERIAL_BOUNDARY { return true; }
+    if material_id == MATERIAL_DIRT { return true; }
+    if material_id == MATERIAL_STONE { return true; }
+    if material_id == MATERIAL_ICE { return true; }
+    if material_id == MATERIAL_GOLD { return true; }
+    return false;
+}
+
+micro is_material_liquid(material_id: i32) -> bool {
+    if material_id == MATERIAL_WATER { return true; }
+    if material_id == MATERIAL_OIL { return true; }
+    if material_id == MATERIAL_ACID { return true; }
+    if material_id == MATERIAL_LAVA { return true; }
+    return false;
+}
+
+micro is_material_gas(material_id: i32) -> bool {
+    if material_id == MATERIAL_FIRE { return true; }
+    if material_id == MATERIAL_STEAM { return true; }
+    if material_id == MATERIAL_SMOKE { return true; }
+    return false;
+}
+
+micro is_material_powder(material_id: i32) -> bool {
+    if material_id == MATERIAL_SAND { return true; }
+    return false;
+}
+
+micro is_material_flammable(material_id: i32) -> bool {
+    if material_id == MATERIAL_OIL { return true; }
+    if material_id == MATERIAL_DIRT { return true; }
+    return false;
+}
+
+micro is_material_corrodible(material_id: i32) -> bool {
+    if material_id == MATERIAL_SAND { return true; }
+    if material_id == MATERIAL_DIRT { return true; }
+    if material_id == MATERIAL_STONE { return true; }
+    if material_id == MATERIAL_ICE { return true; }
+    if material_id == MATERIAL_GOLD { return true; }
+    return false;
+}
+
+micro is_material_meltable(material_id: i32) -> bool {
+    if material_id == MATERIAL_SAND { return true; }
+    if material_id == MATERIAL_DIRT { return true; }
+    if material_id == MATERIAL_ICE { return true; }
+    if material_id == MATERIAL_GOLD { return true; }
+    return false;
+}
+
+micro get_material_density(material_id: i32) -> f32 {
+    if material_id == MATERIAL_BOUNDARY { return 999.0; }
+    if material_id == MATERIAL_SAND { return 1.5; }
+    if material_id == MATERIAL_DIRT { return 1.3; }
+    if material_id == MATERIAL_STONE { return 2.5; }
+    if material_id == MATERIAL_WATER { return 1.0; }
+    if material_id == MATERIAL_OIL { return 0.8; }
+    if material_id == MATERIAL_FIRE { return 0.1; }
+    if material_id == MATERIAL_ACID { return 1.1; }
+    if material_id == MATERIAL_LAVA { return 3.0; }
+    if material_id == MATERIAL_STEAM { return 0.05; }
+    if material_id == MATERIAL_SMOKE { return 0.08; }
+    if material_id == MATERIAL_ICE { return 0.9; }
+    if material_id == MATERIAL_GOLD { return 19.3; }
+    return 0.0;
+}
+
+micro get_material_lifetime(material_id: i32) -> f32 {
+    if material_id == MATERIAL_FIRE { return 1.5; }
+    if material_id == MATERIAL_STEAM { return 4.0; }
+    if material_id == MATERIAL_SMOKE { return 6.0; }
+    return -1.0;
+}
+
+micro get_material_viscosity(material_id: i32) -> f32 {
+    if material_id == MATERIAL_WATER { return 0.1; }
+    if material_id == MATERIAL_OIL { return 0.5; }
+    if material_id == MATERIAL_ACID { return 0.3; }
+    if material_id == MATERIAL_LAVA { return 0.8; }
+    return 0.0;
+}
+
+micro get_explosion_radius(energy: f32) -> i32 {
+    if energy >= EXPLOSION_LARGE_ENERGY {
+        return round(sqrt(energy) * EXPLOSION_RADIUS_MULTIPLIER);
+    }
+    if energy >= EXPLOSION_MEDIUM_ENERGY {
+        return round(sqrt(energy) * EXPLOSION_RADIUS_MULTIPLIER);
+    }
+    return round(sqrt(energy) * EXPLOSION_RADIUS_MULTIPLIER);
+}
+
+micro get_element_for_spell(spell_id: i32) -> i32 {
+    if spell_id == SPELL_SPARK_BOLT { return ELEMENT_FIRE; }
+    if spell_id == SPELL_WATER_SPRAY { return ELEMENT_WATER; }
+    return ELEMENT_NONE;
+}
+
+micro get_material_for_element(element_id: i32) -> i32 {
+    if element_id == ELEMENT_FIRE { return MATERIAL_FIRE; }
+    if element_id == ELEMENT_WATER { return MATERIAL_WATER; }
+    if element_id == ELEMENT_ACID { return MATERIAL_ACID; }
+    if element_id == ELEMENT_ICE { return MATERIAL_ICE; }
+    if element_id == ELEMENT_LAVA { return MATERIAL_LAVA; }
+    if element_id == ELEMENT_OIL { return MATERIAL_OIL; }
+    return MATERIAL_NONE;
+}

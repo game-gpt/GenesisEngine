@@ -1,0 +1,268 @@
+struct Vec2 {
+    x: i32;
+    y: i32;
+}
+
+let facing_direction: i32 = FACING_NORTH;
+
+micro find_belt_at(x: i32, y: i32) -> Belt {
+    let query = Query.all(Belt, GridPosition);
+    <% loop (belt, pos) in query { %>
+        if pos.x == x && pos.y == y {
+            return belt;
+        }
+    <% } %>
+    return Belt {
+        direction: 0, speed: 0.0,
+        item_0_id: ITEM_NONE, item_0_progress: 0.0,
+        item_1_id: ITEM_NONE, item_1_progress: 0.0,
+        item_2_id: ITEM_NONE, item_2_progress: 0.0,
+        item_3_id: ITEM_NONE, item_3_progress: 0.0
+    };
+}
+
+micro find_machine_at(x: i32, y: i32) -> Machine {
+    let query = Query.all(Machine, GridPosition);
+    <% loop (machine, pos) in query { %>
+        if pos.x == x && pos.y == y {
+            return machine;
+        }
+    <% } %>
+    return Machine {
+        machine_type: -1, recipe_id: RECIPE_NONE, progress: 0.0,
+        input_0_id: ITEM_NONE, input_0_count: 0,
+        input_1_id: ITEM_NONE, input_1_count: 0,
+        input_2_id: ITEM_NONE, input_2_count: 0,
+        output_0_id: ITEM_NONE, output_0_count: 0,
+        output_1_id: ITEM_NONE, output_1_count: 0
+    };
+}
+
+micro find_chest_at(x: i32, y: i32) -> LogisticChest {
+    let query = Query.all(LogisticChest, GridPosition);
+    <% loop (chest, pos) in query { %>
+        if pos.x == x && pos.y == y {
+            return chest;
+        }
+    <% } %>
+    return LogisticChest {
+        chest_type: -1,
+        slot_0_id: ITEM_NONE, slot_0_count: 0,
+        slot_1_id: ITEM_NONE, slot_1_count: 0,
+        slot_2_id: ITEM_NONE, slot_2_count: 0,
+        slot_3_id: ITEM_NONE, slot_3_count: 0,
+        request_id: ITEM_NONE, request_count: 0
+    };
+}
+
+micro find_resource_at(x: i32, y: i32) -> ResourceDeposit {
+    let query = Query.all(ResourceDeposit, GridPosition);
+    <% loop (resource, pos) in query { %>
+        if pos.x == x && pos.y == y {
+            return resource;
+        }
+    <% } %>
+    return ResourceDeposit { resource_type: -1, amount: 0, initial_amount: 0 };
+}
+
+micro find_entity_at(x: i32, y: i32) -> Entity {
+    let query = Query.all(GridPosition);
+    <% loop (_, pos) in query { %>
+        if pos.x == x && pos.y == y {
+            return get_entity(pos);
+        }
+    <% } %>
+    let null_entity = create_entity();
+    destroy_entity(null_entity);
+    return null_entity;
+}
+
+micro find_power_network(network_id: i32) -> PowerNetwork {
+    let query = Query.all(PowerNetwork);
+    <% loop (network,) in query { %>
+        if network.network_id == network_id {
+            return network;
+        }
+    <% } %>
+    return PowerNetwork { network_id: -1, total_production: 0.0, total_consumption: 0.0, total_buffer: 0.0, satisfaction: 0.0 };
+}
+
+micro find_requester_at(x: i32, y: i32) -> LogisticChest {
+    let query = Query.all(LogisticChest, GridPosition);
+    <% loop (chest, pos) in query { %>
+        if pos.x == x && pos.y == y && chest.chest_type == CHEST_REQUESTER {
+            return chest;
+        }
+    <% } %>
+    return LogisticChest {
+        chest_type: -1,
+        slot_0_id: ITEM_NONE, slot_0_count: 0,
+        slot_1_id: ITEM_NONE, slot_1_count: 0,
+        slot_2_id: ITEM_NONE, slot_2_count: 0,
+        slot_3_id: ITEM_NONE, slot_3_count: 0,
+        request_id: ITEM_NONE, request_count: 0
+    };
+}
+
+micro get_recipe(recipe_id: i32) -> gonObject {
+    let recipes = asset.load<gonArray>("config/recipes.gon");
+    return recipes.get(recipe_id);
+}
+
+micro get_world_stats() -> WorldStats {
+    let query = Query.all(WorldStats);
+    <% loop (stats,) in query { %>
+        return stats;
+    <% } %>
+    return WorldStats { total_power_production: 0.0, total_power_consumption: 0.0, item_production: 0, play_time: 0.0 };
+}
+
+micro raycast_tile(player_pos: GridPosition, max_distance: f32) -> GridPosition {
+    let aim_x = input.get_aim_x();
+    let aim_y = input.get_aim_y();
+
+    let dx = 0;
+    let dy = 0;
+    if aim_x > 0.3 { dx = 1; }
+    else if aim_x < -0.3 { dx = -1; }
+    if aim_y > 0.3 { dy = 1; }
+    else if aim_y < -0.3 { dy = -1; }
+
+    if dx == 0 && dy == 0 {
+        dx = get_facing_offset_x();
+        dy = get_facing_offset_y();
+    }
+
+    let target_x = player_pos.x + dx;
+    let target_y = player_pos.y + dy;
+    return GridPosition { x: target_x, y: target_y };
+}
+
+micro get_facing_direction() -> i32 {
+    return facing_direction;
+}
+
+micro get_facing_offset_x() -> i32 {
+    if facing_direction == DIR_EAST { return 1; }
+    if facing_direction == DIR_WEST { return -1; }
+    return 0;
+}
+
+micro get_facing_offset_y() -> i32 {
+    if facing_direction == DIR_NORTH { return -1; }
+    if facing_direction == DIR_SOUTH { return 1; }
+    return 0;
+}
+
+micro rotate_facing_direction() {
+    if facing_direction == DIR_NORTH { facing_direction = DIR_EAST; }
+    else if facing_direction == DIR_EAST { facing_direction = DIR_SOUTH; }
+    else if facing_direction == DIR_SOUTH { facing_direction = DIR_WEST; }
+    else if facing_direction == DIR_WEST { facing_direction = DIR_NORTH; }
+}
+
+micro add_item_to_inventory(inventory: Inventory, item_id: i32, count: i32) {
+    let remaining = count;
+
+    loop i in range(0, inventory.slots) {
+        if inventory.item_ids[i] == item_id && inventory.item_counts[i] > 0 {
+            let stack_size = get_item_stack_size(item_id);
+            let can_add = stack_size - inventory.item_counts[i];
+            if can_add > 0 {
+                let add = min(can_add, remaining);
+                inventory.item_counts[i] += add;
+                remaining -= add;
+                if remaining == 0 {
+                    return;
+                }
+            }
+        }
+    }
+
+    loop i in range(0, inventory.slots) {
+        if inventory.item_ids[i] == ITEM_NONE || inventory.item_counts[i] == 0 {
+            inventory.item_ids[i] = item_id;
+            let stack_size = get_item_stack_size(item_id);
+            let add = min(stack_size, remaining);
+            inventory.item_counts[i] = add;
+            remaining -= add;
+            if remaining == 0 {
+                return;
+            }
+        }
+    }
+}
+
+micro remove_item_from_inventory(inventory: Inventory, item_id: i32, count: i32) {
+    let remaining = count;
+    loop i in range(0, inventory.slots) {
+        if inventory.item_ids[i] == item_id {
+            let remove = min(inventory.item_counts[i], remaining);
+            inventory.item_counts[i] -= remove;
+            remaining -= remove;
+            if inventory.item_counts[i] == 0 {
+                inventory.item_ids[i] = ITEM_NONE;
+            }
+            if remaining == 0 {
+                return;
+            }
+        }
+    }
+}
+
+micro get_item_stack_size(item_id: i32) -> i32 {
+    let items = asset.load<gonArray>("config/items.gon");
+    loop i in range(0, items.length()) {
+        let item = items.get(i);
+        if item.get("id").as_int() == item_id {
+            return item.get("stack_size").as_int();
+        }
+    }
+    return 100;
+}
+
+micro get_item_name(item_id: i32) -> string {
+    if item_id == ITEM_NONE { return "空"; }
+    let items = asset.load<gonArray>("config/items.gon");
+    loop i in range(0, items.length()) {
+        let item = items.get(i);
+        if item.get("id").as_int() == item_id {
+            return item.get("name").as_string();
+        }
+    }
+    return "未知";
+}
+
+micro get_item_color(item_id: i32) -> Vec3 {
+    let items = asset.load<gonArray>("config/items.gon");
+    loop i in range(0, items.length()) {
+        let item = items.get(i);
+        if item.get("id").as_int() == item_id {
+            let color = item.get("color");
+            return Vec3 {
+                x: color.get("r").as_f32(),
+                y: color.get("g").as_f32(),
+                z: color.get("b").as_f32()
+            };
+        }
+    }
+    return Vec3 { x: 1.0, y: 1.0, z: 1.0 };
+}
+
+micro get_resource_type_name(resource_type: i32) -> string {
+    if resource_type == RESOURCE_IRON { return "铁矿"; }
+    if resource_type == RESOURCE_COPPER { return "铜矿"; }
+    if resource_type == RESOURCE_COAL { return "煤矿"; }
+    if resource_type == RESOURCE_STONE { return "石矿"; }
+    if resource_type == RESOURCE_OIL { return "油井"; }
+    return "未知";
+}
+
+micro resource_type_to_item(resource_type: i32) -> i32 {
+    if resource_type == RESOURCE_IRON { return ITEM_IRON_ORE; }
+    if resource_type == RESOURCE_COPPER { return ITEM_COPPER_ORE; }
+    if resource_type == RESOURCE_COAL { return ITEM_COAL; }
+    if resource_type == RESOURCE_STONE { return ITEM_STONE; }
+    if resource_type == RESOURCE_OIL { return ITEM_CRUDE_OIL; }
+    return ITEM_NONE;
+}

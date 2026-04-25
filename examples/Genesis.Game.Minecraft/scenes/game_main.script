@@ -2,6 +2,11 @@ scene GameMain {
     let player: Entity;
     let world_seed: u64;
     let daytime_entity: Entity;
+    let camera_x: f32 = 0.0;
+    let camera_y: f32 = 0.0;
+    let camera_z: f32 = 0.0;
+    let show_help: bool = true;
+    let help_timer: f32 = 0.0;
 
     on_load() {
         let config = asset.load<gonObject>("config/world.gon");
@@ -11,11 +16,19 @@ scene GameMain {
         daytime_entity.add(DayTime { time_of_day: 0.25, day_duration: 1200.0, day_count: 1 });
 
         generate_world(world_seed);
+
+        console::log("=== Minecraft Demo ===");
+        console::log("WASD: 移动 | 空格: 跳跃 | Shift: 冲刺");
+        console::log("鼠标左键: 破坏方块 | 鼠标右键: 放置方块");
+        console::log("E: 使用物品 | 1-9: 选择快捷栏");
+        console::log($"Minecraft 世界生成 - 种子: {world_seed}");
     }
 
     on_update(delta: f32) {
         handle_input(delta);
-        update_camera();
+        update_camera(delta);
+        update_daylight();
+        update_help_timer(delta);
     }
 
     micro generate_world(seed: u64) {
@@ -23,18 +36,77 @@ scene GameMain {
     }
 
     micro handle_input(delta: f32) {
-        if player.is_valid {
-            let pos = player.get<BlockPosition>();
-            let vel = player.get<Velocity3D>();
-            vel.vx = 0.0;
-            vel.vz = 0.0;
+        if !player.is_valid {
+            return;
+        }
+
+        let pos = player.get<BlockPosition>();
+        let vel = player.get<Velocity3D>();
+
+        if input.is_action_just_pressed("toggle_help") {
+            show_help = !show_help;
+        }
+
+        if input.is_action_just_pressed("respawn") {
+            let health = player.get<Health>();
+            if health.current <= 0 {
+                health.current = health.max;
+                let spawn_y = find_safe_spawn_y(128, 64);
+                pos.x = 8;
+                pos.y = spawn_y;
+                pos.z = 8;
+                vel.vx = 0.0;
+                vel.vy = 0.0;
+                vel.vz = 0.0;
+                console::log("你已重生！");
+            }
         }
     }
 
-    micro update_camera() {
-        if player.is_valid {
-            let pos = player.get<BlockPosition>();
-            let camera_follow = player.get<CameraFollow3D>();
+    micro find_safe_spawn_y(x: i32, z: i32) -> i32 {
+        loop y in range(255, -1, -1) {
+            if world.is_solid(x, y, z) {
+                return y + 1;
+            }
+        }
+        return 64;
+    }
+
+    micro update_camera(delta: f32) {
+        if !player.is_valid {
+            return;
+        }
+
+        let pos = player.get<BlockPosition>();
+        let camera_follow = player.get<CameraFollow3D>();
+
+        let target_x = pos.x as f32 + camera_follow.offset_x;
+        let target_y = pos.y as f32 + camera_follow.offset_y;
+        let target_z = pos.z as f32 + camera_follow.offset_z;
+
+        camera_x += (target_x - camera_x) * camera_follow.smoothing;
+        camera_y += (target_y - camera_y) * camera_follow.smoothing;
+        camera_z += (target_z - camera_z) * camera_follow.smoothing;
+
+        camera.set_position_3d(camera_x, camera_y, camera_z);
+    }
+
+    micro update_daylight() {
+        if !daytime_entity.is_valid {
+            return;
+        }
+
+        let daytime = daytime_entity.get<DayTime>();
+        let ambient = 0.2 + 0.8 * max(0.0, cos((daytime.time_of_day - 0.25) * 6.2832));
+        camera.set_ambient_light(clamp(ambient, 0.2, 1.0));
+    }
+
+    micro update_help_timer(delta: f32) {
+        if show_help {
+            help_timer += delta;
+            if help_timer > 30.0 {
+                show_help = false;
+            }
         }
     }
 }

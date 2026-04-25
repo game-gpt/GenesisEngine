@@ -1,0 +1,15 @@
+InputActions {
+    actions: [
+        ActionEntry { name: "move_forward", bindings: [{ key: "W" }, { key: "Up" }] },
+        ActionEntry { name: "move_backward", bindings: [{ key: "S" }, { key: "Down" }] },
+        ActionEntry { name: "move_left", bindings: [{ key: "A" }, { key: "Left" }] },
+        ActionEntry { name: "move_right", bindings: [{ key: "D" }, { key: "Right" }] },
+        ActionEntry { name: "jump", bindings: [{ key: "Space" }] },
+        ActionEntry { name: "sprint", bindings: [{ key: "Shift" }] },
+        ActionEntry { name: "place_block", bindings: [{ key: "Mouse1" }] },
+        ActionEntry { name: "break_block", bindings: [{ key: "Mouse0" }] },
+        ActionEntry { name: "use_item", bindings: [{ key: "E" }] },
+        ActionEntry { name: "toggle_help", bindings: [{ key: "H" }] },
+        ActionEntry { name: "respawn", bindings: [{ key: "R" }] }
+    ]
+}
