@@ -1,0 +1,14 @@
+system Movement2D {
+    query: [Position2D, Velocity2D],
+    update: |pos, vel| {
+        pos.x += vel.dx * delta;
+        pos.y += vel.dy * delta;
+    }
+}
+
+system RenderSprites {
+    query: [Position2D, Sprite],
+    update: |pos, sprite| {
+        draw_sprite(sprite.texture, pos.x, pos.y, sprite.width, sprite.height, sprite.layer);
+    }
+}

@@ -1,0 +1,7 @@
+world {
+    seed: 42,
+    width: 256,
+    height: 256,
+    chunk_size: 16,
+    biome: forest
+}

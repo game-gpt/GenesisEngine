@@ -1,0 +1,8 @@
+world {
+    seed: 42,
+    width: 256,
+    height: 64,
+    depth: 256,
+    chunk_size: 16,
+    biome: plains
+}

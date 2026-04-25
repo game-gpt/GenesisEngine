@@ -1,0 +1,30 @@
+component Position3D {
+    x: f32 = 0.0,
+    y: f32 = 0.0,
+    z: f32 = 0.0
+}
+
+component Velocity3D {
+    dx: f32 = 0.0,
+    dy: f32 = 0.0,
+    dz: f32 = 0.0
+}
+
+component VoxelChunk {
+    size: i32 = 16,
+    mesh_dirty: bool = true
+}
+
+component PlayerTag {
+}
+
+component Camera3D {
+    fov: f32 = 70.0,
+    near: f32 = 0.1,
+    far: f32 = 1000.0
+}
+
+component Collider3D {
+    width: f32 = 0.6,
+    height: f32 = 1.8
+}

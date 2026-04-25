@@ -1,0 +1,30 @@
+component Position2D {
+    x: f32 = 0.0,
+    y: f32 = 0.0
+}
+
+component Velocity2D {
+    dx: f32 = 0.0,
+    dy: f32 = 0.0
+}
+
+component Sprite {
+    texture: string = "",
+    width: f32 = 32.0,
+    height: f32 = 32.0,
+    layer: string = "default"
+}
+
+component TileMap {
+    width: i32 = 256,
+    height: i32 = 256,
+    tile_size: f32 = 16.0
+}
+
+component PlayerTag {
+}
+
+component Collider2D {
+    width: f32 = 16.0,
+    height: f32 = 16.0
+}

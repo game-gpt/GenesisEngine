@@ -1,0 +1,24 @@
+scene game_main {
+    entities: [
+        {
+            name: "Player",
+            components: [
+                Position2D { x: 128.0, y: 128.0 },
+                Velocity2D { dx: 0.0, dy: 0.0 },
+                Sprite { texture: "player", width: 16.0, height: 16.0, layer: "foreground" },
+                PlayerTag {},
+                Collider2D { width: 16.0, height: 16.0 }
+            ]
+        },
+        {
+            name: "World",
+            components: [
+                TileMap { width: 256, height: 256, tile_size: 16.0 }
+            ]
+        }
+    ],
+    systems: [
+        Movement2D,
+        RenderSprites
+    ]
+}

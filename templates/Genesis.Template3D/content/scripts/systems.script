@@ -1,0 +1,18 @@
+system Movement3D {
+    query: [Position3D, Velocity3D],
+    update: |pos, vel| {
+        pos.x += vel.dx * delta;
+        pos.y += vel.dy * delta;
+        pos.z += vel.dz * delta;
+    }
+}
+
+system VoxelMeshBuilder {
+    query: [VoxelChunk, Position3D],
+    update: |chunk, pos| {
+        if chunk.mesh_dirty {
+            rebuild_voxel_mesh(pos.x, pos.y, pos.z, chunk.size);
+            chunk.mesh_dirty = false;
+        }
+    }
+}
