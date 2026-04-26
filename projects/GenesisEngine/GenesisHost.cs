@@ -1,5 +1,6 @@
 using Genesis.Attention;
 using Genesis.Collapse;
+using Genesis.Core;
 using Genesis.Integration;
 using Genesis.Integration.Audio;
 using Genesis.Integration.Navigation;
@@ -481,7 +482,7 @@ public class GenesisHost : IDisposable
             return;
         }
 
-        var playerPos = new Core.Position(_camera2D.Position.X, 0, _camera2D.Position.Y);
+        var playerPos = new Position(_camera2D.Position.X, 0, _camera2D.Position.Y);
         _chunkCoordinator.Update(playerPos);
     }
 

@@ -1,3 +1,4 @@
+using Genesis.Core;
 using Genesis.Rendering;
 using Genesis.Spacetime;
 using Xunit;
@@ -11,7 +12,7 @@ public class CollapsedSceneTests
     {
         var entities = new List<IRenderableEntity>();
         var features = new CausalFeatures(new double[] { 0.5, 0.3 });
-        var timestamp = new Core.Timestamp(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        var timestamp = Timestamp.FromUnixTimeSeconds(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
         var scene = new CollapsedScene(entities, features, timestamp, 12345UL);
 
         Assert.Empty(scene.Entities);
@@ -25,13 +26,13 @@ public class CollapsedSceneTests
         var entity = new RenderableEntity(
             new Gnosis.Core.Entity.EntityId(1, 0),
             "Test",
-            new Core.Position(10, 20, 30),
+            new Position(10, 20, 30),
             new CausalFeatures(new double[] { 1.0 }));
 
         var scene = new CollapsedScene(
             new List<IRenderableEntity> { entity },
             CausalFeatures.Zero(4),
-            new Core.Timestamp(DateTimeOffset.UtcNow.ToUnixTimeSeconds()),
+            Timestamp.FromUnixTimeSeconds(DateTimeOffset.UtcNow.ToUnixTimeSeconds()),
             99999UL);
 
         var desc = scene.ToDescription();
@@ -46,7 +47,7 @@ public class CollapsedSceneTests
         var scene = new CollapsedScene(
             new List<IRenderableEntity>(),
             CausalFeatures.Zero(4),
-            new Core.Timestamp(0),
+            Timestamp.FromUnixTimeSeconds(0),
             0UL);
 
         var desc = scene.ToDescription();
@@ -60,7 +61,7 @@ public class RenderableEntityTests
     public void Constructor_SetsProperties()
     {
         var id = new Gnosis.Core.Entity.EntityId(42, 1);
-        var pos = new Core.Position(1, 2, 3);
+        var pos = new Position(1, 2, 3);
         var features = new CausalFeatures(new double[] { 0.5, 0.8 });
         var props = new Dictionary<string, object> { { "key", "value" } };
 
@@ -79,7 +80,7 @@ public class RenderableEntityTests
         var entity = new RenderableEntity(
             new Gnosis.Core.Entity.EntityId(1, 0),
             "T",
-            Core.Position.Zero,
+            Position.Zero,
             CausalFeatures.Zero(1));
 
         Assert.Empty(entity.Properties);

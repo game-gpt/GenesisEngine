@@ -1,3 +1,4 @@
+using Genesis.Core;
 using Genesis.World;
 using Xunit;
 
@@ -57,7 +58,7 @@ public class SimpleNoiseGeneratorTests
     public void GenerateNoiseMap_ReturnsCorrectSize()
     {
         var gen = new SimpleNoiseGenerator(42);
-        var bounds = new Core.Bounds(0, 0, 0, 100, 100, 0);
+        var bounds = new Bounds(0, 0, 0, 100, 100, 0);
         var map = gen.GenerateNoiseMap(bounds, 64, 42);
         Assert.Equal(64 * 64, map.Length);
     }

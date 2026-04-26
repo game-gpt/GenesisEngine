@@ -1,7 +1,9 @@
 using Gnosis.Asset.Format;
 using Gnosis.Core.Platform;
+using Gnosis.Platform;
 using Gnosis.Toolchain.AssetPipeline;
 using Gnosis.Toolchain.Cooker.Cook;
+using PlatformInfo = Gnosis.Platform.Platform;
 
 namespace Genesis.Toolchain;
 
@@ -69,11 +71,12 @@ public sealed class GenesisBuildPipeline : IDisposable
 
         var assetResult = await _assetPipeline.BuildAsync(cancellationToken);
 
+        var targetPlatform = ToPlatformInfo(options.TargetPlatform);
         var cookOptions = new CookOptions
         {
-            TargetPlatform = options.TargetPlatform,
-            TextureCompression = _cooker.GetDefaultTextureCompression(options.TargetPlatform),
-            AudioEncoding = _cooker.GetDefaultAudioEncoding(options.TargetPlatform),
+            TargetPlatform = targetPlatform,
+            TextureCompression = _cooker.GetDefaultTextureCompression(targetPlatform.ISA),
+            AudioEncoding = _cooker.GetDefaultAudioEncoding(targetPlatform.OS),
             StripDebugInfo = options.StripDebugInfo,
             EnableCompression = options.EnableCompression,
             EnableEncryption = options.EnableEncryption
@@ -130,6 +133,24 @@ public sealed class GenesisBuildPipeline : IDisposable
     {
         _assetPipeline?.InvalidateAll();
     }
+
+    #endregion
+
+    #region 私有方法
+
+    private static PlatformInfo ToPlatformInfo(PlatformType type) => type switch
+    {
+        PlatformType.Windows => new PlatformInfo { OS = PlatformOS.Windows, ISA = PlatformISA.X64 },
+        PlatformType.Linux => new PlatformInfo { OS = PlatformOS.Linux, ISA = PlatformISA.X64 },
+        PlatformType.macOS => new PlatformInfo { OS = PlatformOS.macOS, ISA = PlatformISA.X64 },
+        PlatformType.iOS => new PlatformInfo { OS = PlatformOS.iOS, ISA = PlatformISA.Arm64 },
+        PlatformType.Android => new PlatformInfo { OS = PlatformOS.Android, ISA = PlatformISA.Arm64 },
+        PlatformType.WebAssembly => new PlatformInfo { OS = PlatformOS.Web, ISA = PlatformISA.Wasm },
+        PlatformType.PlayStation => new PlatformInfo { OS = PlatformOS.PlayStation, ISA = PlatformISA.X64 },
+        PlatformType.Xbox => new PlatformInfo { OS = PlatformOS.Xbox, ISA = PlatformISA.X64 },
+        PlatformType.Switch => new PlatformInfo { OS = PlatformOS.Switch, ISA = PlatformISA.Arm64 },
+        _ => new PlatformInfo { OS = PlatformOS.Windows, ISA = PlatformISA.X64 }
+    };
 
     #endregion
 

@@ -1,4 +1,5 @@
 using Genesis.Collapse;
+using Genesis.Core;
 using Genesis.World;
 using Xunit;
 
@@ -10,7 +11,7 @@ public class SimpleWFCGeneratorTests
     public void GenerateTilemap_ReturnsNonZeroHash()
     {
         var gen = new SimpleWFCGenerator();
-        var regionId = Core.RegionId.New();
+        var regionId = RegionId.New();
         var hash = gen.GenerateTilemap(regionId, 8, 8, 42);
         Assert.NotEqual(0UL, hash);
     }
@@ -19,7 +20,7 @@ public class SimpleWFCGeneratorTests
     public void ValidateTilemap_ExistingHash_ReturnsTrue()
     {
         var gen = new SimpleWFCGenerator();
-        var regionId = Core.RegionId.New();
+        var regionId = RegionId.New();
         var hash = gen.GenerateTilemap(regionId, 8, 8, 42);
         Assert.True(gen.ValidateTilemap(hash));
     }
@@ -55,7 +56,7 @@ public class SimpleWorldGeneratorTests
         var noise = new SimpleNoiseGenerator(42);
         var wfc = new SimpleWFCGenerator();
         var gen = new SimpleWorldGenerator(noise, wfc);
-        var regionId = Core.RegionId.New();
+        var regionId = RegionId.New();
         var hash = gen.GenerateRegion(regionId, 42);
         Assert.NotEqual(0UL, hash);
     }
@@ -66,7 +67,7 @@ public class SimpleWorldGeneratorTests
         var noise = new SimpleNoiseGenerator(42);
         var wfc = new SimpleWFCGenerator();
         var gen = new SimpleWorldGenerator(noise, wfc);
-        var regionId = Core.RegionId.New();
+        var regionId = RegionId.New();
         var hash = gen.GenerateRegion(regionId, 42);
         Assert.True(gen.ValidateRegion(regionId, hash));
     }
@@ -107,7 +108,7 @@ public class SimpleWorldGeneratorTests
         var noise = new SimpleNoiseGenerator(42);
         var wfc = new SimpleWFCGenerator();
         var gen = new SimpleWorldGenerator(noise, wfc);
-        var regionId = Core.RegionId.New();
+        var regionId = RegionId.New();
         gen.SetBiome(regionId, BiomeType.Volcanic);
         Assert.Equal(BiomeType.Volcanic, gen.GetBiome(regionId));
     }
