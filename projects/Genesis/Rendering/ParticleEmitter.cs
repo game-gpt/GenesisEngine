@@ -1,0 +1,130 @@
+namespace Genesis.Rendering;
+
+public readonly record struct ParticleEmitter(
+    float EmitRate,
+    float Lifetime,
+    float Speed,
+    float SpeedVariance,
+    float Size,
+    float SizeVariance,
+    float DirectionX,
+    float DirectionY,
+    float DirectionVariance,
+    float GravityX,
+    float GravityY,
+    float StartColorR,
+    float StartColorG,
+    float StartColorB,
+    float StartColorA,
+    float EndColorR,
+    float EndColorG,
+    float EndColorB,
+    float EndColorA,
+    int MaxParticles,
+    bool IsLooping,
+    float Duration)
+{
+    public static ParticleEmitter Default => new()
+    {
+        EmitRate = 10f,
+        Lifetime = 2f,
+        Speed = 50f,
+        SpeedVariance = 10f,
+        Size = 4f,
+        SizeVariance = 2f,
+        DirectionX = 0f,
+        DirectionY = -1f,
+        DirectionVariance = 0.5f,
+        GravityX = 0f,
+        GravityY = 0f,
+        StartColorR = 1f,
+        StartColorG = 1f,
+        StartColorB = 1f,
+        StartColorA = 1f,
+        EndColorR = 1f,
+        EndColorG = 1f,
+        EndColorB = 1f,
+        EndColorA = 0f,
+        MaxParticles = 100,
+        IsLooping = true,
+        Duration = 5f
+    };
+
+    public static ParticleEmitter Fire => new()
+    {
+        EmitRate = 30f,
+        Lifetime = 0.8f,
+        Speed = 40f,
+        SpeedVariance = 15f,
+        Size = 6f,
+        SizeVariance = 3f,
+        DirectionX = 0f,
+        DirectionY = -1f,
+        DirectionVariance = 0.3f,
+        GravityX = 0f,
+        GravityY = -20f,
+        StartColorR = 1f,
+        StartColorG = 0.8f,
+        StartColorB = 0.2f,
+        StartColorA = 1f,
+        EndColorR = 0.8f,
+        EndColorG = 0.1f,
+        EndColorB = 0f,
+        EndColorA = 0f,
+        MaxParticles = 200,
+        IsLooping = true,
+        Duration = 5f
+    };
+
+    public static ParticleEmitter Smoke => new()
+    {
+        EmitRate = 5f,
+        Lifetime = 3f,
+        Speed = 20f,
+        SpeedVariance = 5f,
+        Size = 8f,
+        SizeVariance = 4f,
+        DirectionX = 0f,
+        DirectionY = -1f,
+        DirectionVariance = 0.2f,
+        GravityX = 0f,
+        GravityY = -5f,
+        StartColorR = 0.5f,
+        StartColorG = 0.5f,
+        StartColorB = 0.5f,
+        StartColorA = 0.6f,
+        EndColorR = 0.3f,
+        EndColorG = 0.3f,
+        EndColorB = 0.3f,
+        EndColorA = 0f,
+        MaxParticles = 50,
+        IsLooping = true,
+        Duration = 5f
+    };
+
+    public static ParticleEmitter Explosion => new()
+    {
+        EmitRate = 100f,
+        Lifetime = 0.5f,
+        Speed = 100f,
+        SpeedVariance = 50f,
+        Size = 5f,
+        SizeVariance = 3f,
+        DirectionX = 0f,
+        DirectionY = 0f,
+        DirectionVariance = 1f,
+        GravityX = 0f,
+        GravityY = 30f,
+        StartColorR = 1f,
+        StartColorG = 0.9f,
+        StartColorB = 0.3f,
+        StartColorA = 1f,
+        EndColorR = 0.6f,
+        EndColorG = 0.1f,
+        EndColorB = 0f,
+        EndColorA = 0f,
+        MaxParticles = 300,
+        IsLooping = false,
+        Duration = 0.5f
+    };
+}

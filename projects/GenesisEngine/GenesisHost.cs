@@ -1,9 +1,14 @@
+using Genesis.Attention;
+using Genesis.Collapse;
 using Genesis.Integration;
 using Genesis.Integration.Audio;
 using Genesis.Integration.Navigation;
 using Genesis.Integration.Physics;
 using Genesis.Integration.Rendering;
+using Genesis.Rendering;
 using Genesis.Runtime;
+using Genesis.Spacetime;
+using Genesis.World;
 using Gnosis.ECS.World;
 using Gnosis.Graphic.Pipeline;
 using Gnosis.Graphic.RHI;
@@ -69,6 +74,16 @@ public class GenesisHost : IDisposable
 
     #endregion
 
+    #region 世界生成
+
+    private SpacetimeTree? _spacetimeTree;
+    private SimpleAttentionManager? _attentionManager;
+    private ChunkCoordinator? _chunkCoordinator;
+    private SceneCollapser? _sceneCollapser;
+    private PostProcessPipeline? _postProcessPipeline;
+
+    #endregion
+
     #region 属性 - 2D 子系统
 
     public Graphic2DIntegration Graphic2D => _graphic2D ?? throw new InvalidOperationException("引擎未初始化");
@@ -102,6 +117,14 @@ public class GenesisHost : IDisposable
     public Camera2D? Camera2D => _camera2D;
     public InputSystem? InputSystem => _inputSystem;
     public ScriptRuntime? ScriptRuntime => _scriptRuntime;
+
+    #endregion
+
+    #region 属性 - 世界生成
+
+    public ChunkCoordinator? ChunkCoordinator => _chunkCoordinator;
+    public PostProcessPipeline? PostProcessPipeline => _postProcessPipeline;
+    public SceneCollapser? SceneCollapser => _sceneCollapser;
 
     #endregion
 
@@ -169,6 +192,8 @@ public class GenesisHost : IDisposable
 
         _scriptRuntime = new ScriptRuntime();
         _scriptRuntime.Initialize(_world);
+
+        InitializeWorldGeneration();
 
         _isRunning = true;
         _lastFrameTime = DateTime.UtcNow;
@@ -287,6 +312,19 @@ public class GenesisHost : IDisposable
         _gl.ClearColor(r, g, b, 1.0f);
         _gl.Clear(GLContext.ColorBufferBit | GLContext.DepthBufferBit);
 
+        if (_graphic2D is not null && _graphic2D.IsInitialized)
+        {
+            var cameraOffset = System.Numerics.Vector2.Zero;
+            if (_camera2D is not null)
+            {
+                cameraOffset = new System.Numerics.Vector2(_camera2D.Position.X, _camera2D.Position.Y);
+            }
+
+            _graphic2D.BeginFrame();
+            _graphic2D.RenderWithCamera(cameraOffset);
+            _graphic2D.EndFrame();
+        }
+
         _window?.SwapBuffers();
     }
 
@@ -401,6 +439,50 @@ public class GenesisHost : IDisposable
         }
 
         _render3D?.Update(delta);
+
+        UpdateWorldGeneration(delta);
+    }
+
+    #endregion
+
+    #region 私有方法 - 世界生成
+
+    private void InitializeWorldGeneration()
+    {
+        _spacetimeTree = new SpacetimeTree();
+        var attentionModel = new SimpleAttentionModel();
+        _attentionManager = new SimpleAttentionManager(_spacetimeTree, attentionModel);
+
+        var noiseGenerator = new SimpleNoiseGenerator(_worldSeed);
+        var wfcGenerator = new SimpleWFCGenerator();
+        var worldGenerator = new SimpleWorldGenerator(noiseGenerator, wfcGenerator);
+
+        _chunkCoordinator = new ChunkCoordinator(
+            worldGenerator,
+            noiseGenerator,
+            _spacetimeTree,
+            _worldSeed,
+            chunkSize: 32,
+            loadRadius: 4,
+            unloadRadius: 6,
+            attentionManager: _attentionManager);
+
+        _sceneCollapser = new SceneCollapser(_spacetimeTree, _attentionManager);
+        _postProcessPipeline = new PostProcessPipeline();
+        _postProcessPipeline.ApplyPreset(PostProcessPreset.Default);
+
+        Console.WriteLine("[Genesis] 世界生成系统初始化完成 - 区块大小 32, 加载半径 4");
+    }
+
+    private void UpdateWorldGeneration(float delta)
+    {
+        if (_chunkCoordinator is null || _camera2D is null)
+        {
+            return;
+        }
+
+        var playerPos = new Core.Position(_camera2D.Position.X, 0, _camera2D.Position.Y);
+        _chunkCoordinator.Update(playerPos);
     }
 
     #endregion
