@@ -1,6 +1,6 @@
-using System.Text;
-using GnosisEcsWorld = Gnosis.ECS.World.World;
 using Gnosis.Runtime.VM;
+using Gnosis.Toolchain.ScriptCompiler;
+using GnosisEcsWorld = Gnosis.ECS.World.World;
 
 namespace Genesis.Runtime;
 
@@ -13,7 +13,9 @@ public sealed class ScriptRuntime
     private NativeFunctionRegistry _nativeRegistry;
     private ComponentTypeRegistry _componentRegistry;
     private GnosisEcsWorld? _world;
+    private Compiler _compiler;
     private bool _initialized;
+    private int _loadedModuleCount;
 
     #endregion
 
@@ -22,6 +24,7 @@ public sealed class ScriptRuntime
     public VMState? State => _state;
     public VMInterpreter? VM => _vm;
     public bool IsInitialized => _initialized;
+    public int LoadedModuleCount => _loadedModuleCount;
 
     #endregion
 
@@ -31,6 +34,7 @@ public sealed class ScriptRuntime
     {
         _nativeRegistry = new NativeFunctionRegistry();
         _componentRegistry = new ComponentTypeRegistry();
+        _compiler = new Compiler();
     }
 
     #endregion
@@ -42,6 +46,7 @@ public sealed class ScriptRuntime
         _world = world;
         _state = new VMState();
         _vm = new VMInterpreter(_state, _nativeRegistry, _componentRegistry, world);
+        _loadedModuleCount = 0;
         _initialized = true;
     }
 
@@ -95,10 +100,18 @@ public sealed class ScriptRuntime
             Console.WriteLine($"  - {Path.GetRelativePath(directory, file)}");
         }
 
-        Console.WriteLine("[ScriptRuntime] 脚本编译需要 Gnosis.Toolchain（等待 03-Oak-Language-Frontend 团队完成 AST 类型定义）");
-        Console.WriteLine("[ScriptRuntime] 当前以 ECS World 模式运行，脚本内容将在 Toolchain 就绪后启用");
+        var allSuccess = true;
+        foreach (var file in scriptFiles)
+        {
+            var source = File.ReadAllText(file);
+            var success = LoadScriptSource(source, file);
+            if (!success)
+            {
+                allSuccess = false;
+            }
+        }
 
-        return true;
+        return allSuccess;
     }
 
     public bool LoadScriptSource(string source, string filePath)
@@ -108,10 +121,35 @@ public sealed class ScriptRuntime
             throw new InvalidOperationException("ScriptRuntime 未初始化，请先调用 Initialize()");
         }
 
-        Console.WriteLine($"[ScriptRuntime] 脚本编译需要 Gnosis.Toolchain（等待 03-Oak-Language-Frontend 团队完成 AST 类型定义）");
-        Console.WriteLine($"[ScriptRuntime] 跳过编译: {filePath}");
+        var moduleName = Path.GetFileNameWithoutExtension(filePath);
 
-        return true;
+        try
+        {
+            var macros = new ChannelMacros();
+            var result = _compiler.CompileSource(
+                source,
+                filePath,
+                ArchTarget.X64,
+                macros);
+
+            if (result.Bytecode.Length == 0)
+            {
+                Console.WriteLine($"[ScriptRuntime] 编译失败（空字节码）: {filePath}");
+                return false;
+            }
+
+            var module = new RawBytecodeModule(moduleName, result.Bytecode);
+            _state!.LoadModule(module);
+            _loadedModuleCount++;
+
+            Console.WriteLine($"[ScriptRuntime] 编译并加载成功: {moduleName} ({result.Bytecode.Length} 字节)");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ScriptRuntime] 编译错误 [{filePath}]: {ex.Message}");
+            return false;
+        }
     }
 
     #endregion
@@ -122,6 +160,12 @@ public sealed class ScriptRuntime
     {
         if (!_initialized || _vm is null)
         {
+            return;
+        }
+
+        if (_loadedModuleCount == 0)
+        {
+            Console.WriteLine("[ScriptRuntime] 未加载任何模块，跳过 VM 执行");
             return;
         }
 
@@ -137,7 +181,7 @@ public sealed class ScriptRuntime
 
     public void Tick(float delta)
     {
-        if (!_initialized || _vm is null || _world is null)
+        if (!_initialized || _world is null)
         {
             return;
         }
@@ -159,7 +203,33 @@ public sealed class ScriptRuntime
     public void Shutdown()
     {
         _initialized = false;
+        _loadedModuleCount = 0;
         _state?.Reset();
+    }
+
+    #endregion
+
+    #region 内部类型
+
+    private sealed class RawBytecodeModule : IModule
+    {
+        public string Name { get; }
+        public IReadOnlyList<byte> Instructions { get; }
+        public IReadOnlyDictionary<string, int> NativeBindings { get; } = new Dictionary<string, int>();
+        public int EntryPoint => 0;
+        public IReadOnlyDictionary<string, object?> Constants { get; } = new Dictionary<string, object?>();
+        public IReadOnlyList<string> ExportedSymbols { get; } = new List<string>();
+        public IReadOnlyList<string> ImportedSymbols { get; } = new List<string>();
+        public int Version => 1;
+        public bool IsValid => Instructions.Count > 0;
+        public IReadOnlyList<ModuleFunctionInfo> Functions { get; } = new List<ModuleFunctionInfo>();
+        public IReadOnlyList<ModuleTypeInfo> Types { get; } = new List<ModuleTypeInfo>();
+
+        public RawBytecodeModule(string name, byte[] bytecode)
+        {
+            Name = name;
+            Instructions = bytecode;
+        }
     }
 
     #endregion

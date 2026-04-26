@@ -31,11 +31,11 @@
         <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Database\Gnosis.Database.csproj" />
         <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Runtime\Gnosis.Runtime.csproj" />
         <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Input\Gnosis.Input.csproj" />
+        <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Toolchain\Gnosis.Toolchain.csproj" />
+        <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.VM\Gnosis.VM.csproj" />
     </ItemGroup>
 
   <ItemGroup>
-    <Compile Remove="Persistence\SolidHistoryStore.cs" />
-    <Compile Remove="Persistence\IRepository.cs" />
     <Compile Remove="tests\**" />
   </ItemGroup>
 

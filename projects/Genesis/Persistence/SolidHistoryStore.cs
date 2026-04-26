@@ -1,4 +1,4 @@
-using SolidDB.Core;
+using Gnosis.Database.Core;
 
 namespace Genesis.Persistence;
 
@@ -6,7 +6,7 @@ public sealed class SolidHistoryStore : IHistoryStore, IAsyncDisposable
 {
     #region 字段
 
-    private readonly SolidDB.SolidDatabase _db;
+    private readonly IKvDatabase _db;
     private bool _disposed;
 
     #endregion
@@ -15,10 +15,16 @@ public sealed class SolidHistoryStore : IHistoryStore, IAsyncDisposable
 
     public SolidHistoryStore(string path = ".genesis/history")
     {
-        _db = new SolidDB.SolidDatabase(new SolidOptions
+        var options = new DatabaseOptions
         {
             Path = path
-        });
+        };
+        _db = new GenesisKvDatabase(options);
+    }
+
+    public SolidHistoryStore(IKvDatabase database)
+    {
+        _db = database;
     }
 
     #endregion
@@ -29,8 +35,8 @@ public sealed class SolidHistoryStore : IHistoryStore, IAsyncDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var key = SolidKey.FromUInt64(historyHash);
-        var value = new SolidValue(data);
+        var key = DatabaseKey.FromUInt64(historyHash);
+        var value = new DatabaseValue(data);
         await _db.PutAsync(key, value);
     }
 
@@ -38,21 +44,21 @@ public sealed class SolidHistoryStore : IHistoryStore, IAsyncDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var key = SolidKey.FromUInt64(historyHash);
-        var result = await _db.GetAsync<SolidValue>(key);
-        if (result.IsEmpty)
+        var key = DatabaseKey.FromUInt64(historyHash);
+        var result = await _db.GetAsync(key);
+        if (!result.HasValue)
         {
             return null;
         }
 
-        return result.Bytes.ToArray();
+        return result.Value.Bytes.ToArray();
     }
 
     public async Task<bool> ExistsAsync(ulong historyHash)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var key = SolidKey.FromUInt64(historyHash);
+        var key = DatabaseKey.FromUInt64(historyHash);
         return await _db.ExistsAsync(key);
     }
 
@@ -96,7 +102,8 @@ public sealed class SolidHistoryStore : IHistoryStore, IAsyncDisposable
         if (_disposed) return;
         _disposed = true;
 
-        await _db.DisposeAsync();
+        _db.Dispose();
+        await ValueTask.CompletedTask;
     }
 
     #endregion
