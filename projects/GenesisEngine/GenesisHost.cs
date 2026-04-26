@@ -13,9 +13,9 @@ using Gnosis.Graphic.Texture;
 using Gnosis.Graphic.Window;
 using Gnosis.Input.Device;
 using Gnosis.Input.Simulate;
-using Gnosis.Platform;
-using Gnosis.Platform.GL;
-using Gnosis.Platform.Win32;
+using Gnosis.Platform.Window;
+using Gnosis.Platform.Window.GL;
+using Gnosis.Platform.Window.Win32;
 
 namespace GenesisEngine;
 
