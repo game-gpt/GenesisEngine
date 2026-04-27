@@ -1,4 +1,5 @@
 using Genesis.Attention;
+using Genesis.Causal;
 using Genesis.Core;
 using Genesis.Integration.AI2D;
 using Genesis.Integration.Audio;
@@ -10,6 +11,7 @@ using Genesis.Integration.Physics2D;
 using Genesis.Integration.Rendering;
 using Genesis.Integration.Rendering2D;
 using Genesis.Rendering;
+using Genesis.Rules;
 using Genesis.Runtime;
 using GenesisEngine.Rendering;
 using Genesis.Spacetime;
@@ -581,7 +583,35 @@ public class GenesisHost : IDisposable
         _postProcessPipeline = new PostProcessPipeline();
         _postProcessPipeline.ApplyPreset(PostProcessPreset.Default);
 
+        BindEmergentEngineToScriptRuntime();
+
         Console.WriteLine("[Genesis] 世界生成系统初始化完成 - 区块大小 32, 加载半径 4");
+    }
+
+    private void BindEmergentEngineToScriptRuntime()
+    {
+        if (_scriptRuntime is null || !_scriptRuntime.IsInitialized)
+        {
+            return;
+        }
+
+        if (_spacetimeTree is not null)
+        {
+            _scriptRuntime.BindSpacetimeTree(_spacetimeTree);
+        }
+
+        if (_attentionManager is not null)
+        {
+            _scriptRuntime.BindAttentionManager(_attentionManager);
+        }
+
+        var causalGraph = new CausalGraph();
+        _scriptRuntime.BindCausalGraph(causalGraph);
+
+        var ruleEngine = new SimpleRuleEngine();
+        _scriptRuntime.BindRuleEngine(ruleEngine);
+
+        Console.WriteLine("[Genesis] 涌现叙事引擎已绑定到脚本运行时");
     }
 
     private void UpdateWorldGeneration(float delta)

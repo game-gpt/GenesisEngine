@@ -1,5 +1,6 @@
 using Genesis.Attention;
 using Genesis.Causal;
+using Genesis.Core;
 using Genesis.Rules;
 using Genesis.Spacetime;
 using Gnosis.Core;
@@ -13,6 +14,7 @@ public sealed class EmergentNativeBridge
     #region 常量
 
     private const int BaseId = 10000;
+    private const ulong DefaultWorldSeed = 42;
 
     #endregion
 
@@ -24,6 +26,7 @@ public sealed class EmergentNativeBridge
     private SimpleAttentionManager? _attentionManager;
     private SimpleRuleEngine? _ruleEngine;
     private Gnosis.ECS.World.World? _world;
+    private ulong _worldSeed;
 
     #endregion
 
@@ -53,6 +56,12 @@ public sealed class EmergentNativeBridge
         set => _ruleEngine = value;
     }
 
+    public ulong WorldSeed
+    {
+        get => _worldSeed;
+        set => _worldSeed = value;
+    }
+
     #endregion
 
     #region 构造函数
@@ -60,6 +69,7 @@ public sealed class EmergentNativeBridge
     public EmergentNativeBridge(NativeFunctionRegistry registry)
     {
         _registry = registry;
+        _worldSeed = DefaultWorldSeed;
     }
 
     #endregion
@@ -92,9 +102,9 @@ public sealed class EmergentNativeBridge
             var z = (float)args[2].FloatValue;
 
             var position = new Position(x, y, z);
-            var hasher = new SpatialHasher();
-            var hash = hasher.ComputeHash(position, NodeLevel.L0);
-            var node = new HChunkNode(hash, position, NodeLevel.L0);
+            var hash = SpatialHasher.ComputeSpatialHash(position, NodeLevel.L0, _worldSeed);
+            var bounds = new Bounds(x - 0.5, y - 0.5, z - 0.5, x + 0.5, y + 0.5, z + 0.5);
+            var node = new HChunkNode(hash, NodeLevel.L0, bounds, _worldSeed);
             _spacetimeTree.InsertNode(node);
 
             return GGValue.FromBool(true);
@@ -134,23 +144,14 @@ public sealed class EmergentNativeBridge
             var z = (float)args[2].FloatValue;
 
             var position = new Position(x, y, z);
-            var hasher = new SpatialHasher();
-            var hash = hasher.ComputeHash(position, NodeLevel.L0);
+            var hash = SpatialHasher.ComputeSpatialHash(position, NodeLevel.L0, _worldSeed);
 
-            return GGValue.FromBool(_spacetimeTree.RemoveNode(hash));
+            _spacetimeTree.RemoveNode(hash);
+
+            return GGValue.FromBool(true);
         }));
 
-        _registry.Register(new SimpleNativeFunction(BaseId + 4, "spacetime_node_count", 0, (vm, args) =>
-        {
-            if (_spacetimeTree is null)
-            {
-                return GGValue.FromInt(0);
-            }
-
-            return GGValue.FromInt(_spacetimeTree.NodeCount);
-        }));
-
-        _registry.Register(new SimpleNativeFunction(BaseId + 5, "spacetime_get_history_hash", 3, (vm, args) =>
+        _registry.Register(new SimpleNativeFunction(BaseId + 4, "spacetime_get_history_hash", 3, (vm, args) =>
         {
             if (_spacetimeTree is null)
             {
@@ -214,31 +215,47 @@ public sealed class EmergentNativeBridge
         {
             if (_causalGraph is null)
             {
-                return GGValue.FromArray(new GGArray());
+                return GGValue.FromArray(new GGArray(0));
             }
 
             var nodeId = args[0].StringValue?.Value ?? "";
-            var descendants = _causalGraph.TraceForward(nodeId);
-            var values = descendants.Select(d => GGValue.FromString(new GGString(d))).ToArray();
+            var chains = _causalGraph.TraceForward(nodeId);
+            var values = chains
+                .SelectMany(c => c.Nodes.Select(n => GGValue.FromString(new GGString(n.Id))))
+                .ToList();
 
-            return GGValue.FromArray(new GGArray(values));
+            var arr = new GGArray(values.Count);
+            foreach (var v in values)
+            {
+                arr.Add(v);
+            }
+
+            return GGValue.FromArray(arr);
         }));
 
         _registry.Register(new SimpleNativeFunction(BaseId + 103, "causal_trace_backward", 1, (vm, args) =>
         {
             if (_causalGraph is null)
             {
-                return GGValue.FromArray(new GGArray());
+                return GGValue.FromArray(new GGArray(0));
             }
 
             var nodeId = args[0].StringValue?.Value ?? "";
-            var ancestors = _causalGraph.TraceBackward(nodeId);
-            var values = ancestors.Select(a => GGValue.FromString(new GGString(a))).ToArray();
+            var chains = _causalGraph.TraceBackward(nodeId);
+            var values = chains
+                .SelectMany(c => c.Nodes.Select(n => GGValue.FromString(new GGString(n.Id))))
+                .ToList();
 
-            return GGValue.FromArray(new GGArray(values));
+            var arr = new GGArray(values.Count);
+            foreach (var v in values)
+            {
+                arr.Add(v);
+            }
+
+            return GGValue.FromArray(arr);
         }));
 
-        _registry.Register(new SimpleNativeFunction(BaseId + 104, "causal_find_root_cause", 1, (vm, args) =>
+        _registry.Register(new SimpleNativeFunction(BaseId + 104, "causal_get_root_causes", 1, (vm, args) =>
         {
             if (_causalGraph is null)
             {
@@ -246,14 +263,14 @@ public sealed class EmergentNativeBridge
             }
 
             var nodeId = args[0].StringValue?.Value ?? "";
-            var rootId = _causalGraph.FindRootCause(nodeId);
+            var roots = _causalGraph.GetRootCauses(nodeId);
 
-            if (rootId is null)
+            if (roots.Count == 0)
             {
                 return GGValue.Null;
             }
 
-            return GGValue.FromString(new GGString(rootId));
+            return GGValue.FromString(new GGString(roots[0].Id));
         }));
 
         _registry.Register(new SimpleNativeFunction(BaseId + 105, "causal_node_count", 0, (vm, args) =>
@@ -335,28 +352,14 @@ public sealed class EmergentNativeBridge
             var z = (float)args[2].FloatValue;
             var radius = (float)args[3].FloatValue;
 
-            var point = new InterestPoint(new Position(x, y, z), radius, 1.0);
+            var id = (ulong)DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var point = new InterestPoint(id, new Position(x, y, z), radius, 1.0, "script");
             _attentionManager.AddInterestPoint(point);
 
             return GGValue.FromBool(true);
         }));
 
-        _registry.Register(new SimpleNativeFunction(BaseId + 202, "attention_remove_interest_point", 3, (vm, args) =>
-        {
-            if (_attentionManager is null)
-            {
-                return GGValue.FromBool(false);
-            }
-
-            var x = (float)args[0].FloatValue;
-            var y = (float)args[1].FloatValue;
-            var z = (float)args[2].FloatValue;
-
-            _attentionManager.RemoveInterestPoint(new Position(x, y, z));
-            return GGValue.FromBool(true);
-        }));
-
-        _registry.Register(new SimpleNativeFunction(BaseId + 203, "attention_high_attention_count", 0, (vm, args) =>
+        _registry.Register(new SimpleNativeFunction(BaseId + 202, "attention_high_attention_count", 0, (vm, args) =>
         {
             if (_attentionManager is null)
             {
@@ -367,7 +370,7 @@ public sealed class EmergentNativeBridge
             return GGValue.FromInt(nodes.Count);
         }));
 
-        _registry.Register(new SimpleNativeFunction(BaseId + 204, "attention_set_player_position", 3, (vm, args) =>
+        _registry.Register(new SimpleNativeFunction(BaseId + 203, "attention_set_player_position", 3, (vm, args) =>
         {
             if (_attentionManager is null)
             {
@@ -378,7 +381,7 @@ public sealed class EmergentNativeBridge
             var y = (float)args[1].FloatValue;
             var z = (float)args[2].FloatValue;
 
-            _attentionManager.UpdatePlayerPosition(new Position(x, y, z));
+            _attentionManager.UpdateAttention(new Position(x, y, z), new Position(0, 0, 1));
             return GGValue.FromBool(true);
         }));
     }
@@ -389,7 +392,7 @@ public sealed class EmergentNativeBridge
 
     private void RegisterRuleFunctions()
     {
-        _registry.Register(new SimpleNativeFunction(BaseId + 300, "rule_register_deterministic", 3, (vm, args) =>
+        _registry.Register(new SimpleNativeFunction(BaseId + 300, "rule_register", 3, (vm, args) =>
         {
             if (_ruleEngine is null)
             {
@@ -400,7 +403,7 @@ public sealed class EmergentNativeBridge
             var priority = (int)args[1].IntValue;
             var typeInt = (int)args[2].IntValue;
 
-            var rule = new NativeDeterministicRule(name, priority, (RuleType)typeInt, vm, args);
+            var rule = new NativeDeterministicRule(name, priority, (RuleType)typeInt);
             _ruleEngine.RegisterRule(rule);
 
             return GGValue.FromBool(true);
@@ -445,16 +448,6 @@ public sealed class EmergentNativeBridge
             _ruleEngine.ExecuteRulesByType((RuleType)typeInt, delta);
             return GGValue.FromBool(true);
         }));
-
-        _registry.Register(new SimpleNativeFunction(BaseId + 304, "rule_count", 0, (vm, args) =>
-        {
-            if (_ruleEngine is null)
-            {
-                return GGValue.FromInt(0);
-            }
-
-            return GGValue.FromInt(_ruleEngine.RuleCount);
-        }));
     }
 
     #endregion
@@ -495,20 +488,16 @@ public sealed class EmergentNativeBridge
 
     private sealed class NativeDeterministicRule : IRule
     {
-        private readonly IVMState _vm;
-        private readonly GGValue[] _originalArgs;
-
         public string Name { get; }
         public int Priority { get; }
         public RuleType Type { get; }
+        public bool IsCacheable => false;
 
-        public NativeDeterministicRule(string name, int priority, RuleType type, IVMState vm, GGValue[] originalArgs)
+        public NativeDeterministicRule(string name, int priority, RuleType type)
         {
             Name = name;
             Priority = priority;
             Type = type;
-            _vm = vm;
-            _originalArgs = originalArgs;
         }
 
         public void Execute(float deltaTime)

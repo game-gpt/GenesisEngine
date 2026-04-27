@@ -323,6 +323,8 @@ system ProductionSystem {
 
                 let stats = get_world_stats();
                 stats.item_production += recipe.output.get(0).count;
+
+                causal_track_production(pos, recipe);
             }
         <% } %>
     }
@@ -1195,5 +1197,46 @@ system WorldGenerationSystem {
         let stone_deposit = create_entity();
         stone_deposit.add(GridPosition { x: spawn_x, y: spawn_y - 8 });
         stone_deposit.add(ResourceDeposit { resource_type: RESOURCE_STONE, amount: 600, initial_amount: 600 });
+
+        attention_add_interest_point(spawn_x as f32, spawn_y as f32, 0.0, 30.0);
     }
+}
+
+system EmergentNarrativeSystem {
+    query_player = Query.all(PlayerTag, GridPosition);
+
+    on_update(delta: f32) {
+        <% loop (_, pos) in query_player { %>
+            attention_set_player_position(pos.x as f32, pos.y as f32, 0.0);
+        <% } %>
+    }
+
+    on_load() {
+        rule_register("power_satisfaction", 100, 0);
+        rule_register("power_deficit_buffer", 200, 0);
+        console::log("涌现叙事系统已初始化 - 因果链/注意力/规则引擎已激活");
+    }
+}
+
+micro causal_track_production(pos: GridPosition, recipe: gonObject) {
+    let output_item = recipe.output.get(0).item;
+    let output_name = get_item_name(output_item);
+
+    let product_node = causal_add_node($"产品:{output_name}@({pos.x},{pos.y})", ANCHOR_PRODUCTION, 1.0);
+
+    loop i in range(0, recipe.input.length()) {
+        let input_item = recipe.input.get(i).item;
+        let input_name = get_item_name(input_item);
+        let source_node = causal_add_node($"原料:{input_name}@({pos.x},{pos.y})", ANCHOR_RESOURCE, 0.8);
+        causal_add_edge(source_node, product_node, 0.9);
+    }
+
+    spacetime_insert(pos.x as f32, pos.y as f32, 0.0);
+}
+
+micro causal_track_belt_transfer(from_pos: GridPosition, to_pos: GridPosition, item_id: i32) {
+    let item_name = get_item_name(item_id);
+    let source_node = causal_add_node($"传送:{item_name}@({from_pos.x},{from_pos.y})", ANCHOR_TRANSPORT, 0.6);
+    let dest_node = causal_add_node($"接收:{item_name}@({to_pos.x},{to_pos.y})", ANCHOR_TRANSPORT, 0.6);
+    causal_add_edge(source_node, dest_node, 0.7);
 }

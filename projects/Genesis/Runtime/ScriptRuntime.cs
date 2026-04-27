@@ -1,3 +1,7 @@
+using Genesis.Attention;
+using Genesis.Causal;
+using Genesis.Rules;
+using Genesis.Spacetime;
 using Gnosis.Runtime.VM;
 using Gnosis.Toolchain.ScriptCompiler;
 using GnosisEcsWorld = Gnosis.ECS.World.World;
@@ -16,6 +20,7 @@ public sealed class ScriptRuntime
     private Compiler _compiler;
     private bool _initialized;
     private int _loadedModuleCount;
+    private EmergentNativeBridge? _emergentBridge;
 
     #endregion
 
@@ -25,6 +30,7 @@ public sealed class ScriptRuntime
     public VMInterpreter? VM => _vm;
     public bool IsInitialized => _initialized;
     public int LoadedModuleCount => _loadedModuleCount;
+    public EmergentNativeBridge? EmergentBridge => _emergentBridge;
 
     #endregion
 
@@ -47,7 +53,61 @@ public sealed class ScriptRuntime
         _state = new VMState();
         _vm = new VMInterpreter(_state, _nativeRegistry, _componentRegistry, world);
         _loadedModuleCount = 0;
+
+        _emergentBridge = new EmergentNativeBridge(_nativeRegistry);
+        _emergentBridge.RegisterAll();
+
         _initialized = true;
+
+        Console.WriteLine("[ScriptRuntime] 初始化完成 - 涌现叙事原生函数已注册");
+    }
+
+    #endregion
+
+    #region 涌现叙事引擎绑定
+
+    public void BindSpacetimeTree(SpacetimeTree spacetimeTree)
+    {
+        if (_emergentBridge is null)
+        {
+            throw new InvalidOperationException("ScriptRuntime 未初始化");
+        }
+
+        _emergentBridge.SpacetimeTree = spacetimeTree;
+        Console.WriteLine("[ScriptRuntime] SpacetimeTree 已绑定到脚本运行时");
+    }
+
+    public void BindCausalGraph(CausalGraph causalGraph)
+    {
+        if (_emergentBridge is null)
+        {
+            throw new InvalidOperationException("ScriptRuntime 未初始化");
+        }
+
+        _emergentBridge.CausalGraph = causalGraph;
+        Console.WriteLine("[ScriptRuntime] CausalGraph 已绑定到脚本运行时");
+    }
+
+    public void BindAttentionManager(SimpleAttentionManager attentionManager)
+    {
+        if (_emergentBridge is null)
+        {
+            throw new InvalidOperationException("ScriptRuntime 未初始化");
+        }
+
+        _emergentBridge.AttentionManager = attentionManager;
+        Console.WriteLine("[ScriptRuntime] AttentionManager 已绑定到脚本运行时");
+    }
+
+    public void BindRuleEngine(SimpleRuleEngine ruleEngine)
+    {
+        if (_emergentBridge is null)
+        {
+            throw new InvalidOperationException("ScriptRuntime 未初始化");
+        }
+
+        _emergentBridge.RuleEngine = ruleEngine;
+        Console.WriteLine("[ScriptRuntime] RuleEngine 已绑定到脚本运行时");
     }
 
     #endregion
@@ -204,6 +264,7 @@ public sealed class ScriptRuntime
     {
         _initialized = false;
         _loadedModuleCount = 0;
+        _emergentBridge = null;
         _state?.Reset();
     }
 
