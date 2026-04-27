@@ -1,27 +1,32 @@
 using Genesis.Attention;
-using Genesis.Collapse;
 using Genesis.Core;
-using Genesis.Integration;
+using Genesis.Integration.AI2D;
 using Genesis.Integration.Audio;
+using Genesis.Integration.Audio2D;
 using Genesis.Integration.Navigation;
+using Genesis.Integration.Navigation2D;
 using Genesis.Integration.Physics;
+using Genesis.Integration.Physics2D;
 using Genesis.Integration.Rendering;
+using Genesis.Integration.Rendering2D;
 using Genesis.Rendering;
 using Genesis.Runtime;
+using GenesisEngine.Rendering;
 using Genesis.Spacetime;
 using Genesis.World;
 using Gnosis.ECS.World;
-using Gnosis.Graphic.Pipeline;
 using Gnosis.Graphic.RHI;
-using Gnosis.Graphic.RHI.OpenGL;
 using Gnosis.Graphic.Sprite2D;
-using Gnosis.Graphic.Texture;
+using Gnosis.Graphic.UI;
 using Gnosis.Graphic.Window;
 using Gnosis.Input.Device;
 using Gnosis.Input.Simulate;
 using Gnosis.Platform.Window;
 using Gnosis.Platform.Window.GL;
 using Gnosis.Platform.Window.Win32;
+using Gnosis.Widget.Element;
+using Gnosis.Widget.Layout;
+using Gnosis.Widget.Render;
 
 namespace GenesisEngine;
 
@@ -35,21 +40,22 @@ public class GenesisHost : IDisposable
     private bool _disposed;
     private DateTime _lastFrameTime;
     private ulong _frameIndex;
+    private GraphicsBackend _backend;
     private GLContext? _gl;
 
     #endregion
 
-    #region 2D 子系统集成
+    #region 2D 子系统集成（ECS System 模式）
 
-    private Graphic2DIntegration? _graphic2D;
-    private Physics2DIntegration? _physics2D;
-    private AudioIntegration? _audio2D;
-    private AIIntegration? _ai2D;
-    private NavigationIntegration? _navigation2D;
+    private Genesis2DRenderSystem? _render2D;
+    private Genesis2DPhysicsSystem? _physics2D;
+    private Genesis2DAudioSystem? _audio2D;
+    private Genesis2DAISystem? _ai2D;
+    private Genesis2DNavigationSystem? _navigation2D;
 
     #endregion
 
-    #region 3D 子系统集成
+    #region 3D 子系统集成（ECS System 模式）
 
     private GenesisRenderSystem? _render3D;
     private GenesisPhysicsSystem? _physics3D;
@@ -61,11 +67,18 @@ public class GenesisHost : IDisposable
     #region 窗口与渲染
 
     private IWindow? _window;
-    private ForwardRenderer? _renderer;
     private Camera2D? _camera2D;
-    private Sprite2DRenderPass? _sprite2DPass;
-    private TextureLoader? _textureLoader;
     private InputSystem? _inputSystem;
+
+    #endregion
+
+    #region Widget UI
+
+    private GpuWidgetRenderer? _widgetRenderer;
+    private WidgetTreeRenderer? _widgetTreeRenderer;
+    private Dock? _rootWidget;
+    private FocusManager? _focusManager;
+    private GLUiRenderer? _uiRenderer;
 
     #endregion
 
@@ -87,15 +100,15 @@ public class GenesisHost : IDisposable
 
     #region 属性 - 2D 子系统
 
-    public Graphic2DIntegration Graphic2D => _graphic2D ?? throw new InvalidOperationException("引擎未初始化");
+    public Genesis2DRenderSystem Render2D => _render2D ?? throw new InvalidOperationException("引擎未初始化");
 
-    public Physics2DIntegration Physics2D => _physics2D ?? throw new InvalidOperationException("引擎未初始化");
+    public Genesis2DPhysicsSystem Physics2D => _physics2D ?? throw new InvalidOperationException("引擎未初始化");
 
-    public AudioIntegration Audio2D => _audio2D ?? throw new InvalidOperationException("引擎未初始化");
+    public Genesis2DAudioSystem Audio2D => _audio2D ?? throw new InvalidOperationException("引擎未初始化");
 
-    public AIIntegration AI2D => _ai2D ?? throw new InvalidOperationException("引擎未初始化");
+    public Genesis2DAISystem AI2D => _ai2D ?? throw new InvalidOperationException("引擎未初始化");
 
-    public NavigationIntegration Navigation2D => _navigation2D ?? throw new InvalidOperationException("引擎未初始化");
+    public Genesis2DNavigationSystem Navigation2D => _navigation2D ?? throw new InvalidOperationException("引擎未初始化");
 
     #endregion
 
@@ -114,10 +127,10 @@ public class GenesisHost : IDisposable
     #region 属性 - 窗口与渲染
 
     public IWindow? Window => _window;
-    public ForwardRenderer? Renderer => _renderer;
     public Camera2D? Camera2D => _camera2D;
     public InputSystem? InputSystem => _inputSystem;
     public ScriptRuntime? ScriptRuntime => _scriptRuntime;
+    public GraphicsBackend Backend => _backend;
 
     #endregion
 
@@ -155,9 +168,11 @@ public class GenesisHost : IDisposable
         Console.WriteLine("[Genesis] 所有子系统初始化完成");
     }
 
-    public void InitializeWithWindow(uint width = 1280, uint height = 720, string title = "Gnosis Engine", GraphicsBackend backend = GraphicsBackend.OpenGL)
+    public void InitializeWithWindow(uint width = 1280, uint height = 720, string title = "Genesis Engine", GraphicsBackend? backend = null)
     {
-        Console.WriteLine($"[Genesis] 引擎初始化（窗口模式）- 世界种子: {_worldSeed}");
+        _backend = backend ?? DeviceFactory.DetectBestBackend();
+
+        Console.WriteLine($"[Genesis] 引擎初始化（窗口模式）- 世界种子: {_worldSeed} - 后端: {_backend}");
 
         _world = new World();
         _inputSystem = new InputSystem();
@@ -199,7 +214,7 @@ public class GenesisHost : IDisposable
         _isRunning = true;
         _lastFrameTime = DateTime.UtcNow;
 
-        Console.WriteLine($"[Genesis] 窗口模式初始化完成 - {width}x{height} - 自研平台层");
+        Console.WriteLine($"[Genesis] 窗口模式初始化完成 - {width}x{height} - {_backend} 后端");
     }
 
     public void LoadGameScript(string scriptPath)
@@ -268,14 +283,18 @@ public class GenesisHost : IDisposable
 
         _scriptRuntime?.Run();
 
+        _window.MakeCurrent();
+
         if (_window.GlContext is GLContext gl)
         {
             _gl = gl;
             Console.WriteLine("[Genesis] OpenGL 上下文已获取");
         }
 
+        Initialize2DSystems(GraphicsBackend.OpenGL);
+
         _window.MakeCurrent();
-        InitializeGraphicsBackend();
+        InitializeWidgetUI();
 
         while (_isRunning && !_window!.IsClosing)
         {
@@ -290,7 +309,7 @@ public class GenesisHost : IDisposable
 
             Update(delta);
 
-            if (!_window.IsMinimized && _gl is not null)
+            if (!_window.IsMinimized)
             {
                 RenderFrame();
             }
@@ -303,6 +322,11 @@ public class GenesisHost : IDisposable
 
     private void RenderFrame()
     {
+        if (_gl is null)
+        {
+            return;
+        }
+
         _window?.MakeCurrent();
 
         var t = (float)(_frameIndex * 0.016);
@@ -313,7 +337,9 @@ public class GenesisHost : IDisposable
         _gl.ClearColor(r, g, b, 1.0f);
         _gl.Clear(GLContext.ColorBufferBit | GLContext.DepthBufferBit);
 
-        if (_graphic2D is not null && _graphic2D.IsInitialized)
+        RenderWidgets();
+
+        if (_render2D is not null && _render2D.IsInitialized)
         {
             var cameraOffset = System.Numerics.Vector2.Zero;
             if (_camera2D is not null)
@@ -321,12 +347,29 @@ public class GenesisHost : IDisposable
                 cameraOffset = new System.Numerics.Vector2(_camera2D.Position.X, _camera2D.Position.Y);
             }
 
-            _graphic2D.BeginFrame();
-            _graphic2D.RenderWithCamera(cameraOffset);
-            _graphic2D.EndFrame();
+            _render2D.BeginFrame();
+            _render2D.RenderWithCamera(cameraOffset);
+            _render2D.EndFrame();
         }
 
         _window?.SwapBuffers();
+    }
+
+    private void RenderWidgets()
+    {
+        if (_widgetRenderer is null || _widgetTreeRenderer is null || _rootWidget is null || _window is null)
+        {
+            return;
+        }
+
+        _widgetRenderer.Begin();
+        _widgetTreeRenderer.Render(_rootWidget, _window.Width, _window.Height);
+        _widgetRenderer.End();
+
+        if (_uiRenderer is not null)
+        {
+            _uiRenderer.Render(_widgetRenderer);
+        }
     }
 
     private void RunHeadless()
@@ -352,44 +395,116 @@ public class GenesisHost : IDisposable
 
     #endregion
 
-    #region 私有方法 - 渲染
+    #region 私有方法 - Widget UI
 
-    private void InitializeGraphicsBackend()
+    private void InitializeWidgetUI()
     {
-        if (_window is PlatformWindowAdapter adapter)
+        if (_window is null || _gl is null)
         {
-            var glDevice = new OpenGLDevice();
-            glDevice.Initialize(adapter.GetProcAddress);
-
-            Initialize2DSystems(GraphicsBackend.OpenGL, glDevice);
-
-            Console.WriteLine("[Genesis] OpenGL 设备初始化完成 - 自研平台层函数指针已加载");
+            return;
         }
-        else
+
+        _widgetRenderer = new GpuWidgetRenderer((int)_window.Width, (int)_window.Height);
+        _widgetTreeRenderer = new WidgetTreeRenderer(_widgetRenderer);
+
+        BuildMainMenuWidget();
+
+        _focusManager = new FocusManager(_rootWidget!);
+
+        _uiRenderer = new GLUiRenderer(_gl);
+        if (!_uiRenderer.Initialize())
         {
-            Initialize2DSystems(GraphicsBackend.OpenGL);
+            Console.WriteLine("[Genesis] UI 渲染器初始化失败，Widget 将不可见");
+            _uiRenderer = null;
         }
+
+        Console.WriteLine("[Genesis] Widget UI 系统初始化完成");
+    }
+
+    private void BuildMainMenuWidget()
+    {
+        _rootWidget = new Dock();
+
+        var titleBar = new VBox();
+        titleBar.Margin = new EdgeInsets(12, 0, 12, 0);
+        titleBar.Background = new Color(0.1f, 0.1f, 0.12f, 0.95f);
+
+        var titleText = new TextWidget("Genesis Engine");
+        titleText.Margin = new EdgeInsets(8, 16, 8, 4);
+        titleText.Foreground = new Color(0.9f, 0.9f, 0.95f, 1.0f);
+        titleBar.AddChild(titleText);
+
+        var subtitleText = new TextWidget("游戏选择菜单");
+        subtitleText.Margin = new EdgeInsets(8, 0, 8, 12);
+        subtitleText.Foreground = new Color(0.6f, 0.6f, 0.7f, 1.0f);
+        titleBar.AddChild(subtitleText);
+
+        _rootWidget.DockWidget(titleBar, DockPosition.Top);
+
+        var contentPanel = new VBox();
+        contentPanel.Margin = new EdgeInsets(24, 12, 24, 12);
+        contentPanel.Background = new Color(0.08f, 0.08f, 0.1f, 0.9f);
+
+        var gameNames = new[]
+        {
+            "1. 异星工厂 (Factorio)",
+            "2. 我的世界 (Minecraft)",
+            "3. 女巫 (Noita)",
+            "4. 小小泰拉瑞亚 (Terraria)"
+        };
+
+        foreach (var name in gameNames)
+        {
+            var btn = new ButtonWidget();
+            btn.Margin = new EdgeInsets(8, 6, 8, 6);
+            btn.Foreground = new Color(0.9f, 0.9f, 0.95f, 1.0f);
+            btn.Background = new Color(0.15f, 0.15f, 0.2f, 1.0f);
+
+            var label = new TextWidget(name);
+            label.Foreground = new Color(0.9f, 0.9f, 0.95f, 1.0f);
+            btn.AddChild(label);
+
+            contentPanel.AddChild(btn);
+        }
+
+        var hint = new TextWidget("使用 --game factorio|minecraft|noita|terraria 启动对应游戏");
+        hint.Margin = new EdgeInsets(8, 16, 8, 8);
+        hint.Foreground = new Color(0.4f, 0.4f, 0.5f, 1.0f);
+        contentPanel.AddChild(hint);
+
+        _rootWidget.DockWidget(contentPanel, DockPosition.Fill);
     }
 
     #endregion
 
     #region 私有方法 - 初始化
 
-    private void Initialize2DSystems(GraphicsBackend backend = default, IDevice? device = null)
+    private void Initialize2DSystems(GraphicsBackend backend = default)
     {
-        _graphic2D = new Graphic2DIntegration();
-        _physics2D = new Physics2DIntegration();
-        _audio2D = new AudioIntegration();
-        _ai2D = new AIIntegration();
-        _navigation2D = new NavigationIntegration();
-
-        if (device is not null && device is OpenGLDevice glDevice)
+        if (_world is null)
         {
-            _graphic2D.InitializeWithDevice(glDevice);
+            return;
         }
-        else
+
+        _render2D = new Genesis2DRenderSystem();
+        _physics2D = new Genesis2DPhysicsSystem();
+        _audio2D = new Genesis2DAudioSystem();
+        _ai2D = new Genesis2DAISystem();
+        _navigation2D = new Genesis2DNavigationSystem();
+
+        _world.Systems.RegisterSystem(_render2D);
+        _world.Systems.RegisterSystem(_physics2D);
+        _world.Systems.RegisterSystem(_audio2D);
+        _world.Systems.RegisterSystem(_ai2D);
+        _world.Systems.RegisterSystem(_navigation2D);
+
+        try
         {
-            _graphic2D.Initialize(backend);
+            _render2D.InitializeWithBackend(backend == default ? GraphicsBackend.OpenGL : backend);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Genesis] 2D 渲染初始化失败（非致命）: {ex.Message}");
         }
 
         _physics2D.Initialize();
@@ -426,10 +541,6 @@ public class GenesisHost : IDisposable
 
     private void Update(float delta)
     {
-        _ai2D?.Update(delta);
-        _navigation2D?.Update(delta);
-        _audio2D?.Update(delta);
-
         if (_scriptRuntime is not null && _scriptRuntime.IsInitialized)
         {
             _scriptRuntime.Tick(delta);
@@ -438,8 +549,6 @@ public class GenesisHost : IDisposable
         {
             _world?.Update(delta);
         }
-
-        _render3D?.Update(delta);
 
         UpdateWorldGeneration(delta);
     }
@@ -498,19 +607,19 @@ public class GenesisHost : IDisposable
         }
 
         _scriptRuntime?.Shutdown();
-        _renderer?.Shutdown();
+        _uiRenderer?.Dispose();
         _window?.Dispose();
 
-        _render3D?.Shutdown();
+        _navigation2D?.Shutdown();
+        _ai2D?.Shutdown();
+        _audio2D?.Shutdown();
+        _physics2D?.Shutdown();
+        _render2D?.Shutdown();
+
         _navigation3D?.Shutdown();
         _audio3D?.Shutdown();
         _physics3D?.Shutdown();
-
-        _navigation2D?.Dispose();
-        _ai2D?.Dispose();
-        _audio2D?.Dispose();
-        _physics2D?.Dispose();
-        _graphic2D?.Dispose();
+        _render3D?.Shutdown();
 
         _world = null;
         _disposed = true;

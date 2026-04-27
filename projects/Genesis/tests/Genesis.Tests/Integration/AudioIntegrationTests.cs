@@ -1,4 +1,4 @@
-using Genesis.Integration;
+using Genesis.Integration.Audio2D;
 using Xunit;
 
 namespace Genesis.Tests.Integration;
@@ -8,81 +8,59 @@ public class AudioIntegrationTests
     [Fact]
     public void Initialize_SetsIsInitialized()
     {
-        using var integration = new AudioIntegration();
+        var system = new Genesis2DAudioSystem();
 
-        integration.Initialize();
+        system.Initialize();
 
-        Assert.True(integration.IsInitialized);
+        Assert.True(system.IsInitialized);
     }
 
     [Fact]
-    public void Initialize_WithNull_CreatesDefaultSystem()
+    public void Shutdown_SetsIsInitializedFalse()
     {
-        using var integration = new AudioIntegration();
+        var system = new Genesis2DAudioSystem();
+        system.Initialize();
 
-        integration.Initialize(null);
+        system.Shutdown();
 
-        Assert.True(integration.IsInitialized);
-    }
-
-    [Fact]
-    public void CreateSource_BeforeInitialize_ThrowsInvalidOperationException()
-    {
-        using var integration = new AudioIntegration();
-
-        Assert.Throws<InvalidOperationException>(() => integration.CreateSource("test"));
-    }
-
-    [Fact]
-    public void LoadClip_BeforeInitialize_ThrowsInvalidOperationException()
-    {
-        using var integration = new AudioIntegration();
-
-        Assert.Throws<InvalidOperationException>(() => integration.LoadClip("test", "path.wav"));
-    }
-
-    [Fact]
-    public void CreateBus_BeforeInitialize_ThrowsInvalidOperationException()
-    {
-        using var integration = new AudioIntegration();
-
-        Assert.Throws<InvalidOperationException>(() => integration.CreateBus("test"));
+        Assert.False(system.IsInitialized);
     }
 
     [Fact]
     public void IsInitialized_DefaultFalse()
     {
-        using var integration = new AudioIntegration();
+        var system = new Genesis2DAudioSystem();
 
-        Assert.False(integration.IsInitialized);
+        Assert.False(system.IsInitialized);
     }
 
     [Fact]
-    public void MasterBus_BeforeInitialize_Null()
+    public void Shutdown_CalledTwice_DoesNotThrow()
     {
-        using var integration = new AudioIntegration();
+        var system = new Genesis2DAudioSystem();
+        system.Initialize();
 
-        Assert.Null(integration.MasterBus);
+        system.Shutdown();
+        system.Shutdown();
     }
 
     [Fact]
-    public void Dispose_CalledTwice_DoesNotThrow()
+    public void GlobalVolume_DefaultIsOne()
     {
-        var integration = new AudioIntegration();
-        integration.Initialize();
+        var system = new Genesis2DAudioSystem();
+        system.Initialize();
 
-        integration.Dispose();
-        integration.Dispose();
+        Assert.Equal(1f, system.GlobalVolume, 0.01f);
     }
 
     [Fact]
-    public void GetSource_NonExistent_ReturnsNull()
+    public void GlobalVolume_Setter_UpdatesValue()
     {
-        using var integration = new AudioIntegration();
-        integration.Initialize();
+        var system = new Genesis2DAudioSystem();
+        system.Initialize();
 
-        var source = integration.GetSource("nonexistent");
+        system.GlobalVolume = 0.5f;
 
-        Assert.Null(source);
+        Assert.Equal(0.5f, system.GlobalVolume, 0.01f);
     }
 }

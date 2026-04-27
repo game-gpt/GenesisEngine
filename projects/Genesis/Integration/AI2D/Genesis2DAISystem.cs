@@ -1,46 +1,86 @@
 using Gnosis.AI.Behavior;
 using Gnosis.AI.Blackboard;
 using Gnosis.AI.State;
+using Gnosis.ECS.System;
+using Gnosis.ECS.World;
 
-namespace Genesis.Integration;
+namespace Genesis.Integration.AI2D;
 
-public sealed class AIIntegration : IDisposable
+public sealed class Genesis2DAISystem : ISystem, IWorldSystem
 {
     #region 字段
 
+    private Gnosis.ECS.World.World? _world;
     private IAISystem? _aiSystem;
     private readonly Dictionary<string, IBehaviorTree> _behaviorTrees = new();
     private readonly Dictionary<string, IAIController> _controllers = new();
-    private bool _disposed;
+    private bool _initialized;
 
     #endregion
 
     #region 属性
 
+    public SystemPhase Phase => SystemPhase.Update;
+
     public IAISystem? System => _aiSystem;
 
-    public bool IsInitialized => _aiSystem is not null;
+    public bool IsInitialized => _initialized;
 
     #endregion
 
-    #region 初始化
+    #region ISystem 实现
 
-    public void Initialize(IAISystem? aiSystem = null)
+    public void Initialize()
     {
-        _aiSystem = aiSystem ?? new Gnosis.AI.State.AISystem();
+        _aiSystem = new AISystem();
+        _initialized = true;
+        Console.WriteLine("[Genesis] 2D AI 系统初始化完成");
+    }
 
-        Console.WriteLine("[Genesis] AI 系统初始化完成");
+    public void Shutdown()
+    {
+        foreach (var controller in _controllers.Values)
+        {
+            _aiSystem?.DestroyController(controller);
+        }
+
+        _controllers.Clear();
+        _behaviorTrees.Clear();
+        _initialized = false;
     }
 
     #endregion
 
-    #region 行为树管理
+    #region IWorldSystem 实现
+
+    public void SetWorld(Gnosis.ECS.World.World world)
+    {
+        _world = world;
+    }
+
+    #endregion
+
+    #region ISystem.Update
+
+    public void Update(float delta)
+    {
+        if (!_initialized || _aiSystem is null)
+        {
+            return;
+        }
+
+        _aiSystem.Update(delta);
+    }
+
+    #endregion
+
+    #region 公开方法
 
     public IBehaviorTree CreateBehaviorTree(string name, IBlackboard? blackboard = null)
     {
         if (_aiSystem is null)
         {
-            throw new InvalidOperationException("AI 系统未初始化，请先调用 Initialize()");
+            throw new InvalidOperationException("2D AI 系统未初始化");
         }
 
         var tree = _aiSystem.CreateBehaviorTree(name);
@@ -76,15 +116,11 @@ public sealed class AIIntegration : IDisposable
         }
     }
 
-    #endregion
-
-    #region AI 控制器
-
     public IAIController CreateController(string name)
     {
         if (_aiSystem is null)
         {
-            throw new InvalidOperationException("AI 系统未初始化，请先调用 Initialize()");
+            throw new InvalidOperationException("2D AI 系统未初始化");
         }
 
         var controller = _aiSystem.CreateController();
@@ -104,37 +140,6 @@ public sealed class AIIntegration : IDisposable
             _aiSystem.DestroyController(controller);
             _controllers.Remove(name);
         }
-    }
-
-    #endregion
-
-    #region 更新
-
-    public void Update(float delta)
-    {
-        _aiSystem?.Update(delta);
-    }
-
-    #endregion
-
-    #region IDisposable
-
-    public void Dispose()
-    {
-        if (_disposed)
-        {
-            return;
-        }
-
-        foreach (var controller in _controllers.Values)
-        {
-            _aiSystem?.DestroyController(controller);
-        }
-
-        _controllers.Clear();
-        _behaviorTrees.Clear();
-
-        _disposed = true;
     }
 
     #endregion

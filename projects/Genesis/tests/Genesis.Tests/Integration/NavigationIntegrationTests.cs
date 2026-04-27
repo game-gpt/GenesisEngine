@@ -1,4 +1,4 @@
-using Genesis.Integration;
+using Genesis.Integration.Navigation2D;
 using Gnosis.Navigation.NavMesh;
 using Xunit;
 
@@ -9,75 +9,50 @@ public class NavigationIntegrationTests
     [Fact]
     public void Initialize_SetsIsInitialized()
     {
-        using var integration = new NavigationIntegration();
+        var system = new Genesis2DNavigationSystem();
 
-        integration.Initialize();
+        system.Initialize();
 
-        Assert.True(integration.IsInitialized);
+        Assert.True(system.IsInitialized);
     }
 
     [Fact]
-    public void Initialize_WithNull_CreatesDefaultSystem()
+    public void Shutdown_SetsIsInitializedFalse()
     {
-        using var integration = new NavigationIntegration();
+        var system = new Genesis2DNavigationSystem();
+        system.Initialize();
 
-        integration.Initialize(null);
+        system.Shutdown();
 
-        Assert.True(integration.IsInitialized);
-    }
-
-    [Fact]
-    public void BuildNavMesh_BeforeInitialize_ThrowsInvalidOperationException()
-    {
-        using var integration = new NavigationIntegration();
-
-        Assert.Throws<InvalidOperationException>(() =>
-            integration.BuildNavMesh("test", new NavMeshBuildSettings()));
-    }
-
-    [Fact]
-    public void FindPath_BeforeInitialize_ThrowsInvalidOperationException()
-    {
-        using var integration = new NavigationIntegration();
-
-        Assert.Throws<InvalidOperationException>(() =>
-            integration.FindPath(System.Numerics.Vector3.Zero, System.Numerics.Vector3.One));
-    }
-
-    [Fact]
-    public void CreateQuery_BeforeInitialize_ThrowsInvalidOperationException()
-    {
-        using var integration = new NavigationIntegration();
-
-        Assert.Throws<InvalidOperationException>(() => integration.CreateQuery("test"));
+        Assert.False(system.IsInitialized);
     }
 
     [Fact]
     public void IsInitialized_DefaultFalse()
     {
-        using var integration = new NavigationIntegration();
+        var system = new Genesis2DNavigationSystem();
 
-        Assert.False(integration.IsInitialized);
+        Assert.False(system.IsInitialized);
     }
 
     [Fact]
     public void GetNavMesh_NonExistent_ReturnsNull()
     {
-        using var integration = new NavigationIntegration();
-        integration.Initialize();
+        var system = new Genesis2DNavigationSystem();
+        system.Initialize();
 
-        var mesh = integration.GetNavMesh("nonexistent");
+        var mesh = system.GetNavMesh("nonexistent");
 
         Assert.Null(mesh);
     }
 
     [Fact]
-    public void Dispose_CalledTwice_DoesNotThrow()
+    public void Shutdown_CalledTwice_DoesNotThrow()
     {
-        var integration = new NavigationIntegration();
-        integration.Initialize();
+        var system = new Genesis2DNavigationSystem();
+        system.Initialize();
 
-        integration.Dispose();
-        integration.Dispose();
+        system.Shutdown();
+        system.Shutdown();
     }
 }

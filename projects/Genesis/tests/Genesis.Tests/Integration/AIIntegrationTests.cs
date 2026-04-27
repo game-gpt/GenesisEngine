@@ -1,4 +1,4 @@
-using Genesis.Integration;
+using Genesis.Integration.AI2D;
 using Xunit;
 
 namespace Genesis.Tests.Integration;
@@ -8,83 +8,84 @@ public class AIIntegrationTests
     [Fact]
     public void Initialize_SetsIsInitialized()
     {
-        using var integration = new AIIntegration();
+        var system = new Genesis2DAISystem();
 
-        integration.Initialize();
+        system.Initialize();
 
-        Assert.True(integration.IsInitialized);
+        Assert.True(system.IsInitialized);
     }
 
     [Fact]
-    public void Initialize_WithNull_CreatesDefaultSystem()
+    public void Shutdown_SetsIsInitializedFalse()
     {
-        using var integration = new AIIntegration();
+        var system = new Genesis2DAISystem();
+        system.Initialize();
 
-        integration.Initialize(null);
+        system.Shutdown();
 
-        Assert.True(integration.IsInitialized);
+        Assert.False(system.IsInitialized);
     }
 
     [Fact]
     public void CreateBehaviorTree_BeforeInitialize_ThrowsInvalidOperationException()
     {
-        using var integration = new AIIntegration();
+        var system = new Genesis2DAISystem();
 
-        Assert.Throws<InvalidOperationException>(() => integration.CreateBehaviorTree("test"));
+        Assert.Throws<InvalidOperationException>(() => system.CreateBehaviorTree("test"));
     }
 
     [Fact]
     public void CreateController_BeforeInitialize_ThrowsInvalidOperationException()
     {
-        using var integration = new AIIntegration();
+        var system = new Genesis2DAISystem();
 
-        Assert.Throws<InvalidOperationException>(() => integration.CreateController("test"));
+        Assert.Throws<InvalidOperationException>(() => system.CreateController("test"));
     }
 
     [Fact]
     public void IsInitialized_DefaultFalse()
     {
-        using var integration = new AIIntegration();
+        var system = new Genesis2DAISystem();
 
-        Assert.False(integration.IsInitialized);
+        Assert.False(system.IsInitialized);
     }
 
     [Fact]
     public void GetBehaviorTree_NonExistent_ReturnsNull()
     {
-        using var integration = new AIIntegration();
-        integration.Initialize();
+        var system = new Genesis2DAISystem();
+        system.Initialize();
 
-        var tree = integration.GetBehaviorTree("nonexistent");
+        var tree = system.GetBehaviorTree("nonexistent");
 
         Assert.Null(tree);
     }
 
     [Fact]
-    public void Dispose_CalledTwice_DoesNotThrow()
+    public void Shutdown_CalledTwice_DoesNotThrow()
     {
-        var integration = new AIIntegration();
-        integration.Initialize();
+        var system = new Genesis2DAISystem();
+        system.Initialize();
 
-        integration.Dispose();
-        integration.Dispose();
+        system.Shutdown();
+        system.Shutdown();
     }
 
     [Fact]
     public void StartBehaviorTree_NonExistent_DoesNotThrow()
     {
-        using var integration = new AIIntegration();
-        integration.Initialize();
+        var system = new Genesis2DAISystem();
+        system.Initialize();
 
-        integration.StartBehaviorTree("nonexistent");
+        system.StartBehaviorTree("nonexistent");
     }
 
     [Fact]
     public void StopBehaviorTree_NonExistent_DoesNotThrow()
     {
-        using var integration = new AIIntegration();
-        integration.Initialize();
+        var system = new Genesis2DAISystem();
+        system.Initialize();
 
-        integration.StopBehaviorTree("nonexistent");
+        system.StopBehaviorTree("nonexistent");
     }
 }
