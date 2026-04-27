@@ -1,9 +1,11 @@
 using Genesis.Core;
 using Genesis.Spacetime;
-using Gnosis.Core.Entity;
 
 namespace Genesis.Rendering;
 
+/// <summary>
+/// 坍缩场景
+/// </summary>
 public sealed class CollapsedScene : ICollapsedScene
 {
     #region 字段
@@ -14,15 +16,33 @@ public sealed class CollapsedScene : ICollapsedScene
 
     #region 属性
 
+    /// <summary>
+    /// 场景中的可渲染实体列表
+    /// </summary>
     public IReadOnlyList<IRenderableEntity> Entities => _entities.AsReadOnly();
+
+    /// <summary>
+    /// 全局因果特征
+    /// </summary>
     public CausalFeatures GlobalFeatures { get; }
+
+    /// <summary>
+    /// 生成时间戳
+    /// </summary>
     public Timestamp GeneratedAt { get; }
+
+    /// <summary>
+    /// 场景哈希
+    /// </summary>
     public ulong SceneHash { get; }
 
     #endregion
 
     #region 构造函数
 
+    /// <summary>
+    /// 初始化坍缩场景
+    /// </summary>
     public CollapsedScene(
         IReadOnlyList<IRenderableEntity> entities,
         CausalFeatures globalFeatures,
@@ -39,6 +59,9 @@ public sealed class CollapsedScene : ICollapsedScene
 
     #region 公开方法
 
+    /// <summary>
+    /// 转换为场景描述
+    /// </summary>
     public SceneDescription ToDescription()
     {
         if (_entities.Count == 0)

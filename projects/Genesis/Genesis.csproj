@@ -33,6 +33,7 @@
         <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Input\Gnosis.Input.csproj" />
         <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Toolchain\Gnosis.Toolchain.csproj" />
         <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.VM\Gnosis.VM.csproj" />
+        <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.PAL\Gnosis.PAL.csproj" />
     </ItemGroup>
 
   <ItemGroup>

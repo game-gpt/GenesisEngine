@@ -1,11 +1,14 @@
 using Genesis.Attention;
 using Genesis.Core;
+using Genesis.HAL;
 using Genesis.Spacetime;
-using Gnosis.Core.Entity;
-using Gnosis.ECS.World;
 
 namespace Genesis.Rendering;
 
+/// <summary>
+/// 场景坍缩器
+/// 将时空树中的节点坍缩为可渲染场景
+/// </summary>
 public sealed class SceneCollapser
 {
     #region 字段
@@ -18,6 +21,12 @@ public sealed class SceneCollapser
 
     #region 构造函数
 
+    /// <summary>
+    /// 初始化场景坍缩器
+    /// </summary>
+    /// <param name="spacetimeTree">时空树</param>
+    /// <param name="attentionManager">注意力管理器</param>
+    /// <param name="featureDimension">特征维度</param>
     public SceneCollapser(ISpacetimeTree spacetimeTree, IAttentionManager? attentionManager = null, int featureDimension = 8)
     {
         _spacetimeTree = spacetimeTree;
@@ -29,7 +38,14 @@ public sealed class SceneCollapser
 
     #region 公开方法
 
-    public ICollapsedScene Collapse(Gnosis.ECS.World.World world, Position playerPosition, Position playerViewDirection)
+    /// <summary>
+    /// 坍缩场景
+    /// </summary>
+    /// <param name="entityWorld">实体世界（HAL 抽象，替代直接依赖 Gnosis.ECS.World.World）</param>
+    /// <param name="playerPosition">玩家位置</param>
+    /// <param name="playerViewDirection">玩家视线方向</param>
+    /// <returns>坍缩后的场景</returns>
+    public ICollapsedScene Collapse(IEntityWorld entityWorld, Position playerPosition, Position playerViewDirection)
     {
         _attentionManager?.UpdateAttention(playerPosition, playerViewDirection);
 

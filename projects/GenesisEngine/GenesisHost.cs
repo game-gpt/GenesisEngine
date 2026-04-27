@@ -27,6 +27,7 @@ using Gnosis.Platform.Window;
 using Gnosis.Platform.Window.GL;
 using Gnosis.Platform.Window.Win32;
 using Gnosis.Widget.Element;
+using WidgetMouseButton = Gnosis.Widget.Element.MouseButton;
 using Gnosis.Widget.Layout;
 using Gnosis.Widget.Render;
 
@@ -304,6 +305,8 @@ public class GenesisHost : IDisposable
 
             _inputSystem?.Update();
 
+            RouteInputToWidgets();
+
             var now = DateTime.UtcNow;
             var delta = (float)(now - _lastFrameTime).TotalSeconds;
             _lastFrameTime = now;
@@ -331,6 +334,8 @@ public class GenesisHost : IDisposable
 
         _window?.MakeCurrent();
 
+        _gl.Viewport(0, 0, (int)_window.Width, (int)_window.Height);
+
         var t = (float)(_frameIndex * 0.016);
         var r = (float)(0.53 + 0.1 * Math.Sin(t * 0.6));
         var g = (float)(0.81 + 0.1 * Math.Sin(t * 0.4));
@@ -338,8 +343,6 @@ public class GenesisHost : IDisposable
 
         _gl.ClearColor(r, g, b, 1.0f);
         _gl.Clear(GLContext.ColorBufferBit | GLContext.DepthBufferBit);
-
-        RenderWidgets();
 
         if (_render2D is not null && _render2D.IsInitialized)
         {
@@ -353,6 +356,8 @@ public class GenesisHost : IDisposable
             _render2D.RenderWithCamera(cameraOffset);
             _render2D.EndFrame();
         }
+
+        RenderWidgets();
 
         _window?.SwapBuffers();
     }
@@ -421,6 +426,120 @@ public class GenesisHost : IDisposable
         }
 
         Console.WriteLine("[Genesis] Widget UI 系统初始化完成");
+    }
+
+    private void RouteInputToWidgets()
+    {
+        if (_inputSystem is null || _rootWidget is null || _window is null)
+        {
+            return;
+        }
+
+        var mouse = _inputSystem.Mouse;
+        if (mouse is not null)
+        {
+            var pos = mouse.Position;
+            var leftDown = mouse.GetButtonDown(0);
+            var leftUp = mouse.GetButtonUp(0);
+
+            if (leftDown)
+            {
+                var target = HitTest(_rootWidget, pos.X, pos.Y);
+                if (target is not null)
+                {
+                    if (target.IsFocusable)
+                    {
+                        _focusManager?.SetFocus(target);
+                    }
+
+                    var args = new MouseEventArgs(pos.X, pos.Y, WidgetMouseButton.Left);
+                    target.DispatchEvent(args);
+                }
+            }
+            else if (leftUp)
+            {
+                var target = HitTest(_rootWidget, pos.X, pos.Y);
+                if (target is not null)
+                {
+                    var args = new MouseEventArgs(pos.X, pos.Y, WidgetMouseButton.Left);
+                    target.DispatchEvent(args);
+                }
+            }
+
+            var scrollDelta = mouse.ScrollDelta;
+            if (Math.Abs(scrollDelta) > 0.001f)
+            {
+                var target = HitTest(_rootWidget, pos.X, pos.Y);
+                if (target is not null)
+                {
+                    var args = new WheelEventArgs(pos.X, pos.Y, scrollDelta);
+                    target.DispatchEvent(args);
+                }
+            }
+        }
+
+        var keyboard = _inputSystem.Keyboard;
+        if (keyboard is not null && _focusManager?.FocusedElement is not null)
+        {
+            for (int i = 0; i < 256; i++)
+            {
+                if (keyboard.GetKeyDown(i))
+                {
+                    var key = MapKeyCodeToKey(i);
+                    var args = new KeyEventArgs(key);
+                    _focusManager.FocusedElement.DispatchEvent(args);
+                }
+            }
+        }
+    }
+
+    private static Key MapKeyCodeToKey(int keyCode)
+    {
+        return keyCode switch
+        {
+            0x08 => Key.Back,
+            0x09 => Key.Tab,
+            0x0D => Key.Enter,
+            0x1B => Key.Escape,
+            0x20 => Key.Space,
+            0x25 => Key.Left,
+            0x26 => Key.Up,
+            0x27 => Key.Right,
+            0x28 => Key.Down,
+            0x2E => Key.Delete,
+            >= 0x30 and <= 0x39 => Key.D0 + (keyCode - 0x30),
+            >= 0x41 and <= 0x5A => Key.A + (keyCode - 0x41),
+            >= 0x70 and <= 0x87 => Key.F1 + (keyCode - 0x70),
+            _ => Key.None
+        };
+    }
+
+    private static WidgetElement? HitTest(WidgetElement widget, float x, float y)
+    {
+        if (widget.Visibility != Visibility.Visible)
+        {
+            return null;
+        }
+
+        if (!widget.LayoutRect.Contains(x, y))
+        {
+            return null;
+        }
+
+        if (widget is ContainerElement container)
+        {
+            for (var i = container.Children.Count - 1; i >= 0; i--)
+            {
+                var child = container.Children[i];
+                var hit = HitTest(child, x, y);
+                if (hit is not null)
+                {
+                    return hit;
+                }
+            }
+        }
+
+        return widget;
     }
 
     private void BuildMainMenuWidget()
@@ -509,10 +628,17 @@ public class GenesisHost : IDisposable
             Console.WriteLine($"[Genesis] 2D 渲染初始化失败（非致命）: {ex.Message}");
         }
 
-        _physics2D.Initialize();
-        _audio2D.Initialize();
-        _ai2D.Initialize();
-        _navigation2D.Initialize();
+        try { _physics2D.Initialize(); }
+        catch (Exception ex) { Console.WriteLine($"[Genesis] 2D 物理初始化失败（非致命）: {ex.Message}"); }
+
+        try { _audio2D.Initialize(); }
+        catch (Exception ex) { Console.WriteLine($"[Genesis] 2D 音频初始化失败（非致命）: {ex.Message}"); }
+
+        try { _ai2D.Initialize(); }
+        catch (Exception ex) { Console.WriteLine($"[Genesis] 2D AI 初始化失败（非致命）: {ex.Message}"); }
+
+        try { _navigation2D.Initialize(); }
+        catch (Exception ex) { Console.WriteLine($"[Genesis] 2D 导航初始化失败（非致命）: {ex.Message}"); }
     }
 
     private void Initialize3DSystems()
@@ -532,9 +658,14 @@ public class GenesisHost : IDisposable
         _world.Systems.RegisterSystem(_audio3D);
         _world.Systems.RegisterSystem(_navigation3D);
 
-        _physics3D.Initialize();
-        _audio3D.Initialize();
-        _navigation3D.Initialize();
+        try { _physics3D.Initialize(); }
+        catch (Exception ex) { Console.WriteLine($"[Genesis] 3D 物理初始化失败（非致命）: {ex.Message}"); }
+
+        try { _audio3D.Initialize(); }
+        catch (Exception ex) { Console.WriteLine($"[Genesis] 3D 音频初始化失败（非致命）: {ex.Message}"); }
+
+        try { _navigation3D.Initialize(); }
+        catch (Exception ex) { Console.WriteLine($"[Genesis] 3D 导航初始化失败（非致命）: {ex.Message}"); }
     }
 
     #endregion

@@ -1,7 +1,9 @@
-using Gnosis.Database.Core;
-
 namespace Genesis.Persistence;
 
+/// <summary>
+/// 增量存档
+/// 使用 Genesis.Persistence.IKvDatabase 抽象，不直接依赖 Gnosis.Database
+/// </summary>
 public sealed class GenesisIncrementalSave : IIncrementalSave, IAsyncDisposable
 {
     #region 字段
@@ -15,23 +17,24 @@ public sealed class GenesisIncrementalSave : IIncrementalSave, IAsyncDisposable
 
     #region 构造函数
 
+    /// <summary>
+    /// 初始化增量存档
+    /// </summary>
+    /// <param name="database">键值数据库</param>
+    /// <param name="historyStore">历史存储</param>
     public GenesisIncrementalSave(IKvDatabase database, IHistoryStore historyStore)
     {
         _db = database;
         _historyStore = historyStore;
     }
 
-    public GenesisIncrementalSave(string path = ".genesis/saves")
-    {
-        var options = new DatabaseOptions { Path = path };
-        _db = new GenesisKvDatabase(options);
-        _historyStore = new InMemoryHistoryStore();
-    }
-
     #endregion
 
     #region IIncrementalSave 实现
 
+    /// <summary>
+    /// 保存所有暂存数据
+    /// </summary>
     public async Task SaveAsync()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -43,14 +46,16 @@ public sealed class GenesisIncrementalSave : IIncrementalSave, IAsyncDisposable
 
         foreach (var (key, data) in _pendingSaves)
         {
-            var dbKey = DatabaseKey.FromString(key);
-            var dbValue = new DatabaseValue(data);
-            await _db.PutAsync(dbKey, dbValue);
+            var dbKey = System.Text.Encoding.UTF8.GetBytes(key);
+            await _db.PutAsync(dbKey, data);
         }
 
         _pendingSaves.Clear();
     }
 
+    /// <summary>
+    /// 保存并创建检查点
+    /// </summary>
     public async Task SaveAsync(string checkpointName)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -62,45 +67,41 @@ public sealed class GenesisIncrementalSave : IIncrementalSave, IAsyncDisposable
         await _historyStore.AppendAsync(checkpointHash, checkpointData);
     }
 
+    /// <summary>
+    /// 加载检查点
+    /// </summary>
     public async Task<bool> LoadAsync(string checkpointName)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         var checkpointHash = ComputeHash(checkpointName);
         var exists = await _historyStore.ExistsAsync(checkpointHash);
-        if (!exists)
-        {
-            return false;
-        }
-
-        return true;
+        return exists;
     }
 
-    public async Task<IEnumerable<string>> GetCheckpointsAsync()
+    /// <summary>
+    /// 获取所有检查点
+    /// </summary>
+    public Task<IEnumerable<string>> GetCheckpointsAsync()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var result = new List<string>();
-        using var cursor = _db.Seek(DatabaseKey.Empty);
+        var result = _pendingSaves.Keys
+            .Where(k => k.StartsWith("checkpoint:"))
+            .Select(k => k["checkpoint:".Length..])
+            .ToList();
 
-        while (cursor.IsValid)
-        {
-            var keyStr = cursor.Current.Key.ToString();
-            if (keyStr.StartsWith("checkpoint:"))
-            {
-                result.Add(keyStr["checkpoint:".Length..]);
-            }
-            cursor.MoveNext();
-        }
-
-        return await Task.FromResult(result);
+        return Task.FromResult<IEnumerable<string>>(result);
     }
 
+    /// <summary>
+    /// 删除检查点
+    /// </summary>
     public async Task DeleteCheckpointAsync(string checkpointName)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var key = DatabaseKey.FromString($"checkpoint:{checkpointName}");
+        var key = System.Text.Encoding.UTF8.GetBytes($"checkpoint:{checkpointName}");
         await _db.DeleteAsync(key);
     }
 
@@ -108,11 +109,20 @@ public sealed class GenesisIncrementalSave : IIncrementalSave, IAsyncDisposable
 
     #region 公开方法
 
+    /// <summary>
+    /// 暂存数据
+    /// </summary>
+    /// <param name="key">键</param>
+    /// <param name="data">数据</param>
     public void Stage(string key, byte[] data)
     {
         _pendingSaves[key] = data;
     }
 
+    /// <summary>
+    /// 批量暂存数据
+    /// </summary>
+    /// <param name="entries">键值对列表</param>
     public void StageRange(IEnumerable<(string Key, byte[] Data)> entries)
     {
         foreach (var (key, data) in entries)
@@ -150,6 +160,9 @@ public sealed class GenesisIncrementalSave : IIncrementalSave, IAsyncDisposable
 
     #region IAsyncDisposable
 
+    /// <summary>
+    /// 异步释放资源
+    /// </summary>
     public async ValueTask DisposeAsync()
     {
         if (_disposed) return;
@@ -160,7 +173,7 @@ public sealed class GenesisIncrementalSave : IIncrementalSave, IAsyncDisposable
             await SaveAsync();
         }
 
-        _db.Dispose();
+        await _db.DisposeAsync();
     }
 
     #endregion

@@ -1,7 +1,9 @@
-using Gnosis.Database.Core;
-
 namespace Genesis.Persistence;
 
+/// <summary>
+/// 基于键值数据库的持久化历史存储
+/// 使用 Genesis.Persistence.IKvDatabase 抽象，不直接依赖 Gnosis.Database
+/// </summary>
 public sealed class SolidHistoryStore : IHistoryStore, IAsyncDisposable
 {
     #region 字段
@@ -13,15 +15,10 @@ public sealed class SolidHistoryStore : IHistoryStore, IAsyncDisposable
 
     #region 构造函数
 
-    public SolidHistoryStore(string path = ".genesis/history")
-    {
-        var options = new DatabaseOptions
-        {
-            Path = path
-        };
-        _db = new GenesisKvDatabase(options);
-    }
-
+    /// <summary>
+    /// 初始化历史存储
+    /// </summary>
+    /// <param name="database">键值数据库</param>
     public SolidHistoryStore(IKvDatabase database)
     {
         _db = database;
@@ -31,37 +28,42 @@ public sealed class SolidHistoryStore : IHistoryStore, IAsyncDisposable
 
     #region IHistoryStore 实现
 
+    /// <summary>
+    /// 追加历史记录
+    /// </summary>
     public async Task AppendAsync(ulong historyHash, byte[] data)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var key = DatabaseKey.FromUInt64(historyHash);
-        var value = new DatabaseValue(data);
-        await _db.PutAsync(key, value);
+        var key = BitConverter.GetBytes(historyHash);
+        await _db.PutAsync(key, data);
     }
 
+    /// <summary>
+    /// 获取历史记录
+    /// </summary>
     public async Task<byte[]?> GetAsync(ulong historyHash)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var key = DatabaseKey.FromUInt64(historyHash);
-        var result = await _db.GetAsync(key);
-        if (!result.HasValue)
-        {
-            return null;
-        }
-
-        return result.Value.Bytes.ToArray();
+        var key = BitConverter.GetBytes(historyHash);
+        return await _db.GetAsync(key);
     }
 
+    /// <summary>
+    /// 检查历史记录是否存在
+    /// </summary>
     public async Task<bool> ExistsAsync(ulong historyHash)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var key = DatabaseKey.FromUInt64(historyHash);
+        var key = BitConverter.GetBytes(historyHash);
         return await _db.ExistsAsync(key);
     }
 
+    /// <summary>
+    /// 获取历史链
+    /// </summary>
     public async Task<IEnumerable<ulong>> GetHistoryChainAsync(ulong startHash, int maxDepth)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -97,13 +99,15 @@ public sealed class SolidHistoryStore : IHistoryStore, IAsyncDisposable
 
     #region IAsyncDisposable
 
+    /// <summary>
+    /// 异步释放资源
+    /// </summary>
     public async ValueTask DisposeAsync()
     {
         if (_disposed) return;
         _disposed = true;
 
-        _db.Dispose();
-        await ValueTask.CompletedTask;
+        await _db.DisposeAsync();
     }
 
     #endregion

@@ -18,14 +18,19 @@ layout(location = 4) in vec4 aCornerRadii;
 layout(location = 5) in float aDrawType;
 layout(location = 6) in float aBorderWidth;
 layout(location = 7) in vec4 aBorderColor;
+layout(location = 8) in vec4 aColor2;
+layout(location = 9) in float aGradientAngle;
+layout(location = 10) in float aTextureIndex;
 
 out vec4 vColor;
 out vec2 vUv;
 out vec2 vRectSize;
 out vec4 vCornerRadii;
-out float vDrawType;
+flat out int vDrawType;
 out float vBorderWidth;
 out vec4 vBorderColor;
+out vec4 vColor2;
+out float vGradientAngle;
 
 void main()
 {
@@ -34,9 +39,11 @@ void main()
     vUv = aUv;
     vRectSize = aRectSize;
     vCornerRadii = aCornerRadii;
-    vDrawType = aDrawType;
+    vDrawType = int(aDrawType + 0.5);
     vBorderWidth = aBorderWidth;
     vBorderColor = aBorderColor;
+    vColor2 = aColor2;
+    vGradientAngle = aGradientAngle;
 }
 ";
 
@@ -47,48 +54,64 @@ in vec4 vColor;
 in vec2 vUv;
 in vec2 vRectSize;
 in vec4 vCornerRadii;
-in float vDrawType;
+flat in int vDrawType;
 in float vBorderWidth;
 in vec4 vBorderColor;
+in vec4 vColor2;
+in float vGradientAngle;
 
 out vec4 FragColor;
 
-float sdfRoundedBox(vec2 p, vec2 b, vec4 r)
+float sdfRoundedBox(vec2 p, vec2 b, float r)
 {
-    r.xy = (p.x > 0.0) ? r.xy : r.zw;
-    r.x  = (p.y > 0.0) ? r.x  : r.y;
-    vec2 q = abs(p) - b + r.x;
-    return min(max(q.x, q.y), 0.0) - length(max(q, 0.0)) + r.x;
+    r = min(r, min(b.x, b.y));
+    vec2 q = abs(p) - b + r;
+    return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r;
 }
 
 void main()
 {
-    int drawType = int(vDrawType + 0.5);
+    vec2 halfSize = vRectSize * 0.5;
+    vec2 localPos = (vUv - 0.5) * vRectSize;
+    float radius = vCornerRadii.x;
 
-    if (drawType == 1)
+    if (vDrawType == 0)
     {
-        vec2 halfSize = vRectSize * 0.5;
-        vec2 localPos = (vUv - 0.5) * vRectSize;
-        float d = sdfRoundedBox(localPos, halfSize - vCornerRadii.x, vCornerRadii);
+        FragColor = vColor;
+    }
+    else if (vDrawType == 1)
+    {
+        float d = sdfRoundedBox(localPos, halfSize, radius);
         float alpha = 1.0 - smoothstep(-1.0, 1.0, d);
         FragColor = vec4(vColor.rgb, vColor.a * alpha);
     }
-    else if (drawType == 2)
+    else if (vDrawType == 2)
     {
-        vec2 halfSize = vRectSize * 0.5;
-        vec2 localPos = (vUv - 0.5) * vRectSize;
-        float d = sdfRoundedBox(localPos, halfSize - vCornerRadii.x, vCornerRadii);
-        float outerAlpha = 1.0 - smoothstep(-1.0, 1.0, d);
-        float innerD = sdfRoundedBox(localPos, halfSize - vCornerRadii.x - vBorderWidth, vCornerRadii - vBorderWidth);
+        float outerD = sdfRoundedBox(localPos, halfSize, radius);
+        float outerAlpha = 1.0 - smoothstep(-1.0, 1.0, outerD);
+        float innerRadius = max(radius - vBorderWidth, 0.0);
+        vec2 innerHalf = max(halfSize - vBorderWidth, vec2(0.0));
+        float innerD = sdfRoundedBox(localPos, innerHalf, innerRadius);
         float innerAlpha = 1.0 - smoothstep(-1.0, 1.0, innerD);
         float borderAlpha = outerAlpha * (1.0 - innerAlpha);
         vec3 color = mix(vColor.rgb, vBorderColor.rgb, borderAlpha);
         float alpha = outerAlpha * max(vColor.a, vBorderColor.a * borderAlpha);
         FragColor = vec4(color, alpha);
     }
-    else if (drawType == 3)
+    else if (vDrawType == 3)
     {
         FragColor = vColor;
+    }
+    else if (vDrawType == 4)
+    {
+        float d = sdfRoundedBox(localPos, halfSize, radius);
+        float alpha = 1.0 - smoothstep(-1.0, 1.0, d);
+        float angleRad = radians(vGradientAngle);
+        vec2 dir = vec2(cos(angleRad), sin(angleRad));
+        float t = dot(localPos, dir) / length(vRectSize) + 0.5;
+        t = clamp(t, 0.0, 1.0);
+        vec3 gradColor = mix(vColor.rgb, vColor2.rgb, t);
+        FragColor = vec4(gradColor, alpha * mix(vColor.a, vColor2.a, t));
     }
     else
     {
@@ -166,7 +189,7 @@ void main()
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[GLUiRenderer] VAO/VBO 创建失败（OpenGL 函数不可用）: {ex.Message}");
+            Console.WriteLine($"[GLUiRenderer] VAO/VBO 创建失败: {ex.Message}");
             return false;
         }
 
@@ -204,6 +227,15 @@ void main()
         _gl.EnableVertexAttribArray(7);
         _gl.VertexAttribPointer(7, 4, GLContext.Float, false, stride, 68);
 
+        _gl.EnableVertexAttribArray(8);
+        _gl.VertexAttribPointer(8, 4, GLContext.Float, false, stride, 84);
+
+        _gl.EnableVertexAttribArray(9);
+        _gl.VertexAttribPointer(9, 1, GLContext.Float, false, stride, 100);
+
+        _gl.EnableVertexAttribArray(10);
+        _gl.VertexAttribPointer(10, 1, GLContext.Float, false, stride, 104);
+
         _gl.BindVertexArray(0);
 
         _initialized = true;
@@ -224,10 +256,11 @@ void main()
             return;
         }
 
+        _gl.Disable(0x0B71);
+        _gl.Disable(0x0C11);
+        _gl.Disable(0x0B44);
         _gl.Enable(GLContext.Blend);
         _gl.BlendFunc(GLContext.SrcAlpha, GLContext.OneMinusSrcAlpha);
-        _gl.Disable(GLContext.DepthBufferBit);
-        _gl.DepthMask(false);
 
         _gl.UseProgram(_program);
 
@@ -274,8 +307,6 @@ void main()
 
         _gl.BindVertexArray(0);
         _gl.UseProgram(0);
-
-        _gl.DepthMask(true);
         _gl.Disable(GLContext.Blend);
     }
 
