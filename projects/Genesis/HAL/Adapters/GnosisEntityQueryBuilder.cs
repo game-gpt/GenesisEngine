@@ -1,16 +1,16 @@
 using Genesis.Core;
-using GnosisEntityId = Gnosis.Core.Entity.EntityId;
+using GnosisEntityId = Gnosis.Core.EntityId;
 
 namespace Genesis.HAL.Adapters;
 
 /// <summary>
-/// IEntityQueryBuilder 的 Gnosis 查询构建器适配器
+/// IEntityQueryBuilder 的 Gnosis IQuery 适配器
 /// </summary>
 public sealed class GnosisEntityQueryBuilder : IEntityQueryBuilder
 {
     #region 字段
 
-    private readonly Gnosis.ECS.World.QueryBuilder _queryBuilder;
+    private readonly Gnosis.ECS.Query.IQuery _query;
 
     #endregion
 
@@ -19,10 +19,10 @@ public sealed class GnosisEntityQueryBuilder : IEntityQueryBuilder
     /// <summary>
     /// 初始化 Gnosis 实体查询构建器适配器
     /// </summary>
-    /// <param name="queryBuilder">Gnosis 查询构建器</param>
-    public GnosisEntityQueryBuilder(Gnosis.ECS.World.QueryBuilder queryBuilder)
+    /// <param name="query">Gnosis IQuery 实例</param>
+    public GnosisEntityQueryBuilder(Gnosis.ECS.Query.IQuery query)
     {
-        _queryBuilder = queryBuilder;
+        _query = query;
     }
 
     #endregion
@@ -34,7 +34,7 @@ public sealed class GnosisEntityQueryBuilder : IEntityQueryBuilder
     /// </summary>
     public IEntityQueryBuilder All<T>() where T : struct
     {
-        _queryBuilder.All<T>();
+        _query.All<T>();
         return this;
     }
 
@@ -43,7 +43,7 @@ public sealed class GnosisEntityQueryBuilder : IEntityQueryBuilder
     /// </summary>
     public IReadOnlyList<EntityId> Build()
     {
-        var gnosisIds = _queryBuilder.Build();
+        var gnosisIds = _query.Build();
         return gnosisIds.Select(id => (EntityId)id).ToList();
     }
 

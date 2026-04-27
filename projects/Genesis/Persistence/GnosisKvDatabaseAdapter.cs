@@ -1,16 +1,18 @@
-using Gnosis.Database.Core;
+using GnosisDbKey = Gnosis.Database.Core.DatabaseKey;
+using GnosisDbValue = Gnosis.Database.Core.DatabaseValue;
+using GnosisDbOptions = Gnosis.Database.Core.DatabaseOptions;
+using GnosisIKvDb = Gnosis.Database.Core.IKvDatabase;
 
 namespace Genesis.Persistence;
 
 /// <summary>
-/// IKvDatabase 的 Gnosis.Database 适配器
-/// 将 Gnosis.Database.Core.IKvDatabase 的调用桥接到本地 IKvDatabase 接口
+/// IGenesisKvStore 的 Gnosis.Database 适配器
 /// </summary>
-public sealed class GnosisKvDatabaseAdapter : IKvDatabase
+public sealed class GnosisKvDatabaseAdapter : IGenesisKvStore
 {
     #region 字段
 
-    private readonly Gnosis.Database.Core.IKvDatabase _inner;
+    private readonly GnosisIKvDb _inner;
     private bool _disposed;
 
     #endregion
@@ -20,7 +22,7 @@ public sealed class GnosisKvDatabaseAdapter : IKvDatabase
     /// <summary>
     /// 底层 Gnosis 数据库实例
     /// </summary>
-    public Gnosis.Database.Core.IKvDatabase Inner => _inner;
+    public GnosisIKvDb Inner => _inner;
 
     #endregion
 
@@ -30,7 +32,7 @@ public sealed class GnosisKvDatabaseAdapter : IKvDatabase
     /// 初始化 Gnosis 键值数据库适配器
     /// </summary>
     /// <param name="inner">Gnosis IKvDatabase 实例</param>
-    public GnosisKvDatabaseAdapter(Gnosis.Database.Core.IKvDatabase inner)
+    public GnosisKvDatabaseAdapter(GnosisIKvDb inner)
     {
         ArgumentNullException.ThrowIfNull(inner);
         _inner = inner;
@@ -42,13 +44,13 @@ public sealed class GnosisKvDatabaseAdapter : IKvDatabase
     /// <param name="path">数据库路径</param>
     public GnosisKvDatabaseAdapter(string path)
     {
-        var options = new DatabaseOptions { Path = path };
+        var options = new GnosisDbOptions { Path = path };
         _inner = new Gnosis.Database.Engine.GenesisKvDatabase(options);
     }
 
     #endregion
 
-    #region IKvDatabase 实现
+    #region IGenesisKvStore 实现
 
     /// <summary>
     /// 获取值
@@ -57,7 +59,7 @@ public sealed class GnosisKvDatabaseAdapter : IKvDatabase
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var dbKey = DatabaseKey.FromString(key);
+        var dbKey = GnosisDbKey.FromString(key);
         var result = await _inner.GetAsync(dbKey, cancellationToken);
 
         if (!result.HasValue)
@@ -75,8 +77,8 @@ public sealed class GnosisKvDatabaseAdapter : IKvDatabase
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var dbKey = DatabaseKey.FromString(key);
-        var dbValue = new DatabaseValue(value);
+        var dbKey = GnosisDbKey.FromString(key);
+        var dbValue = new GnosisDbValue(value);
         await _inner.PutAsync(dbKey, dbValue, cancellationToken);
     }
 
@@ -87,7 +89,7 @@ public sealed class GnosisKvDatabaseAdapter : IKvDatabase
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var dbKey = DatabaseKey.FromString(key);
+        var dbKey = GnosisDbKey.FromString(key);
         return await _inner.DeleteAsync(dbKey, cancellationToken);
     }
 
@@ -98,7 +100,7 @@ public sealed class GnosisKvDatabaseAdapter : IKvDatabase
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var dbKey = DatabaseKey.FromString(key);
+        var dbKey = GnosisDbKey.FromString(key);
         return await _inner.ExistsAsync(dbKey, cancellationToken);
     }
 

@@ -24,7 +24,7 @@ public class CollapsedSceneTests
     public void ToDescription_WithEntities_ReturnsValidDescription()
     {
         var entity = new RenderableEntity(
-            new Gnosis.Core.Entity.EntityId(1, 0),
+            new EntityId(1, 0),
             "Test",
             new Position(10, 20, 30),
             new CausalFeatures(new double[] { 1.0 }));
@@ -60,7 +60,7 @@ public class RenderableEntityTests
     [Fact]
     public void Constructor_SetsProperties()
     {
-        var id = new Gnosis.Core.Entity.EntityId(42, 1);
+        var id = new EntityId(42, 1);
         var pos = new Position(1, 2, 3);
         var features = new CausalFeatures(new double[] { 0.5, 0.8 });
         var props = new Dictionary<string, object> { { "key", "value" } };
@@ -78,7 +78,7 @@ public class RenderableEntityTests
     public void Constructor_NullProperties_DefaultsToEmpty()
     {
         var entity = new RenderableEntity(
-            new Gnosis.Core.Entity.EntityId(1, 0),
+            new EntityId(1, 0),
             "T",
             Position.Zero,
             CausalFeatures.Zero(1));

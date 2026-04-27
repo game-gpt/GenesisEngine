@@ -1,15 +1,7 @@
 using Genesis.Attention;
 using Genesis.Causal;
 using Genesis.Core;
-using Genesis.Integration.AI2D;
-using Genesis.Integration.Audio;
-using Genesis.Integration.Audio2D;
-using Genesis.Integration.Navigation;
-using Genesis.Integration.Navigation2D;
-using Genesis.Integration.Physics;
-using Genesis.Integration.Physics2D;
-using Genesis.Integration.Rendering;
-using Genesis.Integration.Rendering2D;
+using Genesis.GameSystems;
 using Genesis.Rendering;
 using Genesis.Rules;
 using Genesis.Runtime;
@@ -48,22 +40,13 @@ public class GenesisHost : IDisposable
 
     #endregion
 
-    #region 2D 子系统集成（ECS System 模式）
+    #region 统一游戏系统（E3/E4 合并后）
 
-    private Genesis2DRenderSystem? _render2D;
-    private Genesis2DPhysicsSystem? _physics2D;
-    private Genesis2DAudioSystem? _audio2D;
-    private Genesis2DAISystem? _ai2D;
-    private Genesis2DNavigationSystem? _navigation2D;
-
-    #endregion
-
-    #region 3D 子系统集成（ECS System 模式）
-
-    private GenesisRenderSystem? _render3D;
-    private GenesisPhysicsSystem? _physics3D;
-    private GenesisAudioSystem? _audio3D;
-    private GenesisNavigationSystem? _navigation3D;
+    private RenderGameSystem? _renderSystem;
+    private PhysicsGameSystem? _physicsSystem;
+    private AudioGameSystem? _audioSystem;
+    private AIGameSystem? _aiSystem;
+    private NavigationGameSystem? _navigationSystem;
 
     #endregion
 
@@ -101,29 +84,17 @@ public class GenesisHost : IDisposable
 
     #endregion
 
-    #region 属性 - 2D 子系统
+    #region 属性 - 游戏系统
 
-    public Genesis2DRenderSystem Render2D => _render2D ?? throw new InvalidOperationException("引擎未初始化");
+    public RenderGameSystem RenderSystem => _renderSystem ?? throw new InvalidOperationException("引擎未初始化");
 
-    public Genesis2DPhysicsSystem Physics2D => _physics2D ?? throw new InvalidOperationException("引擎未初始化");
+    public PhysicsGameSystem PhysicsSystem => _physicsSystem ?? throw new InvalidOperationException("引擎未初始化");
 
-    public Genesis2DAudioSystem Audio2D => _audio2D ?? throw new InvalidOperationException("引擎未初始化");
+    public AudioGameSystem AudioSystem => _audioSystem ?? throw new InvalidOperationException("引擎未初始化");
 
-    public Genesis2DAISystem AI2D => _ai2D ?? throw new InvalidOperationException("引擎未初始化");
+    public AIGameSystem AISystem => _aiSystem ?? throw new InvalidOperationException("引擎未初始化");
 
-    public Genesis2DNavigationSystem Navigation2D => _navigation2D ?? throw new InvalidOperationException("引擎未初始化");
-
-    #endregion
-
-    #region 属性 - 3D 子系统
-
-    public GenesisRenderSystem Render3D => _render3D ?? throw new InvalidOperationException("引擎未初始化");
-
-    public GenesisPhysicsSystem Physics3D => _physics3D ?? throw new InvalidOperationException("引擎未初始化");
-
-    public GenesisAudioSystem Audio3D => _audio3D ?? throw new InvalidOperationException("引擎未初始化");
-
-    public GenesisNavigationSystem Navigation3D => _navigation3D ?? throw new InvalidOperationException("引擎未初始化");
+    public NavigationGameSystem NavigationSystem => _navigationSystem ?? throw new InvalidOperationException("引擎未初始化");
 
     #endregion
 
@@ -162,8 +133,7 @@ public class GenesisHost : IDisposable
 
         _world = new World();
 
-        Initialize2DSystems();
-        Initialize3DSystems();
+        InitializeGameSystems();
 
         _isRunning = true;
         _lastFrameTime = DateTime.UtcNow;
@@ -244,13 +214,13 @@ public class GenesisHost : IDisposable
 
     public void Initialize3DRendering(nint windowHandle, uint width, uint height)
     {
-        if (_render3D is null || _world is null)
+        if (_renderSystem is null || _world is null)
         {
             throw new InvalidOperationException("引擎未初始化");
         }
 
-        _render3D.InitializeAuto();
-        Console.WriteLine($"[Genesis] 3D 渲染已初始化 - {width}x{height}");
+        _renderSystem.InitializeAuto();
+        Console.WriteLine($"[Genesis] 渲染已初始化 - {width}x{height}");
     }
 
     public void Run()
@@ -294,7 +264,7 @@ public class GenesisHost : IDisposable
             Console.WriteLine("[Genesis] OpenGL 上下文已获取");
         }
 
-        Initialize2DSystems(GraphicsBackend.OpenGL);
+        Initialize2DGameSystems(GraphicsBackend.OpenGL);
 
         _window.MakeCurrent();
         InitializeWidgetUI();
@@ -344,7 +314,7 @@ public class GenesisHost : IDisposable
         _gl.ClearColor(r, g, b, 1.0f);
         _gl.Clear(GLContext.ColorBufferBit | GLContext.DepthBufferBit);
 
-        if (_render2D is not null && _render2D.IsInitialized)
+        if (_renderSystem is not null && _renderSystem.IsInitialized)
         {
             var cameraOffset = System.Numerics.Vector2.Zero;
             if (_camera2D is not null)
@@ -352,9 +322,9 @@ public class GenesisHost : IDisposable
                 cameraOffset = new System.Numerics.Vector2(_camera2D.Position.X, _camera2D.Position.Y);
             }
 
-            _render2D.BeginFrame();
-            _render2D.RenderWithCamera(cameraOffset);
-            _render2D.EndFrame();
+            _renderSystem.BeginFrame();
+            _renderSystem.RenderWithCamera(cameraOffset);
+            _renderSystem.EndFrame();
         }
 
         RenderWidgets();
@@ -600,72 +570,59 @@ public class GenesisHost : IDisposable
 
     #region 私有方法 - 初始化
 
-    private void Initialize2DSystems(GraphicsBackend backend = default)
+    private void InitializeGameSystems()
     {
         if (_world is null)
         {
             return;
         }
 
-        _render2D = new Genesis2DRenderSystem();
-        _physics2D = new Genesis2DPhysicsSystem();
-        _audio2D = new Genesis2DAudioSystem();
-        _ai2D = new Genesis2DAISystem();
-        _navigation2D = new Genesis2DNavigationSystem();
+        _renderSystem = new RenderGameSystem();
+        _physicsSystem = new PhysicsGameSystem();
+        _audioSystem = new AudioGameSystem();
+        _aiSystem = new AIGameSystem();
+        _navigationSystem = new NavigationGameSystem();
 
-        _world.Systems.RegisterSystem(_render2D);
-        _world.Systems.RegisterSystem(_physics2D);
-        _world.Systems.RegisterSystem(_audio2D);
-        _world.Systems.RegisterSystem(_ai2D);
-        _world.Systems.RegisterSystem(_navigation2D);
+        _world.Systems.RegisterSystem(_renderSystem);
+        _world.Systems.RegisterSystem(_physicsSystem);
+        _world.Systems.RegisterSystem(_audioSystem);
+        _world.Systems.RegisterSystem(_aiSystem);
+        _world.Systems.RegisterSystem(_navigationSystem);
+
+        try { _physicsSystem.Initialize(); }
+        catch (Exception ex) { Console.WriteLine($"[Genesis] 物理初始化失败（非致命）: {ex.Message}"); }
+
+        try { _audioSystem.Initialize(); }
+        catch (Exception ex) { Console.WriteLine($"[Genesis] 音频初始化失败（非致命）: {ex.Message}"); }
+
+        try { _aiSystem.Initialize(); }
+        catch (Exception ex) { Console.WriteLine($"[Genesis] AI 初始化失败（非致命）: {ex.Message}"); }
+
+        try { _navigationSystem.Initialize(); }
+        catch (Exception ex) { Console.WriteLine($"[Genesis] 导航初始化失败（非致命）: {ex.Message}"); }
+    }
+
+    private void Initialize2DGameSystems(GraphicsBackend backend = default)
+    {
+        if (_world is null)
+        {
+            return;
+        }
+
+        if (_renderSystem is null)
+        {
+            _renderSystem = new RenderGameSystem();
+            _world.Systems.RegisterSystem(_renderSystem);
+        }
 
         try
         {
-            _render2D.InitializeWithBackend(backend == default ? GraphicsBackend.OpenGL : backend);
+            _renderSystem.InitializeWithBackend(backend == default ? GraphicsBackend.OpenGL : backend);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[Genesis] 2D 渲染初始化失败（非致命）: {ex.Message}");
+            Console.WriteLine($"[Genesis] 渲染初始化失败（非致命）: {ex.Message}");
         }
-
-        try { _physics2D.Initialize(); }
-        catch (Exception ex) { Console.WriteLine($"[Genesis] 2D 物理初始化失败（非致命）: {ex.Message}"); }
-
-        try { _audio2D.Initialize(); }
-        catch (Exception ex) { Console.WriteLine($"[Genesis] 2D 音频初始化失败（非致命）: {ex.Message}"); }
-
-        try { _ai2D.Initialize(); }
-        catch (Exception ex) { Console.WriteLine($"[Genesis] 2D AI 初始化失败（非致命）: {ex.Message}"); }
-
-        try { _navigation2D.Initialize(); }
-        catch (Exception ex) { Console.WriteLine($"[Genesis] 2D 导航初始化失败（非致命）: {ex.Message}"); }
-    }
-
-    private void Initialize3DSystems()
-    {
-        if (_world is null)
-        {
-            return;
-        }
-
-        _render3D = new GenesisRenderSystem();
-        _physics3D = new GenesisPhysicsSystem();
-        _audio3D = new GenesisAudioSystem();
-        _navigation3D = new GenesisNavigationSystem();
-
-        _world.Systems.RegisterSystem(_render3D);
-        _world.Systems.RegisterSystem(_physics3D);
-        _world.Systems.RegisterSystem(_audio3D);
-        _world.Systems.RegisterSystem(_navigation3D);
-
-        try { _physics3D.Initialize(); }
-        catch (Exception ex) { Console.WriteLine($"[Genesis] 3D 物理初始化失败（非致命）: {ex.Message}"); }
-
-        try { _audio3D.Initialize(); }
-        catch (Exception ex) { Console.WriteLine($"[Genesis] 3D 音频初始化失败（非致命）: {ex.Message}"); }
-
-        try { _navigation3D.Initialize(); }
-        catch (Exception ex) { Console.WriteLine($"[Genesis] 3D 导航初始化失败（非致命）: {ex.Message}"); }
     }
 
     #endregion
@@ -771,16 +728,11 @@ public class GenesisHost : IDisposable
         _uiRenderer?.Dispose();
         _window?.Dispose();
 
-        _navigation2D?.Shutdown();
-        _ai2D?.Shutdown();
-        _audio2D?.Shutdown();
-        _physics2D?.Shutdown();
-        _render2D?.Shutdown();
-
-        _navigation3D?.Shutdown();
-        _audio3D?.Shutdown();
-        _physics3D?.Shutdown();
-        _render3D?.Shutdown();
+        _navigationSystem?.Shutdown();
+        _aiSystem?.Shutdown();
+        _audioSystem?.Shutdown();
+        _physicsSystem?.Shutdown();
+        _renderSystem?.Shutdown();
 
         _world = null;
         _disposed = true;

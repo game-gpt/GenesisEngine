@@ -82,6 +82,9 @@ public sealed class EmergentNativeBridge
         RegisterCausalFunctions();
         RegisterAttentionFunctions();
         RegisterRuleFunctions();
+
+        var halPalBridge = new HalPalNativeBridge(_registry);
+        halPalBridge.RegisterAll();
     }
 
     #endregion

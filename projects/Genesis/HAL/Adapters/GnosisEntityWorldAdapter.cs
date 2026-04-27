@@ -1,17 +1,17 @@
 using Genesis.Core;
-using GnosisEntityId = Gnosis.Core.Entity.EntityId;
+using GnosisEntityId = Gnosis.Core.EntityId;
+using GnosisWorld = Gnosis.ECS.World.World;
 
 namespace Genesis.HAL.Adapters;
 
 /// <summary>
 /// IEntityWorld 的 Gnosis.ECS.World.World 适配器
-/// 将 Gnosis.ECS.World.World 的调用委托给 HAL 的 IEntityWorld 接口
 /// </summary>
 public sealed class GnosisEntityWorldAdapter : IEntityWorld
 {
     #region 字段
 
-    private readonly Gnosis.ECS.World.World _world;
+    private readonly GnosisWorld _world;
 
     #endregion
 
@@ -20,7 +20,7 @@ public sealed class GnosisEntityWorldAdapter : IEntityWorld
     /// <summary>
     /// 底层 Gnosis World 实例
     /// </summary>
-    public Gnosis.ECS.World.World GnosisWorld => _world;
+    public GnosisWorld GnosisWorld => _world;
 
     #endregion
 
@@ -30,7 +30,7 @@ public sealed class GnosisEntityWorldAdapter : IEntityWorld
     /// 初始化 Gnosis 实体世界适配器
     /// </summary>
     /// <param name="world">Gnosis World 实例</param>
-    public GnosisEntityWorldAdapter(Gnosis.ECS.World.World world)
+    public GnosisEntityWorldAdapter(GnosisWorld world)
     {
         ArgumentNullException.ThrowIfNull(world);
         _world = world;

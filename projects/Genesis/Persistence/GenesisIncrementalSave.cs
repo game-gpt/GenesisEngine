@@ -1,15 +1,16 @@
 namespace Genesis.Persistence;
 
 /// <summary>
-/// 增量存档
-/// 使用 Genesis.Persistence.IKvDatabase 抽象，不直接依赖 Gnosis.Database
+/// 增量存档实现
+/// 使用本地 IGenesisKvStore 接口，不直接依赖 Gnosis.Database.Core
 /// </summary>
-public sealed class GenesisIncrementalSave : IIncrementalSave, IAsyncDisposable
+public sealed class GenesisIncrementalSave : IIncrementalSave
 {
     #region 字段
 
-    private readonly IKvDatabase _db;
+    private readonly IGenesisKvStore _db;
     private readonly IHistoryStore _historyStore;
+    private readonly bool _ownsDatabase;
     private readonly Dictionary<string, byte[]> _pendingSaves = new();
     private bool _disposed;
 
@@ -18,14 +19,28 @@ public sealed class GenesisIncrementalSave : IIncrementalSave, IAsyncDisposable
     #region 构造函数
 
     /// <summary>
-    /// 初始化增量存档
+    /// 初始化增量存档（使用外部数据库和历史存储）
     /// </summary>
     /// <param name="database">键值数据库</param>
     /// <param name="historyStore">历史存储</param>
-    public GenesisIncrementalSave(IKvDatabase database, IHistoryStore historyStore)
+    /// <param name="ownsDatabase">是否拥有数据库生命周期</param>
+    public GenesisIncrementalSave(IGenesisKvStore database, IHistoryStore historyStore, bool ownsDatabase = false)
     {
         _db = database;
         _historyStore = historyStore;
+        _ownsDatabase = ownsDatabase;
+    }
+
+    /// <summary>
+    /// 初始化增量存档（使用内存历史存储）
+    /// </summary>
+    /// <param name="database">键值数据库</param>
+    /// <param name="ownsDatabase">是否拥有数据库生命周期</param>
+    public GenesisIncrementalSave(IGenesisKvStore database, bool ownsDatabase = false)
+    {
+        _db = database;
+        _historyStore = new InMemoryHistoryStore();
+        _ownsDatabase = ownsDatabase;
     }
 
     #endregion
@@ -46,8 +61,7 @@ public sealed class GenesisIncrementalSave : IIncrementalSave, IAsyncDisposable
 
         foreach (var (key, data) in _pendingSaves)
         {
-            var dbKey = System.Text.Encoding.UTF8.GetBytes(key);
-            await _db.PutAsync(dbKey, data);
+            await _db.PutAsync(key, data);
         }
 
         _pendingSaves.Clear();
@@ -82,16 +96,21 @@ public sealed class GenesisIncrementalSave : IIncrementalSave, IAsyncDisposable
     /// <summary>
     /// 获取所有检查点
     /// </summary>
-    public Task<IEnumerable<string>> GetCheckpointsAsync()
+    public async Task<IEnumerable<string>> GetCheckpointsAsync()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var result = _pendingSaves.Keys
-            .Where(k => k.StartsWith("checkpoint:"))
-            .Select(k => k["checkpoint:".Length..])
-            .ToList();
+        var prefix = "checkpoint:";
+        var result = new List<string>();
 
-        return Task.FromResult<IEnumerable<string>>(result);
+        var checkpointKey = await _db.GetAsync($"{prefix}index");
+        if (checkpointKey is not null)
+        {
+            var names = System.Text.Encoding.UTF8.GetString(checkpointKey);
+            result.AddRange(names.Split('\0', StringSplitOptions.RemoveEmptyEntries));
+        }
+
+        return await Task.FromResult(result);
     }
 
     /// <summary>
@@ -101,19 +120,13 @@ public sealed class GenesisIncrementalSave : IIncrementalSave, IAsyncDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var key = System.Text.Encoding.UTF8.GetBytes($"checkpoint:{checkpointName}");
+        var key = $"checkpoint:{checkpointName}";
         await _db.DeleteAsync(key);
     }
-
-    #endregion
-
-    #region 公开方法
 
     /// <summary>
     /// 暂存数据
     /// </summary>
-    /// <param name="key">键</param>
-    /// <param name="data">数据</param>
     public void Stage(string key, byte[] data)
     {
         _pendingSaves[key] = data;
@@ -122,7 +135,6 @@ public sealed class GenesisIncrementalSave : IIncrementalSave, IAsyncDisposable
     /// <summary>
     /// 批量暂存数据
     /// </summary>
-    /// <param name="entries">键值对列表</param>
     public void StageRange(IEnumerable<(string Key, byte[] Data)> entries)
     {
         foreach (var (key, data) in entries)
@@ -161,7 +173,7 @@ public sealed class GenesisIncrementalSave : IIncrementalSave, IAsyncDisposable
     #region IAsyncDisposable
 
     /// <summary>
-    /// 异步释放资源
+    /// 释放资源
     /// </summary>
     public async ValueTask DisposeAsync()
     {
@@ -173,7 +185,10 @@ public sealed class GenesisIncrementalSave : IIncrementalSave, IAsyncDisposable
             await SaveAsync();
         }
 
-        await _db.DisposeAsync();
+        if (_ownsDatabase)
+        {
+            _db.Dispose();
+        }
     }
 
     #endregion

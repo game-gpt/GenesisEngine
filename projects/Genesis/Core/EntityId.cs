@@ -48,7 +48,7 @@ public readonly record struct EntityId(uint Index, uint Generation)
     /// </summary>
     /// <param name="gnosisId">Gnosis 实体 ID</param>
     /// <returns>Genesis 实体 ID</returns>
-    public static implicit operator EntityId(Gnosis.Core.Entity.EntityId gnosisId)
+    public static implicit operator EntityId(Gnosis.Core.EntityId gnosisId)
     {
         return new EntityId(gnosisId.Index, gnosisId.Generation);
     }
@@ -58,9 +58,9 @@ public readonly record struct EntityId(uint Index, uint Generation)
     /// </summary>
     /// <param name="id">Genesis 实体 ID</param>
     /// <returns>Gnosis 实体 ID</returns>
-    public static implicit operator Gnosis.Core.Entity.EntityId(EntityId id)
+    public static implicit operator Gnosis.Core.EntityId(EntityId id)
     {
-        return new Gnosis.Core.Entity.EntityId(id.Index, id.Generation);
+        return new Gnosis.Core.EntityId(id.Index, id.Generation);
     }
 
     #endregion

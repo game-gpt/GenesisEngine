@@ -1,14 +1,15 @@
 namespace Genesis.Persistence;
 
 /// <summary>
-/// 基于键值数据库的持久化历史存储
-/// 使用 Genesis.Persistence.IKvDatabase 抽象，不直接依赖 Gnosis.Database
+/// 历史存储实现
+/// 使用本地 IGenesisKvStore 接口，不直接依赖 Gnosis.Database.Core
 /// </summary>
-public sealed class SolidHistoryStore : IHistoryStore, IAsyncDisposable
+public sealed class SolidHistoryStore : IHistoryStore
 {
     #region 字段
 
-    private readonly IKvDatabase _db;
+    private readonly IGenesisKvStore _db;
+    private readonly bool _ownsDatabase;
     private bool _disposed;
 
     #endregion
@@ -16,12 +17,14 @@ public sealed class SolidHistoryStore : IHistoryStore, IAsyncDisposable
     #region 构造函数
 
     /// <summary>
-    /// 初始化历史存储
+    /// 初始化历史存储（使用外部数据库）
     /// </summary>
     /// <param name="database">键值数据库</param>
-    public SolidHistoryStore(IKvDatabase database)
+    /// <param name="ownsDatabase">是否拥有数据库生命周期</param>
+    public SolidHistoryStore(IGenesisKvStore database, bool ownsDatabase = false)
     {
         _db = database;
+        _ownsDatabase = ownsDatabase;
     }
 
     #endregion
@@ -35,7 +38,7 @@ public sealed class SolidHistoryStore : IHistoryStore, IAsyncDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var key = BitConverter.GetBytes(historyHash);
+        var key = historyHash.ToString();
         await _db.PutAsync(key, data);
     }
 
@@ -46,7 +49,7 @@ public sealed class SolidHistoryStore : IHistoryStore, IAsyncDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var key = BitConverter.GetBytes(historyHash);
+        var key = historyHash.ToString();
         return await _db.GetAsync(key);
     }
 
@@ -57,7 +60,7 @@ public sealed class SolidHistoryStore : IHistoryStore, IAsyncDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var key = BitConverter.GetBytes(historyHash);
+        var key = historyHash.ToString();
         return await _db.ExistsAsync(key);
     }
 
@@ -100,14 +103,19 @@ public sealed class SolidHistoryStore : IHistoryStore, IAsyncDisposable
     #region IAsyncDisposable
 
     /// <summary>
-    /// 异步释放资源
+    /// 释放资源
     /// </summary>
     public async ValueTask DisposeAsync()
     {
         if (_disposed) return;
         _disposed = true;
 
-        await _db.DisposeAsync();
+        if (_ownsDatabase)
+        {
+            _db.Dispose();
+        }
+
+        await ValueTask.CompletedTask;
     }
 
     #endregion
