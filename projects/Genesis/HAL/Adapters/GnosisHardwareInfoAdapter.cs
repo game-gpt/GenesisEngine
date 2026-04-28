@@ -1,15 +1,15 @@
-using Gnosis.PAL;
+using GnosisHAL = Gnosis.HAL;
 
 namespace Genesis.HAL.Adapters;
 
 /// <summary>
-/// IHardwareInfo 的 Gnosis.PAL.HardwareInfo 适配器
+/// IHardwareInfo 的 Gnosis.HAL.HardwareInfo 适配器
 /// </summary>
 public sealed class GnosisHardwareInfoAdapter : IHardwareInfo
 {
     #region 字段
 
-    private readonly HardwareInfo _info;
+    private readonly GnosisHAL.HardwareInfo _info;
 
     #endregion
 
@@ -68,7 +68,7 @@ public sealed class GnosisHardwareInfoAdapter : IHardwareInfo
     /// 初始化硬件信息适配器
     /// </summary>
     /// <param name="info">Gnosis 硬件信息</param>
-    public GnosisHardwareInfoAdapter(HardwareInfo info)
+    public GnosisHardwareInfoAdapter(GnosisHAL.HardwareInfo info)
     {
         _info = info;
     }
@@ -79,7 +79,7 @@ public sealed class GnosisHardwareInfoAdapter : IHardwareInfo
     /// <returns>硬件信息适配器</returns>
     public static GnosisHardwareInfoAdapter Detect()
     {
-        return new GnosisHardwareInfoAdapter(HardwareInfo.Detect());
+        return new GnosisHardwareInfoAdapter(GnosisHAL.HardwareInfo.Detect());
     }
 
     #endregion
