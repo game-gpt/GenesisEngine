@@ -2,6 +2,8 @@ using Genesis.Attention;
 using Genesis.Causal;
 using Genesis.Core;
 using Genesis.GameSystems;
+using Genesis.HAL;
+using Genesis.HAL.Adapters;
 using Genesis.Rendering;
 using Genesis.Rules;
 using Genesis.Runtime;
@@ -15,6 +17,7 @@ using Gnosis.Graphic.UI;
 using Gnosis.Graphic.Window;
 using Gnosis.Input.Device;
 using Gnosis.Input.Simulate;
+using Gnosis.PAL;
 using Gnosis.Platform.Window;
 using Gnosis.Platform.Window.GL;
 using Gnosis.Platform.Window.Win32;
@@ -22,6 +25,7 @@ using Gnosis.Widget.Element;
 using WidgetMouseButton = Gnosis.Widget.Element.MouseButton;
 using Gnosis.Widget.Layout;
 using Gnosis.Widget.Render;
+using GraphicsBackend = Gnosis.Graphic.RHI.GraphicsBackend;
 
 namespace GenesisEngine;
 
@@ -577,6 +581,8 @@ public class GenesisHost : IDisposable
             return;
         }
 
+        InitializeHAL();
+
         _renderSystem = new RenderGameSystem();
         _physicsSystem = new PhysicsGameSystem();
         _audioSystem = new AudioGameSystem();
@@ -589,6 +595,15 @@ public class GenesisHost : IDisposable
         _world.Systems.RegisterSystem(_aiSystem);
         _world.Systems.RegisterSystem(_navigationSystem);
 
+        if (_entityWorldAdapter is not null)
+        {
+            _renderSystem.SetEntityWorld(_entityWorldAdapter);
+            _audioSystem.SetEntityWorld(_entityWorldAdapter);
+            _physicsSystem.SetEntityWorld(_entityWorldAdapter);
+            _navigationSystem.SetEntityWorld(_entityWorldAdapter);
+            _aiSystem.SetEntityWorld(_entityWorldAdapter);
+        }
+
         try { _physicsSystem.Initialize(); }
         catch (Exception ex) { Console.WriteLine($"[Genesis] 物理初始化失败（非致命）: {ex.Message}"); }
 
@@ -600,6 +615,37 @@ public class GenesisHost : IDisposable
 
         try { _navigationSystem.Initialize(); }
         catch (Exception ex) { Console.WriteLine($"[Genesis] 导航初始化失败（非致命）: {ex.Message}"); }
+    }
+
+    private GnosisEntityWorldAdapter? _entityWorldAdapter;
+
+    private void InitializeHAL()
+    {
+        if (_world is null)
+        {
+            return;
+        }
+
+        _entityWorldAdapter = new GnosisEntityWorldAdapter(_world);
+
+        GenesisHAL.RegisterEntityWorld(_entityWorldAdapter);
+
+        var hwInfo = GnosisHardwareInfoAdapter.Detect();
+        GenesisHAL.RegisterHardware(hwInfo);
+
+        GenesisHAL.RegisterFileSystem(new DefaultFileSystem());
+
+        if (_inputSystem is not null)
+        {
+            GenesisHAL.RegisterInputManager(new InputSystemAdapter(_inputSystem));
+        }
+
+        var capabilityBus = new CapabilityBus(PlatformInfo.FromCurrent());
+        GenesisHAL.RegisterCapabilities(capabilityBus);
+
+        GenesisHAL.MarkInitialized();
+
+        Console.WriteLine($"[Genesis] HAL 初始化完成 - GPU: {hwInfo.GpuName}, 后端: {hwInfo.GraphicsBackend}, CPU 核心: {hwInfo.CpuCores}");
     }
 
     private void Initialize2DGameSystems(GraphicsBackend backend = default)

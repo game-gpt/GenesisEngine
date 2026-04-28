@@ -7,6 +7,7 @@ using Gnosis.Graphic.Sprite2D;
 
 namespace Genesis.Integration.Rendering2D;
 
+[Obsolete("请使用 Genesis.GameSystems.RenderGameSystem 替代。Integration 层将在未来版本移除。")]
 public sealed class Genesis2DRenderSystem : ISystem, IWorldSystem
 {
     #region 字段

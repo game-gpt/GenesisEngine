@@ -10,6 +10,7 @@ using Gnosis.Navigation.Query;
 
 namespace Genesis.Integration.Navigation;
 
+[Obsolete("请使用 Genesis.GameSystems.NavigationGameSystem 替代。Integration 层将在未来版本移除。")]
 public sealed class GenesisNavigationSystem : ISystem, IWorldSystem
 {
     #region 字段

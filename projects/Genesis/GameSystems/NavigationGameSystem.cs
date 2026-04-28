@@ -1,8 +1,7 @@
 using System.Numerics;
 using Genesis.Core;
+using Genesis.GameSystems.Components;
 using Genesis.HAL;
-using Genesis.Integration.Navigation;
-using Genesis.Integration.Rendering;
 using Gnosis.Core.Math;
 using Gnosis.Navigation.NavMesh;
 using Gnosis.Navigation.Path;
@@ -18,12 +17,14 @@ namespace Genesis.GameSystems;
 /// 统一导航游戏系统
 /// 合并 GenesisNavigationSystem（3D）和 Genesis2DNavigationSystem（2D）
 /// 2D 方法作为便捷重载，内部 Z=0
+/// 通过 HAL 接口访问实体世界
 /// </summary>
 public sealed class NavigationGameSystem : ISystem, IWorldSystem
 {
     #region 字段
 
     private GnosisWorld? _world;
+    private IEntityWorld? _entityWorld;
     private readonly NavigationSystem _navigationSystem;
     private readonly Dictionary<uint, IPath> _agentPaths = new();
     private readonly Dictionary<string, INavMeshQuery> _navMeshQueries = new();
@@ -33,28 +34,16 @@ public sealed class NavigationGameSystem : ISystem, IWorldSystem
 
     #region 属性
 
-    /// <summary>
-    /// 系统执行阶段
-    /// </summary>
     public SystemPhase Phase => SystemPhase.Update;
 
-    /// <summary>
-    /// 底层 Gnosis 导航系统
-    /// </summary>
     public NavigationSystem GnosisNavigationSystem => _navigationSystem;
 
-    /// <summary>
-    /// 是否已初始化
-    /// </summary>
     public bool IsInitialized => _initialized;
 
     #endregion
 
     #region 构造函数
 
-    /// <summary>
-    /// 初始化导航游戏系统
-    /// </summary>
     public NavigationGameSystem()
     {
         _navigationSystem = new NavigationSystem();
@@ -64,17 +53,11 @@ public sealed class NavigationGameSystem : ISystem, IWorldSystem
 
     #region ISystem 实现
 
-    /// <summary>
-    /// 初始化导航系统
-    /// </summary>
     public void Initialize()
     {
         _initialized = true;
     }
 
-    /// <summary>
-    /// 关闭导航系统
-    /// </summary>
     public void Shutdown()
     {
         _agentPaths.Clear();
@@ -86,32 +69,44 @@ public sealed class NavigationGameSystem : ISystem, IWorldSystem
 
     #region IWorldSystem 实现
 
-    /// <summary>
-    /// 设置系统所属的 World
-    /// </summary>
     public void SetWorld(GnosisWorld world)
     {
         _world = world;
+    }
+
+    /// <summary>
+    /// 设置 HAL 实体世界
+    /// </summary>
+    public void SetEntityWorld(IEntityWorld entityWorld)
+    {
+        _entityWorld = entityWorld;
     }
 
     #endregion
 
     #region ISystem.Update
 
-    /// <summary>
-    /// 帧更新
-    /// </summary>
-    /// <param name="delta">帧间隔时间（秒）</param>
     public void Update(float delta)
     {
-        if (_world is null || !_initialized)
+        if (!_initialized)
         {
             return;
         }
 
-        SyncNavMeshesFromWorld();
-        UpdateAgentPaths();
-        MoveAgentsAlongPath(delta);
+        var ew = _entityWorld;
+        if (ew is not null)
+        {
+            SyncNavMeshesFromEntityWorld(ew);
+            UpdateAgentPathsFromEntityWorld(ew);
+            MoveAgentsAlongPathFromEntityWorld(ew, delta);
+        }
+        else if (_world is not null)
+        {
+            SyncNavMeshesFromWorld();
+            UpdateAgentPaths();
+            MoveAgentsAlongPath(delta);
+        }
+
         _navigationSystem.Update(delta);
     }
 
@@ -119,9 +114,6 @@ public sealed class NavigationGameSystem : ISystem, IWorldSystem
 
     #region 3D 公开方法
 
-    /// <summary>
-    /// 3D 寻路
-    /// </summary>
     public IPath? FindPath(float startX, float startY, float startZ, float endX, float endY, float endZ)
     {
         return _navigationSystem.Pathfinder.FindPath(
@@ -129,9 +121,6 @@ public sealed class NavigationGameSystem : ISystem, IWorldSystem
             new Vector3(endX, endY, endZ));
     }
 
-    /// <summary>
-    /// 构建导航网格
-    /// </summary>
     public void BuildNavMesh(string name, NavMeshBuildSettings settings)
     {
         _navigationSystem.BuildNavMesh(name, settings);
@@ -144,17 +133,11 @@ public sealed class NavigationGameSystem : ISystem, IWorldSystem
         }
     }
 
-    /// <summary>
-    /// 获取导航网格
-    /// </summary>
     public INavMesh? GetNavMesh(string name)
     {
         return _navigationSystem.GetNavMesh(name);
     }
 
-    /// <summary>
-    /// 获取导航查询
-    /// </summary>
     public INavMeshQuery? GetQuery(string name)
     {
         return _navMeshQueries.GetValueOrDefault(name);
@@ -164,9 +147,6 @@ public sealed class NavigationGameSystem : ISystem, IWorldSystem
 
     #region 2D 便捷方法
 
-    /// <summary>
-    /// 2D 寻路（Z=0 平面）
-    /// </summary>
     public IPath? FindPath2D(float startX, float startY, float endX, float endY)
     {
         return FindPath(startX, startY, 0, endX, endY, 0);
@@ -174,7 +154,142 @@ public sealed class NavigationGameSystem : ISystem, IWorldSystem
 
     #endregion
 
-    #region 私有方法
+    #region IEntityWorld 路径
+
+    private void SyncNavMeshesFromEntityWorld(IEntityWorld ew)
+    {
+        var entities = ew.CreateQuery()
+            .All<NavMeshRef>()
+            .Build();
+
+        foreach (var entityId in entities)
+        {
+            if (!ew.HasComponent<NavMeshRef>(entityId))
+            {
+                continue;
+            }
+
+            var meshRef = ew.GetComponent<NavMeshRef>(entityId);
+
+            if (!meshRef.IsValid || _navigationSystem.GetNavMesh(meshRef.MeshName) is not null)
+            {
+                continue;
+            }
+
+            var settings = new NavMeshBuildSettings
+            {
+                AgentRadius = meshRef.AgentRadius,
+                AgentHeight = meshRef.AgentHeight,
+                StepHeight = meshRef.StepHeight,
+                SlopeAngle = meshRef.SlopeAngle,
+                VoxelSize = meshRef.VoxelSize,
+                RegionMinArea = meshRef.RegionMinArea
+            };
+
+            BuildNavMesh(meshRef.MeshName, settings);
+        }
+    }
+
+    private void UpdateAgentPathsFromEntityWorld(IEntityWorld ew)
+    {
+        var entities = ew.CreateQuery()
+            .All<Transform3D>()
+            .All<NavAgentRef>()
+            .All<NavTargetRef>()
+            .Build();
+
+        foreach (var entityId in entities)
+        {
+            if (!ew.HasComponent<Transform3D>(entityId) ||
+                !ew.HasComponent<NavAgentRef>(entityId) ||
+                !ew.HasComponent<NavTargetRef>(entityId))
+            {
+                continue;
+            }
+
+            var transform = ew.GetComponent<Transform3D>(entityId);
+            var targetRef = ew.GetComponent<NavTargetRef>(entityId);
+
+            if (!targetRef.HasTarget)
+            {
+                _agentPaths.Remove(entityId.Index);
+                continue;
+            }
+
+            var path = _navigationSystem.Pathfinder.FindPath(
+                new Vector3(transform.PosX, transform.PosY, transform.PosZ),
+                new Vector3(targetRef.TargetX, targetRef.TargetY, targetRef.TargetZ));
+
+            if (path is not null && path.IsComplete)
+            {
+                _agentPaths[entityId.Index] = path;
+            }
+        }
+    }
+
+    private void MoveAgentsAlongPathFromEntityWorld(IEntityWorld ew, float delta)
+    {
+        var entities = ew.CreateQuery()
+            .All<Transform3D>()
+            .All<NavAgentRef>()
+            .Build();
+
+        foreach (var entityId in entities)
+        {
+            if (!_agentPaths.TryGetValue(entityId.Index, out var path))
+            {
+                continue;
+            }
+
+            if (!ew.HasComponent<Transform3D>(entityId) || !ew.HasComponent<NavAgentRef>(entityId))
+            {
+                continue;
+            }
+
+            var transform = ew.GetComponent<Transform3D>(entityId);
+            var agentRef = ew.GetComponent<NavAgentRef>(entityId);
+
+            if (path.IsAtPathEnd())
+            {
+                _agentPaths.Remove(entityId.Index);
+                continue;
+            }
+
+            var waypoint = path.CurrentWaypoint;
+            var dx = waypoint.X - transform.PosX;
+            var dy = waypoint.Y - transform.PosY;
+            var dz = waypoint.Z - transform.PosZ;
+            var distSq = dx * dx + dy * dy + dz * dz;
+            var stoppingDistSq = agentRef.StoppingDistance * agentRef.StoppingDistance;
+
+            if (distSq <= stoppingDistSq)
+            {
+                path.Advance();
+
+                if (path.IsAtPathEnd())
+                {
+                    _agentPaths.Remove(entityId.Index);
+                }
+
+                continue;
+            }
+
+            var dist = MathF.Sqrt(distSq);
+            var moveSpeed = agentRef.Speed * delta;
+            var ratio = MathF.Min(moveSpeed / dist, 1f);
+
+            var newX = transform.PosX + dx * ratio;
+            var newY = transform.PosY + dy * ratio;
+            var newZ = transform.PosZ + dz * ratio;
+
+            var newTransform = transform.WithPosition(newX, newY, newZ);
+            ew.SetComponent(entityId, newTransform);
+        }
+    }
+
+    #endregion
+
+    #region GnosisWorld 回退路径
 
     private void SyncNavMeshesFromWorld()
     {

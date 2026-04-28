@@ -16,7 +16,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Genesis\Genesis.csproj" />
     <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Graphic\Gnosis.Graphic.csproj" />
-    <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Widget\Gnosis.Widget.csproj" />
+    <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Graphic.GUI\Gnosis.Graphic.GUI.csproj" />
   </ItemGroup>
 
 </Project>

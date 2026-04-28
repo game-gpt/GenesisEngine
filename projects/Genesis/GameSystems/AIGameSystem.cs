@@ -13,12 +13,14 @@ namespace Genesis.GameSystems;
 /// <summary>
 /// AI 游戏系统
 /// 从 Genesis2DAISystem 重命名而来（AI 与维度无关，不需要 2D/3D 分裂）
+/// 通过 HAL 接口访问实体世界
 /// </summary>
 public sealed class AIGameSystem : ISystem, IWorldSystem
 {
     #region 字段
 
     private GnosisWorld? _world;
+    private IEntityWorld? _entityWorld;
     private IAISystem? _aiSystem;
     private readonly Dictionary<string, IBehaviorTree> _behaviorTrees = new();
     private readonly Dictionary<string, IAIController> _controllers = new();
@@ -28,28 +30,16 @@ public sealed class AIGameSystem : ISystem, IWorldSystem
 
     #region 属性
 
-    /// <summary>
-    /// 系统执行阶段
-    /// </summary>
     public SystemPhase Phase => SystemPhase.Update;
 
-    /// <summary>
-    /// 底层 Gnosis AI 系统
-    /// </summary>
     public IAISystem? System => _aiSystem;
 
-    /// <summary>
-    /// 是否已初始化
-    /// </summary>
     public bool IsInitialized => _initialized;
 
     #endregion
 
     #region 构造函数
 
-    /// <summary>
-    /// 初始化 AI 游戏系统
-    /// </summary>
     public AIGameSystem()
     {
     }
@@ -58,18 +48,12 @@ public sealed class AIGameSystem : ISystem, IWorldSystem
 
     #region ISystem 实现
 
-    /// <summary>
-    /// 初始化 AI 系统
-    /// </summary>
     public void Initialize()
     {
         _aiSystem = new AISystem();
         _initialized = true;
     }
 
-    /// <summary>
-    /// 关闭 AI 系统
-    /// </summary>
     public void Shutdown()
     {
         foreach (var controller in _controllers.Values)
@@ -86,22 +70,23 @@ public sealed class AIGameSystem : ISystem, IWorldSystem
 
     #region IWorldSystem 实现
 
-    /// <summary>
-    /// 设置系统所属的 World
-    /// </summary>
     public void SetWorld(GnosisWorld world)
     {
         _world = world;
+    }
+
+    /// <summary>
+    /// 设置 HAL 实体世界
+    /// </summary>
+    public void SetEntityWorld(IEntityWorld entityWorld)
+    {
+        _entityWorld = entityWorld;
     }
 
     #endregion
 
     #region ISystem.Update
 
-    /// <summary>
-    /// 帧更新
-    /// </summary>
-    /// <param name="delta">帧间隔时间（秒）</param>
     public void Update(float delta)
     {
         if (!_initialized || _aiSystem is null)
@@ -116,12 +101,6 @@ public sealed class AIGameSystem : ISystem, IWorldSystem
 
     #region 公开方法
 
-    /// <summary>
-    /// 创建行为树
-    /// </summary>
-    /// <param name="name">行为树名称</param>
-    /// <param name="blackboard">黑板（可选）</param>
-    /// <returns>行为树实例</returns>
     public IBehaviorTree CreateBehaviorTree(string name, IBlackboard? blackboard = null)
     {
         if (_aiSystem is null)
@@ -141,20 +120,11 @@ public sealed class AIGameSystem : ISystem, IWorldSystem
         return tree;
     }
 
-    /// <summary>
-    /// 获取行为树
-    /// </summary>
-    /// <param name="name">行为树名称</param>
-    /// <returns>行为树实例</returns>
     public IBehaviorTree? GetBehaviorTree(string name)
     {
         return _behaviorTrees.GetValueOrDefault(name);
     }
 
-    /// <summary>
-    /// 启动行为树
-    /// </summary>
-    /// <param name="name">行为树名称</param>
     public void StartBehaviorTree(string name)
     {
         if (_behaviorTrees.TryGetValue(name, out var tree))
@@ -163,10 +133,6 @@ public sealed class AIGameSystem : ISystem, IWorldSystem
         }
     }
 
-    /// <summary>
-    /// 停止行为树
-    /// </summary>
-    /// <param name="name">行为树名称</param>
     public void StopBehaviorTree(string name)
     {
         if (_behaviorTrees.TryGetValue(name, out var tree))
@@ -175,11 +141,6 @@ public sealed class AIGameSystem : ISystem, IWorldSystem
         }
     }
 
-    /// <summary>
-    /// 创建 AI 控制器
-    /// </summary>
-    /// <param name="name">控制器名称</param>
-    /// <returns>控制器实例</returns>
     public IAIController CreateController(string name)
     {
         if (_aiSystem is null)
@@ -192,10 +153,6 @@ public sealed class AIGameSystem : ISystem, IWorldSystem
         return controller;
     }
 
-    /// <summary>
-    /// 销毁 AI 控制器
-    /// </summary>
-    /// <param name="name">控制器名称</param>
     public void DestroyController(string name)
     {
         if (_aiSystem is null)

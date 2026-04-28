@@ -6,6 +6,7 @@ using Gnosis.ECS.World;
 
 namespace Genesis.Integration.AI2D;
 
+[Obsolete("请使用 Genesis.GameSystems.AIGameSystem 替代。Integration 层将在未来版本移除。")]
 public sealed class Genesis2DAISystem : ISystem, IWorldSystem
 {
     #region 字段

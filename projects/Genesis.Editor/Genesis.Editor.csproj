@@ -11,16 +11,16 @@
     <PackageId>Genesis.Editor</PackageId>
     <Version>0.0.1</Version>
     <Authors>Genesis Engine Team</Authors>
-    <Description>Genesis Editor - 基于 Gnosis.Widget 的涌现叙事引擎编辑器</Description>
-    <PackageTags>genesis;editor;gnosis;widget;emergent;narrative</PackageTags>
+    <Description>Genesis Editor - 基于 Gnosis.Graphic.GUI 的涌现叙事引擎编辑器</Description>
+    <PackageTags>genesis;editor;gnosis;gui;graphic;emergent;narrative</PackageTags>
     <RepositoryUrl>https://github.com/game-gpt/GenesisEngine</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Genesis\Genesis.csproj" />
-    <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Widget\Gnosis.Widget.csproj" />
-    <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Widget.WPF\Gnosis.Widget.WPF.csproj" />
+    <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Graphic.GUI\Gnosis.Graphic.GUI.csproj" />
+    <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Graphic.GUI.WPF\Gnosis.Graphic.GUI.WPF.csproj" />
     <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.Scene\Gnosis.Scene.csproj" />
     <ProjectReference Include="..\..\..\Gnosis.cs\projects\Gnosis.ECS\Gnosis.ECS.csproj" />
   </ItemGroup>

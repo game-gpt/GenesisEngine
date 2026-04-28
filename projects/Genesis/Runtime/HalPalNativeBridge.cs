@@ -37,7 +37,9 @@ public sealed class HalPalNativeBridge
     public void RegisterAll()
     {
         RegisterHalFunctions();
+        RegisterHardwareFieldFunctions();
         RegisterPalFunctions();
+        RegisterPlatformFieldFunctions();
     }
 
     #endregion
@@ -103,6 +105,103 @@ public sealed class HalPalNativeBridge
 
     #endregion
 
+    #region HAL.hardware 字段原生函数
+
+    private void RegisterHardwareFieldFunctions()
+    {
+        _registry.Register(new HalPalNativeFunction(BaseId + 20, "hal_hardware_gpu_name", 0, (vm, args) =>
+        {
+            if (!GenesisHAL.IsInitialized)
+            {
+                return GGValue.FromString(new GGString(""));
+            }
+
+            return GGValue.FromString(new GGString(GenesisHAL.Hardware.GpuName ?? ""));
+        }));
+
+        _registry.Register(new HalPalNativeFunction(BaseId + 21, "hal_hardware_vram_mb", 0, (vm, args) =>
+        {
+            if (!GenesisHAL.IsInitialized)
+            {
+                return GGValue.FromInt(0);
+            }
+
+            return GGValue.FromInt(GenesisHAL.Hardware.VramMb);
+        }));
+
+        _registry.Register(new HalPalNativeFunction(BaseId + 22, "hal_hardware_graphics_backend", 0, (vm, args) =>
+        {
+            if (!GenesisHAL.IsInitialized)
+            {
+                return GGValue.FromString(new GGString("Unknown"));
+            }
+
+            return GGValue.FromString(new GGString(GenesisHAL.Hardware.GraphicsBackend.ToString()));
+        }));
+
+        _registry.Register(new HalPalNativeFunction(BaseId + 23, "hal_hardware_cpu_cores", 0, (vm, args) =>
+        {
+            if (!GenesisHAL.IsInitialized)
+            {
+                return GGValue.FromInt(0);
+            }
+
+            return GGValue.FromInt(GenesisHAL.Hardware.CpuCores);
+        }));
+
+        _registry.Register(new HalPalNativeFunction(BaseId + 24, "hal_hardware_system_memory_mb", 0, (vm, args) =>
+        {
+            if (!GenesisHAL.IsInitialized)
+            {
+                return GGValue.FromInt(0);
+            }
+
+            return GGValue.FromInt(GenesisHAL.Hardware.SystemMemoryMb);
+        }));
+
+        _registry.Register(new HalPalNativeFunction(BaseId + 25, "hal_hardware_max_texture_size", 0, (vm, args) =>
+        {
+            if (!GenesisHAL.IsInitialized)
+            {
+                return GGValue.FromInt(0);
+            }
+
+            return GGValue.FromInt(GenesisHAL.Hardware.MaxTextureSize);
+        }));
+
+        _registry.Register(new HalPalNativeFunction(BaseId + 26, "hal_hardware_display_width", 0, (vm, args) =>
+        {
+            if (!GenesisHAL.IsInitialized)
+            {
+                return GGValue.FromInt(0);
+            }
+
+            return GGValue.FromInt(GenesisHAL.Hardware.DisplayWidth);
+        }));
+
+        _registry.Register(new HalPalNativeFunction(BaseId + 27, "hal_hardware_display_height", 0, (vm, args) =>
+        {
+            if (!GenesisHAL.IsInitialized)
+            {
+                return GGValue.FromInt(0);
+            }
+
+            return GGValue.FromInt(GenesisHAL.Hardware.DisplayHeight);
+        }));
+
+        _registry.Register(new HalPalNativeFunction(BaseId + 28, "hal_hardware_refresh_rate", 0, (vm, args) =>
+        {
+            if (!GenesisHAL.IsInitialized)
+            {
+                return GGValue.FromInt(0);
+            }
+
+            return GGValue.FromInt(GenesisHAL.Hardware.RefreshRate);
+        }));
+    }
+
+    #endregion
+
     #region PAL 原生函数
 
     private void RegisterPalFunctions()
@@ -159,6 +258,58 @@ public sealed class HalPalNativeBridge
         _registry.Register(new HalPalNativeFunction(BaseId + 107, "pal_use_AchievementService", 0, (vm, args) =>
         {
             return ResolvePalCapability<IAchievementService>();
+        }));
+    }
+
+    #endregion
+
+    #region PAL.platform 字段原生函数
+
+    private void RegisterPlatformFieldFunctions()
+    {
+        _registry.Register(new HalPalNativeFunction(BaseId + 120, "pal_platform_os", 0, (vm, args) =>
+        {
+            return GGValue.FromString(new GGString(PlatformInfo.FromCurrent().OS.ToString()));
+        }));
+
+        _registry.Register(new HalPalNativeFunction(BaseId + 121, "pal_platform_isa", 0, (vm, args) =>
+        {
+            return GGValue.FromString(new GGString(PlatformInfo.FromCurrent().ISA.ToString()));
+        }));
+
+        _registry.Register(new HalPalNativeFunction(BaseId + 122, "pal_platform_channel", 0, (vm, args) =>
+        {
+            return GGValue.FromString(new GGString(PlatformInfo.FromCurrent().Channel.ToString()));
+        }));
+
+        _registry.Register(new HalPalNativeFunction(BaseId + 123, "pal_platform_is_desktop", 0, (vm, args) =>
+        {
+            return GGValue.FromBool(PlatformInfo.FromCurrent().IsDesktop);
+        }));
+
+        _registry.Register(new HalPalNativeFunction(BaseId + 124, "pal_platform_is_mobile", 0, (vm, args) =>
+        {
+            return GGValue.FromBool(PlatformInfo.FromCurrent().IsMobile);
+        }));
+
+        _registry.Register(new HalPalNativeFunction(BaseId + 125, "pal_platform_is_web", 0, (vm, args) =>
+        {
+            return GGValue.FromBool(PlatformInfo.FromCurrent().IsWeb);
+        }));
+
+        _registry.Register(new HalPalNativeFunction(BaseId + 126, "pal_platform_is_console", 0, (vm, args) =>
+        {
+            return GGValue.FromBool(PlatformInfo.FromCurrent().IsConsole);
+        }));
+
+        _registry.Register(new HalPalNativeFunction(BaseId + 127, "pal_platform_is_steam", 0, (vm, args) =>
+        {
+            return GGValue.FromBool(PlatformInfo.FromCurrent().IsSteam);
+        }));
+
+        _registry.Register(new HalPalNativeFunction(BaseId + 128, "pal_platform_is_wechat", 0, (vm, args) =>
+        {
+            return GGValue.FromBool(PlatformInfo.FromCurrent().IsWeChat);
         }));
     }
 

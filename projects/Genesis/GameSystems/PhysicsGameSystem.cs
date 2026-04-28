@@ -1,7 +1,7 @@
 using System.Numerics;
 using Genesis.Core;
+using Genesis.GameSystems.Components;
 using Genesis.HAL;
-using Genesis.Integration.Rendering;
 using Gnosis.Physics.Collision;
 using Gnosis.Physics.Dynamics;
 using Gnosis.Physics.ECS;
@@ -17,12 +17,14 @@ namespace Genesis.GameSystems;
 /// 统一物理游戏系统
 /// 合并 GenesisPhysicsSystem（3D）和 Genesis2DPhysicsSystem（2D）
 /// 2D 方法作为便捷重载，内部映射到 3D（Z=0）
+/// 通过 HAL 接口访问实体世界
 /// </summary>
 public sealed class PhysicsGameSystem : ISystem, IWorldSystem
 {
     #region 字段
 
     private GnosisWorld? _world;
+    private IEntityWorld? _entityWorld;
     private PhysicsEcsSystem? _inner;
     private bool _isInitialized;
     private float _gravityX;
@@ -33,14 +35,8 @@ public sealed class PhysicsGameSystem : ISystem, IWorldSystem
 
     #region 属性
 
-    /// <summary>
-    /// 系统执行阶段
-    /// </summary>
     public SystemPhase Phase => SystemPhase.Update;
 
-    /// <summary>
-    /// 重力向量
-    /// </summary>
     public Vector3 Gravity
     {
         get => new(_gravityX, _gravityY, _gravityZ);
@@ -56,39 +52,23 @@ public sealed class PhysicsGameSystem : ISystem, IWorldSystem
         }
     }
 
-    /// <summary>
-    /// 2D 重力（Z 分量强制为 0）
-    /// </summary>
     public Vector2 Gravity2D
     {
         get => new(_gravityX, _gravityY);
         set => Gravity = new Vector3(value.X, value.Y, 0);
     }
 
-    /// <summary>
-    /// 是否已初始化
-    /// </summary>
     public bool IsInitialized => _isInitialized;
 
-    /// <summary>
-    /// 物理世界
-    /// </summary>
     public IPhysicsWorld PhysicsWorld => _inner?.PhysicsWorld
         ?? throw new InvalidOperationException("物理系统未初始化");
 
-    /// <summary>
-    /// 底层 Gnosis 物理系统
-    /// </summary>
     public PhysicsEcsSystem? Inner => _inner;
 
     #endregion
 
     #region 构造函数
 
-    /// <summary>
-    /// 初始化物理游戏系统
-    /// </summary>
-    /// <param name="gravity2D">是否使用 2D 重力（默认 Y=-9.81，Z=0）</param>
     public PhysicsGameSystem(bool gravity2D = false)
     {
         _gravityX = 0;
@@ -100,9 +80,6 @@ public sealed class PhysicsGameSystem : ISystem, IWorldSystem
 
     #region ISystem 实现
 
-    /// <summary>
-    /// 初始化物理系统
-    /// </summary>
     public void Initialize()
     {
         _inner = new PhysicsEcsSystem();
@@ -110,9 +87,6 @@ public sealed class PhysicsGameSystem : ISystem, IWorldSystem
         _isInitialized = true;
     }
 
-    /// <summary>
-    /// 关闭物理系统
-    /// </summary>
     public void Shutdown()
     {
         _inner?.Shutdown();
@@ -124,23 +98,24 @@ public sealed class PhysicsGameSystem : ISystem, IWorldSystem
 
     #region IWorldSystem 实现
 
-    /// <summary>
-    /// 设置系统所属的 World
-    /// </summary>
     public void SetWorld(GnosisWorld world)
     {
         _world = world;
         _inner?.SetWorld(world);
     }
 
+    /// <summary>
+    /// 设置 HAL 实体世界
+    /// </summary>
+    public void SetEntityWorld(IEntityWorld entityWorld)
+    {
+        _entityWorld = entityWorld;
+    }
+
     #endregion
 
     #region ISystem.Update
 
-    /// <summary>
-    /// 帧更新
-    /// </summary>
-    /// <param name="delta">帧间隔时间（秒）</param>
     public void Update(float delta)
     {
         if (!_isInitialized || _inner is null)
@@ -155,17 +130,11 @@ public sealed class PhysicsGameSystem : ISystem, IWorldSystem
 
     #region 3D 公开方法
 
-    /// <summary>
-    /// 设置重力
-    /// </summary>
     public void SetGravity(float x, float y, float z)
     {
         Gravity = new Vector3(x, y, z);
     }
 
-    /// <summary>
-    /// 3D 射线检测
-    /// </summary>
     public IRaycastResult Raycast(Vector3 origin, Vector3 direction, float maxDistance)
     {
         if (_inner is null)
@@ -176,9 +145,6 @@ public sealed class PhysicsGameSystem : ISystem, IWorldSystem
         return _inner.Raycast(origin, direction, maxDistance);
     }
 
-    /// <summary>
-    /// 3D 射线检测全部
-    /// </summary>
     public IRaycastResult[] RaycastAll(Vector3 origin, Vector3 direction, float maxDistance)
     {
         if (_inner is null)
@@ -189,9 +155,6 @@ public sealed class PhysicsGameSystem : ISystem, IWorldSystem
         return _inner.RaycastAll(origin, direction, maxDistance);
     }
 
-    /// <summary>
-    /// 球体重叠检测
-    /// </summary>
     public IOverlapResult OverlapSphere(Vector3 center, float radius)
     {
         if (_inner is null)
@@ -202,9 +165,6 @@ public sealed class PhysicsGameSystem : ISystem, IWorldSystem
         return _inner.OverlapSphere(center, radius);
     }
 
-    /// <summary>
-    /// 盒体重叠检测
-    /// </summary>
     public IOverlapResult OverlapBox(Vector3 center, Vector3 halfExtents)
     {
         if (_inner is null)
@@ -219,9 +179,6 @@ public sealed class PhysicsGameSystem : ISystem, IWorldSystem
 
     #region 2D 便捷方法
 
-    /// <summary>
-    /// 2D 射线检测（Z=0 平面）
-    /// </summary>
     public IRaycastResult Raycast2D(Vector2 origin, Vector2 direction, float maxDistance)
     {
         return Raycast(
@@ -230,9 +187,6 @@ public sealed class PhysicsGameSystem : ISystem, IWorldSystem
             maxDistance);
     }
 
-    /// <summary>
-    /// 2D 射线检测全部（Z=0 平面）
-    /// </summary>
     public IRaycastResult[] RaycastAll2D(Vector2 origin, Vector2 direction, float maxDistance)
     {
         return RaycastAll(
@@ -241,17 +195,11 @@ public sealed class PhysicsGameSystem : ISystem, IWorldSystem
             maxDistance);
     }
 
-    /// <summary>
-    /// 圆形重叠检测（Z=0 平面）
-    /// </summary>
     public IOverlapResult OverlapCircle(Vector2 center, float radius)
     {
         return OverlapSphere(new Vector3(center, 0), radius);
     }
 
-    /// <summary>
-    /// 2D 盒体重叠检测（Z=0 平面，深度 0.01）
-    /// </summary>
     public IOverlapResult OverlapBox2D(Vector2 center, Vector2 halfExtents)
     {
         return OverlapBox(new Vector3(center, 0), new Vector3(halfExtents, 0.01f));

@@ -12,6 +12,7 @@ using SystemPhase = Gnosis.ECS.System.SystemPhase;
 
 namespace Genesis.Integration.Physics;
 
+[Obsolete("请使用 Genesis.GameSystems.PhysicsGameSystem 替代。Integration 层将在未来版本移除。")]
 public sealed class GenesisPhysicsSystem : ISystem, IWorldSystem
 {
     #region 字段

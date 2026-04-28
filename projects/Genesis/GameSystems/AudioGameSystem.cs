@@ -1,7 +1,7 @@
 using System.Numerics;
 using Genesis.Core;
-using Genesis.Integration.Audio;
-using Genesis.Integration.Rendering;
+using Genesis.GameSystems.Components;
+using Genesis.HAL;
 using GnosisAudioBus = Gnosis.Audio.Mixer.IAudioBus;
 using GnosisAudioSource = Gnosis.Audio.Source.IAudioSource;
 using GnosisAudioSystem = Gnosis.Audio.Driver.AudioSystem;
@@ -20,6 +20,7 @@ public sealed class AudioGameSystem : ISystem, IWorldSystem
     #region 字段
 
     private GnosisWorld? _world;
+    private IEntityWorld? _entityWorld;
     private readonly GnosisAudioSystem _audioSystem;
     private readonly Dictionary<uint, GnosisAudioSource> _entitySources = new();
     private GnosisAudioBus? _sfxBus;
@@ -31,37 +32,22 @@ public sealed class AudioGameSystem : ISystem, IWorldSystem
 
     #region 属性
 
-    /// <summary>
-    /// 系统执行阶段
-    /// </summary>
     public SystemPhase Phase => SystemPhase.PostUpdate;
 
-    /// <summary>
-    /// 底层 Gnosis 音频系统
-    /// </summary>
     public GnosisAudioSystem GnosisAudioSystem => _audioSystem;
 
-    /// <summary>
-    /// 全局音量
-    /// </summary>
     public float GlobalVolume
     {
         get => _audioSystem.GlobalVolume;
         set => _audioSystem.GlobalVolume = value;
     }
 
-    /// <summary>
-    /// 是否已初始化
-    /// </summary>
     public bool IsInitialized => _initialized;
 
     #endregion
 
     #region 构造函数
 
-    /// <summary>
-    /// 初始化音频游戏系统
-    /// </summary>
     public AudioGameSystem()
     {
         _audioSystem = new GnosisAudioSystem();
@@ -71,9 +57,6 @@ public sealed class AudioGameSystem : ISystem, IWorldSystem
 
     #region ISystem 实现
 
-    /// <summary>
-    /// 初始化音频系统
-    /// </summary>
     public void Initialize()
     {
         _sfxBus = _audioSystem.CreateBus("SFX", _audioSystem.MasterBus);
@@ -82,9 +65,6 @@ public sealed class AudioGameSystem : ISystem, IWorldSystem
         _initialized = true;
     }
 
-    /// <summary>
-    /// 关闭音频系统
-    /// </summary>
     public void Shutdown()
     {
         foreach (var source in _entitySources.Values)
@@ -117,31 +97,43 @@ public sealed class AudioGameSystem : ISystem, IWorldSystem
 
     #region IWorldSystem 实现
 
-    /// <summary>
-    /// 设置系统所属的 World
-    /// </summary>
     public void SetWorld(GnosisWorld world)
     {
         _world = world;
+    }
+
+    /// <summary>
+    /// 设置 HAL 实体世界
+    /// 优先于 GnosisWorld 使用
+    /// </summary>
+    public void SetEntityWorld(IEntityWorld entityWorld)
+    {
+        _entityWorld = entityWorld;
     }
 
     #endregion
 
     #region ISystem.Update
 
-    /// <summary>
-    /// 帧更新
-    /// </summary>
-    /// <param name="delta">帧间隔时间（秒）</param>
     public void Update(float delta)
     {
-        if (_world is null || !_initialized)
+        if (!_initialized)
         {
             return;
         }
 
-        SyncNewSourcesFromWorld();
-        SyncListenerFromWorld();
+        var ew = _entityWorld;
+        if (ew is not null)
+        {
+            SyncNewSourcesFromEntityWorld(ew);
+            SyncListenerFromEntityWorld(ew);
+        }
+        else if (_world is not null)
+        {
+            SyncNewSourcesFromWorld();
+            SyncListenerFromWorld();
+        }
+
         _audioSystem.Update(delta);
     }
 
@@ -149,20 +141,11 @@ public sealed class AudioGameSystem : ISystem, IWorldSystem
 
     #region 公开方法
 
-    /// <summary>
-    /// 获取音频总线
-    /// </summary>
-    /// <param name="name">总线名称</param>
-    /// <returns>音频总线</returns>
     public GnosisAudioBus? GetBus(string name)
     {
         return _audioSystem.GetBus(name);
     }
 
-    /// <summary>
-    /// 播放实体音频源
-    /// </summary>
-    /// <param name="entityIndex">实体索引</param>
     public void PlaySource(uint entityIndex)
     {
         if (_entitySources.TryGetValue(entityIndex, out var source))
@@ -171,10 +154,6 @@ public sealed class AudioGameSystem : ISystem, IWorldSystem
         }
     }
 
-    /// <summary>
-    /// 停止实体音频源
-    /// </summary>
-    /// <param name="entityIndex">实体索引</param>
     public void StopSource(uint entityIndex)
     {
         if (_entitySources.TryGetValue(entityIndex, out var source))
@@ -183,11 +162,6 @@ public sealed class AudioGameSystem : ISystem, IWorldSystem
         }
     }
 
-    /// <summary>
-    /// 设置总线音量
-    /// </summary>
-    /// <param name="busName">总线名称</param>
-    /// <param name="volume">音量</param>
     public void SetBusVolume(string busName, float volume)
     {
         var bus = _audioSystem.GetBus(busName);
@@ -200,7 +174,77 @@ public sealed class AudioGameSystem : ISystem, IWorldSystem
 
     #endregion
 
-    #region 私有方法
+    #region IEntityWorld 路径
+
+    private void SyncNewSourcesFromEntityWorld(IEntityWorld ew)
+    {
+        var entities = ew.CreateQuery()
+            .All<Transform3D>()
+            .All<AudioSourceRef>()
+            .Build();
+
+        foreach (var entityId in entities)
+        {
+            if (_entitySources.ContainsKey(entityId.Index))
+            {
+                continue;
+            }
+
+            if (!ew.HasComponent<AudioSourceRef>(entityId))
+            {
+                continue;
+            }
+
+            var audioRef = ew.GetComponent<AudioSourceRef>(entityId);
+            var source = _audioSystem.CreateSource();
+
+            source.Volume = audioRef.Volume;
+            source.Pitch = audioRef.Pitch;
+            source.IsLooping = audioRef.IsLooping;
+            source.Spatialize = audioRef.Spatialize;
+            source.MinDistance = audioRef.MinDistance;
+            source.MaxDistance = audioRef.MaxDistance;
+            source.SpatialBlend = audioRef.SpatialBlend;
+            source.BusName = audioRef.BusName;
+
+            if (audioRef.IsValid)
+            {
+                var clip = _audioSystem.LoadClip(audioRef.ClipPath);
+                source.Clip = clip;
+            }
+
+            _entitySources[entityId.Index] = source;
+        }
+    }
+
+    private void SyncListenerFromEntityWorld(IEntityWorld ew)
+    {
+        var entities = ew.CreateQuery()
+            .All<Transform3D>()
+            .All<AudioListenerRef>()
+            .Build();
+
+        foreach (var entityId in entities)
+        {
+            if (!ew.HasComponent<Transform3D>(entityId) || !ew.HasComponent<AudioListenerRef>(entityId))
+            {
+                continue;
+            }
+
+            var transform = ew.GetComponent<Transform3D>(entityId);
+            var listenerRef = ew.GetComponent<AudioListenerRef>(entityId);
+
+            var listener = _audioSystem.Listener;
+            listener.Position = new Vector3(transform.PosX, transform.PosY, transform.PosZ);
+            listener.Volume = listenerRef.Gain;
+
+            break;
+        }
+    }
+
+    #endregion
+
+    #region GnosisWorld 回退路径
 
     private void SyncNewSourcesFromWorld()
     {

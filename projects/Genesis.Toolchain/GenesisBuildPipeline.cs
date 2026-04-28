@@ -4,6 +4,7 @@ using Gnosis.Platform;
 using Gnosis.Toolchain.AssetPipeline;
 using Gnosis.Toolchain.Cooker.Cook;
 using PlatformInfo = Gnosis.Platform.Platform;
+using PlatformISA = Gnosis.Core.Platform.PlatformISA;
 
 namespace Genesis.Toolchain;
 
