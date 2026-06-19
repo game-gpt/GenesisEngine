@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Layer 3 Language Check
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
 
     - name: Check examples directory for C# files
       run: |
@@ -29,7 +29,7 @@ jobs:
     needs: language-check
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
